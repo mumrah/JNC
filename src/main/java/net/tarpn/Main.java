@@ -2,36 +2,43 @@ package net.tarpn;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import net.tarpn.frame.FrameHandler;
 import net.tarpn.frame.FrameReader;
+import net.tarpn.frame.FrameWriter;
 import net.tarpn.frame.impl.CompositeFrameHandler;
 import net.tarpn.frame.impl.ConsoleFrameHandler;
+import net.tarpn.frame.impl.KISSFrameReader;
+import net.tarpn.frame.impl.KISSFrameWriter;
 import net.tarpn.frame.impl.PacketReadingFrameHandler;
 import net.tarpn.frame.impl.SimpleFrameReader;
 import net.tarpn.frame.impl.SimpleFrameWriter;
 import net.tarpn.impl.SerialDataPort;
 import net.tarpn.packet.Packet;
-import net.tarpn.packet.PacketHandler;
+import net.tarpn.packet.PacketAction;
+import net.tarpn.packet.PacketRequestHandler;
 import net.tarpn.packet.PacketProtocol;
 import net.tarpn.packet.impl.CommandProcessingPacketHandler;
 import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
+import net.tarpn.packet.impl.LastHeardPacketRouter;
 
 public class Main {
 
   static Runnable newRunnable(FrameHandler handler, DataPort port) {
     return () -> {
-      FrameReader frame = new SimpleFrameReader(handler::onFrame);
+      FrameReader frame = new KISSFrameReader(port.getName());
       InputStream stream = port.getInputStream();
       try {
         while(true) {
           while(stream.available() > 0) {
-            frame.accept(stream.read());
+            frame.accept(stream.read(), handler);
           }
           Thread.sleep(50);
         }
@@ -46,12 +53,17 @@ public class Main {
     ScheduledExecutorService executorService = Executors.newScheduledThreadPool(4);
 
     // Set up a list of things to do
-    Queue<CommandAction> actionQueue = new ConcurrentLinkedQueue<>();
+    Queue<PacketAction> actionQueue = new ConcurrentLinkedQueue<>();
     Queue<Packet> outgoingPackets = new ConcurrentLinkedQueue<>();
 
+    Map<String, DataPort> portMap = new ConcurrentHashMap<>();
+
+    // Special handler for keeping track of last-heard
+    LastHeardPacketRouter router = new LastHeardPacketRouter(portMap::get);
 
     // List of packet handlers
-    PacketHandler packetHandler = CompositePacketHandler.wrap(
+    PacketRequestHandler packetHandler = CompositePacketHandler.wrap(
+        router,
         new ConsolePacketHandler(),
         new CommandProcessingPacketHandler(actionQueue::add)
     );
@@ -65,16 +77,18 @@ public class Main {
     // Create a Port, configure it with a frame reader and connect it to our frame handler
     DataPort port0 = SerialDataPort.openPort("/dev/tty.usbmodem141321", 9600);
     port0.open();
+    portMap.put(port0.getName(), port0);
+
     executorService.submit(newRunnable(handler, port0));
 
     // Port 1
     //DataPort port1 = SerialDataPort.openPort("/dev/tty.usbmodem141321", 9600);
     //port1.open();
+    //portMap.put(port1.getName(), port1);
     //executorService.submit(newRunnable(handler, port1));
 
-
     executorService.scheduleWithFixedDelay(() -> {
-      CommandAction action = actionQueue.poll();
+      PacketAction action = actionQueue.poll();
       if(action != null) {
         System.err.println(action);
         action.run(outgoingPackets::add);
@@ -85,18 +99,15 @@ public class Main {
       Packet packet = outgoingPackets.poll();
       if(packet != null) {
         System.err.println("Sending " + packet);
-        SimpleFrameWriter writer = new SimpleFrameWriter(bytes -> {
+        FrameWriter writer = new KISSFrameWriter();
+        byte[] frame = PacketProtocol.SIMPLE.toBytes(packet);
+        writer.accept(frame, bytes -> {
           try {
             port0.getOutputStream().write(bytes);
           } catch (IOException e) {
             throw new RuntimeException(e);
           }
         });
-        byte[] frame = PacketProtocol.SIMPLE.toBytes(packet);
-        for(int i=0; i<frame.length; i++) {
-          writer.accept(frame[i]);
-        }
-        writer.flush();
       }
     }, 100, 10, TimeUnit.MILLISECONDS);
 

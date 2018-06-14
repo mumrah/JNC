@@ -2,25 +2,25 @@ package net.tarpn.packet.impl;
 
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import net.tarpn.CommandAction;
 import net.tarpn.packet.Packet;
-import net.tarpn.packet.PacketHandler;
+import net.tarpn.packet.PacketAction;
+import net.tarpn.packet.PacketRequest;
+import net.tarpn.packet.PacketRequestHandler;
 
-public class CommandProcessingPacketHandler implements PacketHandler {
+public class CommandProcessingPacketHandler implements PacketRequestHandler {
 
-  private final Consumer<CommandAction> actionConsumer;
+  private final Consumer<PacketAction> actionConsumer;
 
-  public CommandProcessingPacketHandler(Consumer<CommandAction> actionConsumer) {
+  public CommandProcessingPacketHandler(Consumer<PacketAction> actionConsumer) {
     this.actionConsumer = actionConsumer;
   }
 
   @Override
-  public void onPacket(Packet packet) {
-    String message = new String(packet.getMessage(), StandardCharsets.UTF_8);
+  public void onRequest(PacketRequest request) {
+    String message = new String(request.getPacket().getMessage(), StandardCharsets.UTF_8);
     if(message.equalsIgnoreCase("PING")) {
-      actionConsumer.accept(requestConsumer -> {
-        requestConsumer.accept(new SimplePacket("ME", packet.getSource(), "PONG"));
-      });
+      actionConsumer.accept(
+          packetConsumer -> packetConsumer.accept(new SimplePacket("ME", request.getPacket().getSource(), "PONG")));
     }
   }
 }

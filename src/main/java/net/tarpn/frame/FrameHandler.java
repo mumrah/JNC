@@ -1,5 +1,5 @@
 package net.tarpn.frame;
 
 public interface FrameHandler {
-  void onFrame(byte[] frame);
+  void onFrame(String portName, byte[] frame);
 }

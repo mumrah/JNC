@@ -15,8 +15,8 @@ public class CompositeFrameHandler implements FrameHandler {
   }
 
   @Override
-  public void onFrame(byte[] frame) {
-    handlerSet.forEach(handler -> handler.onFrame(frame));
+  public void onFrame(String portName, byte[] frame) {
+    handlerSet.forEach(frameHandler -> frameHandler.onFrame(portName, frame));
   }
 
   public static FrameHandler wrap(FrameHandler... handlers) {

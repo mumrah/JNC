@@ -1,8 +1,7 @@
-package net.tarpn;
+package net.tarpn.packet;
 
 import java.util.function.Consumer;
-import net.tarpn.packet.Packet;
 
-public interface CommandAction {
+public interface PacketAction {
   void run(Consumer<Packet> packetConsumer);
 }

@@ -4,23 +4,23 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import net.tarpn.packet.Packet;
-import net.tarpn.packet.PacketHandler;
+import net.tarpn.packet.PacketRequest;
+import net.tarpn.packet.PacketRequestHandler;
 
-public class CompositePacketHandler implements PacketHandler {
+public class CompositePacketHandler implements PacketRequestHandler {
 
-  private final Set<PacketHandler> handlerSet = new HashSet<>();
+  private final Set<PacketRequestHandler> handlerSet = new HashSet<>();
 
-  private CompositePacketHandler(Collection<PacketHandler> handlers) {
+  private CompositePacketHandler(Collection<PacketRequestHandler> handlers) {
     handlerSet.addAll(handlers);
   }
 
   @Override
-  public void onPacket(Packet packet) {
-    handlerSet.forEach(handler -> handler.onPacket(packet));
+  public void onRequest(PacketRequest packetRequest) {
+    handlerSet.forEach(handler -> handler.onRequest(packetRequest));
   }
 
-  public static PacketHandler wrap(PacketHandler... handlers) {
+  public static PacketRequestHandler wrap(PacketRequestHandler... handlers) {
     return new CompositePacketHandler(Arrays.asList(handlers));
   }
 }

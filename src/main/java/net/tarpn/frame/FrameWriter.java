@@ -1,6 +1,7 @@
 package net.tarpn.frame;
 
+import java.util.function.Consumer;
+
 public interface FrameWriter {
-  void accept(byte b);
-  void flush();
+  void accept(byte[] bytes, Consumer<byte[]> dataSink);
 }

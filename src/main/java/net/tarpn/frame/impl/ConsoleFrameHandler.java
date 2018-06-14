@@ -6,7 +6,7 @@ import net.tarpn.frame.FrameHandler;
 public class ConsoleFrameHandler implements FrameHandler {
 
   @Override
-  public void onFrame(byte[] frame) {
-    System.err.println(">>> " + new String(frame, StandardCharsets.UTF_8));
+  public void onFrame(String portName, byte[] frame) {
+    System.err.println("On port " + portName + " heard " + new String(frame, StandardCharsets.UTF_8));
   }
 }
