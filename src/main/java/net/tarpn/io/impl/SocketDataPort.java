@@ -1,34 +1,37 @@
-package net.tarpn.impl;
+package net.tarpn.io.impl;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import net.tarpn.DataPort;
+import net.tarpn.io.DataPort;
 
 public class SocketDataPort implements DataPort {
 
+  private final int port;
   private final String name;
-  private final Socket socket;
+  private final Socket clientSocket;
 
-  private SocketDataPort(String name, Socket socket) {
+  public SocketDataPort(int port, String name, Socket clientSocket) {
+    this.port = port;
     this.name = name;
-    this.socket = socket;
+    this.clientSocket = clientSocket;
   }
 
   @Override
   public void open() throws IOException {
+    // No-op, already opened
   }
 
   @Override
   public void close() throws IOException {
-    socket.close();
+    clientSocket.close();
   }
 
   @Override
   public InputStream getInputStream() {
     try {
-      return socket.getInputStream();
+      return clientSocket.getInputStream();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -37,10 +40,15 @@ public class SocketDataPort implements DataPort {
   @Override
   public OutputStream getOutputStream() {
     try {
-      return socket.getOutputStream();
+      return clientSocket.getOutputStream();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public int getPortNumber() {
+    return port;
   }
 
   @Override

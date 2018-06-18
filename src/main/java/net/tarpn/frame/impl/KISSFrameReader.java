@@ -1,66 +1,78 @@
 package net.tarpn.frame.impl;
 
-import static net.tarpn.frame.impl.KISSFrameWriter.*;
-
 import java.nio.ByteBuffer;
-import net.tarpn.frame.FrameHandler;
+import java.util.function.Consumer;
+import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameReader;
+import net.tarpn.frame.impl.KISS.Command;
+import net.tarpn.frame.impl.KISS.Protocol;
 
+/**
+ * Read KISS framed data one byte at a time.
+ *
+ * TODO add read timeout
+ * TODO add FEND sync
+ */
 public class KISSFrameReader implements FrameReader {
-
-
-
-  public static final int CMD_UNKNOWN     = 0xFE;
-  public static final int CMD_DATA        = 0x00;
-  public static final int CMD_TXDELAY     = 0x01;
-  public static final int CMD_P           = 0x02;
-  public static final int CMD_SLOTTIME    = 0x03;
-  public static final int CMD_TXTAIL      = 0x04;
-  public static final int CMD_FULLDUPLEX  = 0x05;
-  public static final int CMD_SETHARDWARE = 0x06;
-  public static final int CMD_RETURN      = 0xFF;
-
 
   private volatile boolean inFrame = false;
   private volatile boolean inEscape = false;
-  private volatile int kissCommand = CMD_UNKNOWN;
+  private volatile KISS.Command kissCommand = KISS.Command.Unknown;
   private volatile int hdlcPort = -1;
+  private volatile long frameTime = 0;
 
   private final ByteBuffer buffer = ByteBuffer.allocate(1024);
-  private final String portName;
+  private final int port;
 
-  public KISSFrameReader(String portName) {
-    this.portName = portName;
+  public KISSFrameReader(int port) {
+    this.port = port;
   }
 
   @Override
-  public void accept(int b, FrameHandler frameHandler) {
-    if(inFrame && b == FEND) {
-      // end of a new frame
-      // TODO consume continuous FENDs
-      inFrame = false;
-      int len = buffer.position();
-      buffer.position(0);
-      byte[] frame = new byte[len];
-      buffer.get(frame, 0, len);
+  public void accept(int b, Consumer<Frame> frameHandler) {
+    // Clean up our state if we haven't heard anything in a while
+    long currentTime = System.currentTimeMillis();
+    if(currentTime - frameTime > 4000) {
       reset();
-      frameHandler.onFrame(portName, frame);
-    } else if(b == FEND) {
-      // beginning of a new frame
-      kissCommand = CMD_UNKNOWN;
-      inFrame = true;
+    }
+    frameTime = System.currentTimeMillis();
+
+    if(Protocol.FEND.equalsTo(b)) {
+      // either beginning or end of frame (or sync)
+      if(inFrame) {
+        // end of a new frame
+        inFrame = false;
+        int len = buffer.position();
+        if(len > 0) {
+          buffer.position(0);
+          byte[] frame = new byte[len];
+          buffer.get(frame, 0, len);
+          frameHandler.accept(new KISSFrame(port, kissCommand, frame));
+          reset();
+          return;
+        }
+      } else {
+        return;
+      }
     } else {
-      if(buffer.position() == 0 && kissCommand == CMD_UNKNOWN) {
+      // got something other than FEND, we're in a frame!
+      inFrame = true;
+      if(buffer.position() == 0 && kissCommand == KISS.Command.Unknown) {
         // first byte is command
         hdlcPort = b & 0xF0;
-        kissCommand = b & 0x0F;
-      } else if(kissCommand == CMD_DATA) {
-        if(b == FESC) {
+        kissCommand = KISS.Command.fromInt(b & 0x0F);
+        if(kissCommand.equals(Command.Unknown)) {
+          // got an unknown command... possibly bad data.
+          reset();
+          return;
+        }
+      } else { //if(kissCommand == CMD_DATA) {
+        if(Protocol.FESC.equalsTo(b)) {
           inEscape = true;
         } else {
           if(inEscape) {
-            if (b == TFEND) b = FEND;
-            if (b == TFESC) b = FESC;
+            if (Protocol.TFEND.equalsTo(b)) b = Protocol.FEND.asByte();
+            if (Protocol.TFESC.equalsTo(b)) b = Protocol.FESC.asByte();
             inEscape = false;
           }
           buffer.put((byte)b);
@@ -73,7 +85,8 @@ public class KISSFrameReader implements FrameReader {
     buffer.clear();
     inEscape = false;
     inFrame = false;
-    kissCommand = CMD_UNKNOWN;
+    kissCommand = KISS.Command.Unknown;
     hdlcPort = -1;
+    frameTime = 0;
   }
 }

@@ -1,10 +1,15 @@
 package net.tarpn.packet;
 
-import net.tarpn.packet.impl.SimplePacketProtocol;
+
+import net.tarpn.packet.impl.SimplePacketReader;
 
 public interface PacketProtocol {
-  PacketProtocol SIMPLE = new SimplePacketProtocol();
+  PacketProtocol SIMPLE = new PacketProtocol() {
+    @Override
+    public PacketReader getReader() {
+      return new SimplePacketReader();
+    }
+  };
 
-  Packet fromBytes(byte[] packetBytes);
-  byte[] toBytes(Packet packet);
+  PacketReader getReader();
 }

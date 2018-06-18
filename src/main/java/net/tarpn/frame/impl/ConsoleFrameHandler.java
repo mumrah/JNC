@@ -1,12 +1,16 @@
 package net.tarpn.frame.impl;
 
-import java.nio.charset.StandardCharsets;
 import net.tarpn.frame.FrameHandler;
+import net.tarpn.frame.FrameRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConsoleFrameHandler implements FrameHandler {
 
+  private static final Logger LOG = LoggerFactory.getLogger(ConsoleFrameHandler.class);
+
   @Override
-  public void onFrame(String portName, byte[] frame) {
-    System.err.println("On port " + portName + " heard " + new String(frame, StandardCharsets.UTF_8));
+  public void onFrame(FrameRequest frameRequest) {
+    LOG.info("Got Frame: " + frameRequest.getFrame());
   }
 }

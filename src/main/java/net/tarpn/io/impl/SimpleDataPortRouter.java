@@ -1,11 +1,11 @@
-package net.tarpn.impl;
+package net.tarpn.io.impl;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.tarpn.DataPort;
+import net.tarpn.io.DataPort;
 import net.tarpn.DataPortRouter;
 
 public class SimpleDataPortRouter implements DataPortRouter {

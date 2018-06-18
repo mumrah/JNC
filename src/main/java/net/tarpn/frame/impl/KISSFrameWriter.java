@@ -1,37 +1,33 @@
 package net.tarpn.frame.impl;
 
-import static net.tarpn.frame.impl.KISSFrameReader.CMD_DATA;
-
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
+import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameWriter;
+import net.tarpn.frame.impl.KISS.Protocol;
 
 public class KISSFrameWriter implements FrameWriter {
-
-  public static final int FEND  = 0xC0;
-  public static final int FESC  = 0xDB;
-  public static final int TFEND = 0xDC;
-  public static final int TFESC = 0xDD;
 
   private final ByteBuffer buffer = ByteBuffer.allocate(1024);
 
   @Override
-  public void accept(byte[] bytes, Consumer<byte[]> dataSink) {
-    buffer.put((byte)FEND);
-    buffer.put((byte)CMD_DATA);
-    for(int i=0; i<bytes.length; i++) {
-      int b = bytes[i];
-      if(b == FEND) {
-        buffer.put((byte)FESC);
-        buffer.put((byte)TFEND);
-      } else if(b == FESC) {
-        buffer.put((byte)FESC);
-        buffer.put((byte)TFESC);
+  public void accept(Frame frame, Consumer<byte[]> dataSink) {
+    KISSFrame kissFrame = (KISSFrame) frame;
+    buffer.put(Protocol.FEND.asByte());
+    buffer.put(kissFrame.getKissCommand().asByte());
+    for(int i=0; i<frame.getData().length; i++) {
+      int b = frame.getData()[i];
+      if(Protocol.FEND.equalsTo(b)) {
+        buffer.put(Protocol.FESC.asByte());
+        buffer.put(Protocol.TFEND.asByte());
+      } else if(Protocol.FESC.equalsTo(b)) {
+        buffer.put(Protocol.FESC.asByte());
+        buffer.put(Protocol.TFESC.asByte());
       } else {
         buffer.put((byte)b);
       }
     }
-    buffer.put((byte)FEND);
+    buffer.put(Protocol.FEND.asByte());
 
     int len = buffer.position();
     byte[] out = new byte[len];

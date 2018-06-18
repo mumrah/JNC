@@ -1,17 +1,19 @@
-package net.tarpn.impl;
+package net.tarpn.io.impl;
 
 import com.fazecast.jSerialComm.SerialPort;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import net.tarpn.DataPort;
+import net.tarpn.io.DataPort;
 
 public class SerialDataPort implements DataPort {
-  private final String name;
+  private final int portNumber;
+  private final String portName;
   private final SerialPort serialPort;
 
-  private SerialDataPort(String name, SerialPort serialPort) {
-    this.name = name;
+  private SerialDataPort(int portNumber, String portName, SerialPort serialPort) {
+    this.portNumber = portNumber;
+    this.portName = portName;
     this.serialPort = serialPort;
   }
 
@@ -19,7 +21,7 @@ public class SerialDataPort implements DataPort {
   public void open() throws IOException {
     boolean res = serialPort.openPort();
     if(!res) {
-      throw new IOException("Could not open port " + name);
+      throw new IOException("Could not open port " + portName);
     }
   }
 
@@ -27,7 +29,7 @@ public class SerialDataPort implements DataPort {
   public void close() throws IOException {
     boolean res = serialPort.closePort();
     if(!res) {
-      throw new IOException("Could not close port " + name);
+      throw new IOException("Could not close port " + portName);
     }
   }
 
@@ -42,8 +44,13 @@ public class SerialDataPort implements DataPort {
   }
 
   @Override
+  public int getPortNumber() {
+    return portNumber;
+  }
+
+  @Override
   public String getName() {
-    return name;
+    return portName;
   }
 
   @Override
@@ -52,9 +59,9 @@ public class SerialDataPort implements DataPort {
   }
 
 
-  public static DataPort openPort(String tty, int baud) {
+  public static DataPort openPort(int number, String tty, int baud) {
     SerialPort port = SerialPort.getCommPort(tty);
     port.setBaudRate(baud);
-    return new SerialDataPort(tty, port);
+    return new SerialDataPort(number, tty, port);
   }
 }

@@ -1,7 +1,8 @@
 package net.tarpn.packet;
 
-import net.tarpn.DataPort;
+import net.tarpn.io.DataPort;
+import net.tarpn.PortProvider;
 
 public interface PacketRouter {
-  DataPort routePacket(Packet packet);
+  DataPort routePacket(PortProvider portProvider, Packet packetRequest);
 }

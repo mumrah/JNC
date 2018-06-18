@@ -1,26 +1,26 @@
 package net.tarpn.packet.impl;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-import net.tarpn.packet.PacketRequest;
-import net.tarpn.packet.PacketRequestHandler;
+import java.util.List;
+import net.tarpn.packet.Packet;
+import net.tarpn.packet.PacketHandler;
 
-public class CompositePacketHandler implements PacketRequestHandler {
+public class CompositePacketHandler implements PacketHandler {
 
-  private final Set<PacketRequestHandler> handlerSet = new HashSet<>();
+  private final List<PacketHandler> handlerSet = new ArrayList<>();
 
-  private CompositePacketHandler(Collection<PacketRequestHandler> handlers) {
+  private CompositePacketHandler(Collection<PacketHandler> handlers) {
     handlerSet.addAll(handlers);
   }
 
   @Override
-  public void onRequest(PacketRequest packetRequest) {
-    handlerSet.forEach(handler -> handler.onRequest(packetRequest));
+  public void onPacket(Packet packet) {
+    handlerSet.forEach(handler -> handler.onPacket(packet));
   }
 
-  public static PacketRequestHandler wrap(PacketRequestHandler... handlers) {
+  public static PacketHandler wrap(PacketHandler... handlers) {
     return new CompositePacketHandler(Arrays.asList(handlers));
   }
 }

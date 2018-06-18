@@ -2,20 +2,20 @@ package net.tarpn.packet.impl;
 
 import java.util.HashMap;
 import java.util.Map;
-import net.tarpn.packet.PacketRequest;
-import net.tarpn.packet.PacketRequestHandler;
+import net.tarpn.packet.Packet;
+import net.tarpn.packet.PacketHandler;
 
-public class PacketStatsUpdateHandler implements PacketRequestHandler {
+public class PacketStatsUpdateHandler implements PacketHandler {
 
-  Map<String, String> lastHeard = new HashMap<>();
+  Map<String, Integer> lastHeard = new HashMap<>();
+
+  public int getLastHeardPort(String address) {
+    return lastHeard.getOrDefault(address, -1);
+  }
 
   @Override
-  public void onRequest(PacketRequest packetRequest) {
-    lastHeard.put(packetRequest.getPacket().getSource(), packetRequest.getDataPort());
-  }
+  public void onPacket(Packet packet) {
+    lastHeard.put(packet.getSource(), packet.getPort());
 
-  public String getLastHeardPort(String address) {
-    return lastHeard.getOrDefault(address, "default");
   }
-
 }

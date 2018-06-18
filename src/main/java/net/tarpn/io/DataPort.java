@@ -1,4 +1,4 @@
-package net.tarpn;
+package net.tarpn.io;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +9,7 @@ public interface DataPort {
   void close() throws IOException;
   InputStream getInputStream();
   OutputStream getOutputStream();
+  int getPortNumber();
   String getName();
   String getType();
 }
