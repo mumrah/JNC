@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameWriter;
+import net.tarpn.frame.impl.KISS.Command;
 import net.tarpn.frame.impl.KISS.Protocol;
 
 public class KISSFrameWriter implements FrameWriter {
@@ -12,9 +13,14 @@ public class KISSFrameWriter implements FrameWriter {
 
   @Override
   public void accept(Frame frame, Consumer<byte[]> dataSink) {
-    KISSFrame kissFrame = (KISSFrame) frame;
+    final Command kissCommand;
+    if(frame instanceof KISSFrame) {
+      kissCommand = ((KISSFrame) frame).getKissCommand();
+    } else {
+      kissCommand = Command.Data;
+    }
     buffer.put(Protocol.FEND.asByte());
-    buffer.put(kissFrame.getKissCommand().asByte());
+    buffer.put(kissCommand.asByte());
     for(int i=0; i<frame.getData().length; i++) {
       int b = frame.getData()[i];
       if(Protocol.FEND.equalsTo(b)) {

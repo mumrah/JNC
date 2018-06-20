@@ -1,10 +1,19 @@
 package net.tarpn.packet.impl;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;
+import net.tarpn.packet.impl.ax25.AX25Packet;
+import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.IFrame;
+import net.tarpn.packet.impl.ax25.SFrame;
+import net.tarpn.packet.impl.ax25.UFrame;
+import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,35 +21,73 @@ public class AX25PacketReader implements PacketReader {
 
   private static final Logger LOG = LoggerFactory.getLogger(AX25PacketReader.class);
 
-  private final Consumer<Frame> responseFrames;
-
-  public AX25PacketReader(Consumer<Frame> responseFrames) {
-    this.responseFrames = responseFrames;
-  }
-
   @Override
   public void accept(Frame frame, Consumer<Packet> packetHandler) {
     try {
-      AX25Packet ax25packet = new AX25Packet(frame.getData());
-      System.err.println("Got ax25 packet: " + ax25packet);
+      AX25Packet packet = parse(frame.getData());
+      packetHandler.accept(packet);
     } catch (Throwable t) {
       LOG.error("Failed to parse AX.25 packet", t);
     }
+  }
 
+  public static AX25Packet parse(byte[] packet) {
+    ByteBuffer buffer = ByteBuffer.wrap(packet);
 
-    /*
-    AX25Packet newPacket = new AX25Packet("K4DBZ-9",  "K4DBZ-2", new String[]{},
-        0xCF, AX25Packet.AX25_PROTOCOL_NO_LAYER_3,
-        "Testing from Java".getBytes(StandardCharsets.US_ASCII));
+    // Parse callsigns
+    List<String> calls = new ArrayList<>();
+    boolean last = false;
+    while(!last) {
+      StringBuilder call = new StringBuilder();
+      for(int i=0; i<6; i++) {
+        char c = (char)((buffer.get() & 0xFF) >> 1);
+        if(c != ' ') {
+          call.append(c);
+        }
+      }
 
-    Frame respFrame = new KISSFrame(frame.getPort(), KISSFrameReader.CMD_DATA,  newPacket.bytesWithCRC());
-    try {
-      Thread.sleep(500);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
+      byte ssidByte = buffer.get();
+      int ssid = (ssidByte & 0x1E) >> 1;
+      int rr = (ssidByte & 0x60) >> 5;
+      boolean c = (ssidByte & 0x80) != 0;
+      last = (ssidByte & 0x01) != 0;
+      calls.add(String.format("%s-%d", call, ssid));
     }
-    responseFrames.accept(respFrame);
-    */
+
+    String dest = calls.get(0);
+    String src = calls.get(1);
+    List<String> rpt = calls.subList(2, calls.size());
+
+    byte controlByte = buffer.get();
+    boolean pollFinalSet = (controlByte & 0x10) == 0x10;
+
+    final AX25Packet frame;
+    if((controlByte & 0x01) == 0) {
+      // I frame
+      byte pidByte = buffer.get();
+      int infoLen = packet.length - buffer.position();
+      byte[] info = new byte[infoLen];
+      buffer.get(info, 0, infoLen);
+      frame = new IFrame(packet, dest, src, rpt, controlByte, info, pidByte);
+    } else {
+      if((controlByte & 0x03) == 0x03) {
+        ControlType controlType = ControlType.fromControlByte(controlByte);
+        // U frame
+        if(controlType.equals(ControlType.UI)) {
+          // UI Unnumbered Information
+          byte pidByte = buffer.get();
+          int infoLen = packet.length - buffer.position();
+          byte[] info = new byte[infoLen];
+          buffer.get(info, 0, infoLen);
+          frame = new UIFrame(packet, dest, src, rpt, controlByte, pollFinalSet, info, pidByte);
+        } else {
+          frame = new UFrame(packet, dest, src, rpt, controlByte, pollFinalSet);
+        }
+      } else {
+        frame = new SFrame(packet, dest, src, rpt, controlByte, pollFinalSet);
+      }
+    }
+    return frame;
   }
 
 
@@ -67,7 +114,7 @@ public class AX25PacketReader implements PacketReader {
    *      along with this program; if not, write to the Free Software
    *      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
    */
-  static public class AX25Packet {
+  public static class AX25PacketParser {
 
     private final int AX25_CRC_CORRECT   = 0xF0B8;
     private final int CRC_CCITT_INIT_VAL = 0xFFFF;
@@ -144,11 +191,11 @@ public class AX25PacketReader implements PacketReader {
     }
 
     // this constructor is used by Afsk1200 to construct empty packets for reception
-    public AX25Packet() {
+    public AX25PacketParser() {
     }
 
     // this constructor is used for sending packets from raw bytes
-    public AX25Packet(byte[] bytes) {
+    public AX25PacketParser(byte[] bytes) {
       assert (crc == CRC_CCITT_INIT_VAL);
       assert (bytes.length+2 <= packet.length);
 
@@ -172,7 +219,7 @@ public class AX25PacketReader implements PacketReader {
       assert (crc == AX25_CRC_CORRECT);
     }
 
-    public AX25Packet(String destination,
+    public AX25PacketParser(String destination,
         String source,
         String[] path,
         int      control,
@@ -265,6 +312,8 @@ public class AX25PacketReader implements PacketReader {
     public String source, destination;
     public String[] path;
     public byte[]   payload;
+    public int ctl;
+    public int pid;
 
     private static String parseCall(byte[] packet, int offset) {
       String call = "";
@@ -308,10 +357,18 @@ public class AX25PacketReader implements PacketReader {
         }
       }
 
-      offset += 2; // skip PID, control
+      //offset += 2; // skip PID, control
+      ctl = packet[offset++];
+      pid = packet[offset++];
+
       //System.out.println("copying packet from "+offset+" to "+(size-2));
-      payload = Arrays.copyOfRange(packet, offset, size - 2); // chop off CRC
+      if(size - 2 <= offset) {
+        payload = new byte[]{};
+      } else {
+        payload = Arrays.copyOfRange(packet, offset, size - 2); // chop off CRC
+      }
     }
+
 
 
     public static String format(byte[] packet) {
@@ -433,6 +490,10 @@ public class AX25PacketReader implements PacketReader {
 		}
 		//builder.append(Arrays.toString(packet));
 		 */
+		  builder.append(",ctl=");
+		  builder.append(String.format("%02x", ctl & 0xff));
+      builder.append(",pid=");
+      builder.append(String.format("%02x", pid & 0xff));
       builder.append("]");
       return builder.toString();
     }

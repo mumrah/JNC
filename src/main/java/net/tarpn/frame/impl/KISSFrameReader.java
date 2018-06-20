@@ -30,6 +30,7 @@ public class KISSFrameReader implements FrameReader {
 
   @Override
   public void accept(int b, Consumer<Frame> frameHandler) {
+    System.err.println("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
     if(currentTime - frameTime > 4000) {
@@ -41,7 +42,6 @@ public class KISSFrameReader implements FrameReader {
       // either beginning or end of frame (or sync)
       if(inFrame) {
         // end of a new frame
-        inFrame = false;
         int len = buffer.position();
         if(len > 0) {
           buffer.position(0);
@@ -61,11 +61,6 @@ public class KISSFrameReader implements FrameReader {
         // first byte is command
         hdlcPort = b & 0xF0;
         kissCommand = KISS.Command.fromInt(b & 0x0F);
-        if(kissCommand.equals(Command.Unknown)) {
-          // got an unknown command... possibly bad data.
-          reset();
-          return;
-        }
       } else { //if(kissCommand == CMD_DATA) {
         if(Protocol.FESC.equalsTo(b)) {
           inEscape = true;

@@ -4,20 +4,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
+import net.tarpn.packet.PacketRequest;
 
 public class CompositePacketHandler implements PacketHandler {
 
-  private final List<PacketHandler> handlerSet = new ArrayList<>();
+  private final List<PacketHandler> handlers = new ArrayList<>();
 
   private CompositePacketHandler(Collection<PacketHandler> handlers) {
-    handlerSet.addAll(handlers);
+    this.handlers.addAll(handlers);
   }
 
   @Override
-  public void onPacket(Packet packet) {
-    handlerSet.forEach(handler -> handler.onPacket(packet));
+  public void onPacket(PacketRequest packetRequest) {
+    handlers.forEach(packetHandler -> {
+      if(packetRequest.shouldContinue()) {
+        packetHandler.onPacket(packetRequest);
+      }
+    });
   }
 
   public static PacketHandler wrap(PacketHandler... handlers) {
