@@ -1,14 +1,21 @@
 package net.tarpn.packet.impl.ax25;
 
 import java.nio.ByteBuffer;
-import net.tarpn.packet.impl.ax25.UIFrame.ByteConsumer;
+import java.util.Objects;
 
 public class AX25Call {
+
+  @FunctionalInterface
+  public interface ByteConsumer {
+    void accept(byte b);
+  }
+
   private final String call;
   private final int ssid;
-  private final int rr;
-  private final boolean cFlag;
-  private final boolean last;
+
+  private int rr;
+  private boolean cFlag;
+  private boolean last;
 
   AX25Call(String call, int ssid, int rr, boolean cFlag, boolean last) {
     this.call = call;
@@ -46,7 +53,8 @@ public class AX25Call {
       byteConsumer.accept((byte)((c & 0xFF) << 1));
     }
     byte ssidByte = (byte)((ssid << 1 & 0x1E) | (last ? 1 : 0));
-    // TODO RR and C
+    ssidByte |= (byte)(cFlag ? 0x80 : 0x00);
+    ssidByte |= (byte)((rr << 5) & 0x60);
     byteConsumer.accept(ssidByte);
   }
 
@@ -70,8 +78,44 @@ public class AX25Call {
     return last;
   }
 
+  public void clearFlags() {
+    this.rr = 0;
+    this.cFlag = false;
+    this.last = false;
+  }
+
+  public void setRr(int rr) {
+    this.rr = rr;
+  }
+
+  public void setcFlag(boolean cFlag) {
+    this.cFlag = cFlag;
+  }
+
+  public void setLast(boolean last) {
+    this.last = last;
+  }
+
   @Override
   public String toString() {
     return String.format("%s-%d", call, ssid);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof AX25Call)) {
+      return false;
+    }
+    AX25Call ax25Call = (AX25Call) o;
+    return ssid == ax25Call.ssid &&
+        Objects.equals(getCall(), ax25Call.getCall());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getCall(), ssid);
   }
 }

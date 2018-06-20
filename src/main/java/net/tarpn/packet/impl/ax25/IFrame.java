@@ -12,7 +12,7 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
   private final byte[] info;
   private final Protocol protocol;
 
-  public IFrame(byte[] packet, String destination, String source, List<String> paths,
+  public IFrame(byte[] packet, AX25Call destination, AX25Call source, List<AX25Call> paths,
       byte control, byte[] info, byte pid) {
     super(packet, destination, source, paths, control);
     this.pollSet = (control & 0x10) != 0;
@@ -22,12 +22,14 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
     this.protocol = Protocol.valueOf(pid);
   }
 
-  public static IFrame create(String source, String destination,
-      byte sendSeqNumber, byte recvSeqNumber, boolean pollFinalSet,
+  public static IFrame create(AX25Call destCall, AX25Call sourceCall,
+      int sendSeqNumber, int recvSeqNumber, boolean pollFinalSet,
       Protocol protocol, byte[] info) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
-    UIFrame.writeCall(destination, false, buffer::put);
-    UIFrame.writeCall(source, true, buffer::put);
+    destCall.clearFlags();
+    destCall.write(buffer::put);
+    sourceCall.setLast(true);
+    sourceCall.write(buffer::put);
     // TODO repeater paths
     byte controlByte = (byte)(((recvSeqNumber << 5) & 0xE0) | ((sendSeqNumber << 1) & 0x0E));
     controlByte |= (pollFinalSet ? 0x10 : 0x00);
@@ -38,7 +40,7 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
     byte[] packet = new byte[len];
     buffer.position(0);
     buffer.get(packet, 0, len);
-    return new IFrame(packet, destination, source, Collections.emptyList(), controlByte, info, protocol.asByte());
+    return new IFrame(packet, destCall, sourceCall, Collections.emptyList(), controlByte, info, protocol.asByte());
   }
 
   @Override
@@ -81,5 +83,10 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
         ", N(S)=" + getSendSequenceNumber() +
         ", info=" + getInfoAsASCII() +
         '}';
+  }
+
+  @Override
+  public FrameType getFrameType() {
+    return FrameType.I;
   }
 }

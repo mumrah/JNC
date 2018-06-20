@@ -4,12 +4,12 @@ import java.util.List;
 
 abstract class BaseAX25Packet implements AX25Packet {
   private final byte[] packet;
-  private final String destination;
-  private final String source;
-  private final List<String> paths;
+  private final AX25Call destination;
+  private final AX25Call source;
+  private final List<AX25Call> paths;
   private final byte control;
 
-  BaseAX25Packet(byte[] packet, String destination, String source, List<String> paths, byte control) {
+  BaseAX25Packet(byte[] packet, AX25Call destination, AX25Call source, List<AX25Call> paths, byte control) {
     this.packet = packet;
     this.destination = destination;
     this.source = source;
@@ -23,17 +23,17 @@ abstract class BaseAX25Packet implements AX25Packet {
   }
 
   @Override
-  public String getDestination() {
+  public AX25Call getDestCall() {
     return destination;
   }
 
   @Override
-  public String getSource() {
+  public AX25Call getSourceCall() {
     return source;
   }
 
   @Override
-  public List<String> getRepeaterPaths() {
+  public List<AX25Call> getRepeaterPaths() {
     return paths;
   }
 

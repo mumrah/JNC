@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.IFrame;
@@ -34,29 +35,18 @@ public class AX25PacketReader implements PacketReader {
   public static AX25Packet parse(byte[] packet) {
     ByteBuffer buffer = ByteBuffer.wrap(packet);
 
-    // Parse callsigns
-    List<String> calls = new ArrayList<>();
-    boolean last = false;
-    while(!last) {
-      StringBuilder call = new StringBuilder();
-      for(int i=0; i<6; i++) {
-        char c = (char)((buffer.get() & 0xFF) >> 1);
-        if(c != ' ') {
-          call.append(c);
+    AX25Call dest = AX25Call.read(buffer);
+    AX25Call source = AX25Call.read(buffer);
+    List<AX25Call> paths = new ArrayList<>();
+    if(!source.isLast()) {
+      while(true) {
+        AX25Call rpt = AX25Call.read(buffer);
+        paths.add(rpt);
+        if(rpt.isLast()) {
+          break;
         }
       }
-
-      byte ssidByte = buffer.get();
-      int ssid = (ssidByte & 0x1E) >> 1;
-      int rr = (ssidByte & 0x60) >> 5;
-      boolean c = (ssidByte & 0x80) != 0;
-      last = (ssidByte & 0x01) != 0;
-      calls.add(String.format("%s-%d", call, ssid));
     }
-
-    String dest = calls.get(0);
-    String src = calls.get(1);
-    List<String> rpt = calls.subList(2, calls.size());
 
     byte controlByte = buffer.get();
     boolean pollFinalSet = (controlByte & 0x10) == 0x10;
@@ -68,7 +58,7 @@ public class AX25PacketReader implements PacketReader {
       int infoLen = packet.length - buffer.position();
       byte[] info = new byte[infoLen];
       buffer.get(info, 0, infoLen);
-      frame = new IFrame(packet, dest, src, rpt, controlByte, info, pidByte);
+      frame = new IFrame(packet, dest, source, paths, controlByte, info, pidByte);
     } else {
       if((controlByte & 0x03) == 0x03) {
         ControlType controlType = ControlType.fromControlByte(controlByte);
@@ -79,12 +69,12 @@ public class AX25PacketReader implements PacketReader {
           int infoLen = packet.length - buffer.position();
           byte[] info = new byte[infoLen];
           buffer.get(info, 0, infoLen);
-          frame = new UIFrame(packet, dest, src, rpt, controlByte, pollFinalSet, info, pidByte);
+          frame = new UIFrame(packet, dest, source, paths, controlByte, pollFinalSet, info, pidByte);
         } else {
-          frame = new UFrame(packet, dest, src, rpt, controlByte, pollFinalSet);
+          frame = new UFrame(packet, dest, source, paths, controlByte, pollFinalSet);
         }
       } else {
-        frame = new SFrame(packet, dest, src, rpt, controlByte, pollFinalSet);
+        frame = new SFrame(packet, dest, source, paths, controlByte, pollFinalSet);
       }
     }
     return frame;

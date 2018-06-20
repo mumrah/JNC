@@ -32,6 +32,7 @@ import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
 import net.tarpn.packet.PacketWriter;
+import net.tarpn.packet.impl.AX25PacketHandler;
 import net.tarpn.packet.impl.AX25PacketReader;
 import net.tarpn.packet.impl.AX25PacketWriter;
 import net.tarpn.packet.impl.CompositePacketHandler;
@@ -105,7 +106,8 @@ public class Main {
       // Run these when we receive a packet on this port
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
-          new NetRomPacketHandler()
+          new AX25PacketHandler()
+          //new NetRomPacketHandler()
           //new MessageReadingPacketHandler(messageReader, inboundMessages::add)
       );
 
@@ -171,6 +173,7 @@ public class Main {
     executorService.submit(newPortReader(port1, outgoingFrames));
     executorService.submit(newPortWriter(port1, outgoingFrames));
 
+    /*
     scheduledExecutorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic ID message");
       // TODO on all ports
@@ -198,7 +201,7 @@ public class Main {
       packetWriter.accept(ui, outgoingFrames::add);
     }, 5, 300, TimeUnit.SECONDS);
 
-
+    */
 
     // Input Messages
     /*

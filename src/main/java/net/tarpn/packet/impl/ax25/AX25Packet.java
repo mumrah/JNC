@@ -5,10 +5,38 @@ import java.util.List;
 import net.tarpn.packet.Packet;
 
 public interface AX25Packet extends Packet {
-  String getDestination();
-  String getSource();
-  List<String> getRepeaterPaths();
+  default String getDestination() {
+    return getDestCall().toString();
+  }
+
+  default String getSource() {
+    return getSourceCall().toString();
+  }
+
+  AX25Call getDestCall();
+  AX25Call getSourceCall();
+
+  default Command getCommand() {
+    boolean destC = getDestCall().isCFlag();
+    boolean sourceC = getSourceCall().isCFlag();
+    if(destC) {
+      if(sourceC) {
+        return Command.LEGACY;
+      } else {
+        return Command.COMMAND;
+      }
+    } else {
+      if(sourceC) {
+        return Command.RESPONSE;
+      } else {
+        return Command.LEGACY;
+      }
+    }
+  }
+
+  List<AX25Call> getRepeaterPaths();
   byte getControlByte();
+  FrameType getFrameType();
 
   interface SupervisoryFrame {
     boolean isPollOrFinalSet();
@@ -26,8 +54,8 @@ public interface AX25Packet extends Packet {
         this.nibble = (byte)(nibble & 0x0F);
       }
 
-      byte asByte(boolean isPollOrFinal) {
-        return (byte) (nibble | (isPollOrFinal ? 0x10 : 0x00));
+      byte asByte(int nr, boolean isPollOrFinal) {
+        return (byte) (nibble | (isPollOrFinal ? 0x10 : 0x00) | ((nr << 5) & 0xE0));
       }
 
       static ControlType fromControlByte(byte ctl) {
@@ -40,7 +68,6 @@ public interface AX25Packet extends Packet {
       }
     }
   }
-
 
   interface UnnumberedFrame {
     boolean isPollFinalSet();
@@ -94,6 +121,31 @@ public interface AX25Packet extends Packet {
           .replace("\t", "\\t")
           .replace("\b", "\\b")
           .replace("\f", "\\f");
+    }
+  }
+
+  enum FrameType {
+    I, S, U, UI;
+  }
+
+  enum Command {
+    LEGACY,
+    COMMAND,
+    RESPONSE;
+
+    void updateCalls(AX25Call dest, AX25Call source) {
+      switch(this) {
+        case LEGACY:
+          break;
+        case COMMAND:
+          dest.setcFlag(true);
+          source.setcFlag(false);
+          break;
+        case RESPONSE:
+          dest.setcFlag(false);
+          source.setcFlag(true);
+          break;
+      }
     }
   }
 

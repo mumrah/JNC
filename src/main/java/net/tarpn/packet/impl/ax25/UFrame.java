@@ -9,16 +9,22 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
   private final boolean pollFinalSet;
   private final ControlType controlType;
 
-  public UFrame(byte[] packet, String destination, String source, List<String> paths, byte control, boolean pollFinalSet) {
+  public UFrame(byte[] packet, AX25Call destination, AX25Call source, List<AX25Call> paths, byte control, boolean pollFinalSet) {
     super(packet, destination, source, paths, control);
     this.pollFinalSet = pollFinalSet;
     this.controlType = ControlType.fromControlByte(control);
   }
 
-  public static UFrame create(String source, String destination, ControlType controlType, boolean pollFinalSet) {
+  public static UFrame create(
+      AX25Call destCall,
+      AX25Call sourceCall,
+      ControlType controlType,
+      boolean pollFinalSet) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
-    UIFrame.writeCall(destination, false, buffer::put);
-    UIFrame.writeCall(source, true, buffer::put);
+    destCall.clearFlags();
+    destCall.write(buffer::put);
+    sourceCall.setLast(true);
+    sourceCall.write(buffer::put);
     // TODO repeater paths
     buffer.put(controlType.asByte(pollFinalSet));
 
@@ -27,7 +33,7 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
     buffer.position(0);
     buffer.get(packet, 0, len);
 
-    return new UFrame(packet, destination, source, Collections.emptyList(),
+    return new UFrame(packet, destCall, sourceCall, Collections.emptyList(),
         controlType.asByte(pollFinalSet), pollFinalSet);
   }
 
@@ -48,5 +54,10 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
         ", dest=" + getDestination() +
         ", controlType=" + getControlType() +
         '}';
+  }
+
+  @Override
+  public FrameType getFrameType() {
+    return FrameType.U;
   }
 }

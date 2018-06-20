@@ -9,7 +9,7 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
   private final byte recvSeqNumber;
   private final ControlType controlType;
 
-  public SFrame(byte[] packet, String destination, String source, List<String> paths, byte control, boolean pollFinalSet) {
+  public SFrame(byte[] packet, AX25Call destination, AX25Call source, List<AX25Call> paths, byte control, boolean pollFinalSet) {
     super(packet, destination, source, paths, control);
     this.pollFinalSet = pollFinalSet;
     this.recvSeqNumber = (byte)((control & 0xE0) >> 5);
@@ -17,15 +17,26 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
   }
 
   public static SFrame create(
-      String source,
-      String destination,
+      AX25Call destination,
+      AX25Call source,
+      Command command,
       SupervisoryFrame.ControlType control,
+      int nr,
       boolean pollFinalSet) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
-    UIFrame.writeCall(destination, false, buffer::put);
-    UIFrame.writeCall(source, true, buffer::put);
+
+    // Update flags in SSID
+    destination.clearFlags();
+    source.clearFlags();
+    source.setLast(true);
+    command.updateCalls(destination, source);
+
+    // Write out calls
+    destination.write(buffer::put);
+    source.write(buffer::put);
+
     // TODO repeater paths
-    buffer.put(control.asByte(pollFinalSet));
+    buffer.put(control.asByte(nr, pollFinalSet));
 
     int len = buffer.position();
     byte[] packet = new byte[len];
@@ -33,7 +44,7 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
     buffer.get(packet, 0, len);
 
     return new SFrame(packet, destination, source, Collections.emptyList(),
-        control.asByte(pollFinalSet), pollFinalSet);
+        control.asByte(nr, pollFinalSet), pollFinalSet);
   }
 
   @Override
@@ -59,5 +70,10 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
         ", controlType=" + getControlType() +
         ", N(R)=" + getReceiveSequenceNumber() +
         '}';
+  }
+
+  @Override
+  public FrameType getFrameType() {
+    return FrameType.S;
   }
 }

@@ -19,7 +19,7 @@ public class NetRomPacketHandler implements PacketHandler {
     if(packet instanceof UFrame) {
       UFrame sFrame = (UFrame)packet;
       if (sFrame.getControlType().equals(ControlType.SABM)) {
-        UFrame ua = UFrame.create(packet.getDestination(), packet.getSource(), ControlType.UA, true);
+        UFrame ua = UFrame.create(packet.getDestCall(), packet.getSourceCall(), ControlType.UA, true);
         packetRequest.replyWith(ua);
       }
     }
@@ -47,20 +47,20 @@ public class NetRomPacketHandler implements PacketHandler {
           buffer.position(0);
           byte[] out = new byte[len];
           buffer.get(out, 0, len);
-          IFrame resp = IFrame.create(iFrame.getDestination(), iFrame.getSource(),
+          IFrame resp = IFrame.create(iFrame.getDestCall(), iFrame.getSourceCall(),
               (byte)0, (byte)0, true, Protocol.NETROM, out);
           packetRequest.replyWith(resp);
         }
       } else {
         String message = new String(iFrame.getInfo(), StandardCharsets.US_ASCII).trim();
         if(message.equalsIgnoreCase("info")) {
-          IFrame resp = IFrame.create(iFrame.getDestination(), iFrame.getSource(),
+          IFrame resp = IFrame.create(iFrame.getDestCall(), iFrame.getSourceCall(),
               (byte)0, (byte)0,
               true, Protocol.NO_LAYER3,
               "Java Node Controller\r".getBytes(StandardCharsets.US_ASCII));
           packetRequest.replyWith(resp);
         } else if(message.equalsIgnoreCase("bye")) {
-          UFrame ua = UFrame.create(packet.getDestination(), packet.getSource(), ControlType.DISC, true);
+          UFrame ua = UFrame.create(packet.getDestCall(), packet.getSourceCall(), ControlType.DISC, true);
           packetRequest.replyWith(ua);
         }
       }
