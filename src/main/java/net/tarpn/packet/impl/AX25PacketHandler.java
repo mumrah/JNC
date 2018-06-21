@@ -14,6 +14,7 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.DXE;
+import net.tarpn.packet.impl.ax25.DXE.State;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -51,14 +52,35 @@ public class AX25PacketHandler implements PacketHandler {
    */
   void handleIFrame(IFrame frame, Consumer<Packet> response) {
     LOG.info("<I>: " + frame.getInfoAsASCII());
-    SFrame ack = SFrame.create(
-        frame.getSourceCall(),
-        frame.getDestCall(),
-        Command.RESPONSE,
-        SupervisoryFrame.ControlType.RR,
-        frame.getSendSequenceNumber() + 1,
-        true);
-    response.accept(ack);
+    DXE session = sessions.computeIfAbsent(frame.getSourceCall(),
+        ax25Call -> new DXE(frame.getSourceCall(), frame.getDestCall()));
+    if(session.getState().equals(State.CONNECTED)) {
+      String message = new String(frame.getInfo(), StandardCharsets.US_ASCII).trim();
+      if(frame.getSendSequenceNumber() == session.getReceiveState()) {
+        session.incrementReceiveState();
+        if(session.getReceiveState() % 2 == 0) {
+          IFrame info = IFrame.create(
+              frame.getSourceCall(),
+              frame.getDestCall(),
+              Command.RESPONSE,
+              session.getNextSendState(),
+              session.getReceiveState(),
+              true,
+              Protocol.NO_LAYER3,
+              ("You said '" + message + "'\r").getBytes(StandardCharsets.US_ASCII));
+          //response.accept(info);
+        } else {
+          SFrame ack = SFrame.create(
+              frame.getSourceCall(),
+              frame.getDestCall(),
+              Command.RESPONSE,
+              SupervisoryFrame.ControlType.RR,
+              session.getReceiveState(),
+              true);
+          response.accept(ack);
+        }
+      }
+    }
   }
 
   /**
@@ -66,11 +88,31 @@ public class AX25PacketHandler implements PacketHandler {
    */
   void handleSFrame(SFrame frame, Consumer<Packet> response) {
     LOG.info("<S>: " + frame.getControlType());
-    if(frame.getControlType().equals(SupervisoryFrame.ControlType.RR)) {
-      if(frame.getCommand().equals(Command.COMMAND) && frame.isPollOrFinalSet()) {
-        // Sender is asking how we're doing
-        // TODO send back an RR with Command.RESPONSE and Final=true
+    DXE session = sessions.computeIfAbsent(frame.getSourceCall(),
+        ax25Call -> new DXE(frame.getSourceCall(), frame.getDestCall()));
+    if(session.getState().equals(State.CONNECTED)) {
+      if(frame.getControlType().equals(SupervisoryFrame.ControlType.RR)) {
+        if(frame.getCommand().equals(Command.COMMAND) && frame.isPollOrFinalSet()) {
+          // Sender is asking how we're doing
+          SFrame resp = SFrame.create(
+              frame.getSourceCall(),
+              frame.getDestCall(),
+              Command.RESPONSE,
+              SupervisoryFrame.ControlType.RR,
+              session.getReceiveState(),
+              true);
+          response.accept(resp);
+        }
       }
+    } else {
+      // Indicate we are not connected
+      UFrame dm = UFrame.create(
+          frame.getSourceCall(),
+          frame.getDestCall(),
+          Command.RESPONSE,
+          ControlType.DM,
+          true);
+      response.accept(dm);
     }
   }
 
@@ -83,27 +125,58 @@ public class AX25PacketHandler implements PacketHandler {
       AX25Call source = frame.getDestCall();
       DXE session = sessions.computeIfAbsent(frame.getSourceCall(),
           ax25Call -> new DXE(frame.getSourceCall(), frame.getDestCall()));
-      if(!session.isConnected()) {
-        LOG.info("Got SABM, sending UA");
+      if(session.getState().equals(State.CLOSED)) {
         // Acknowledge the connect request
-        UFrame ua = UFrame.create(dest, source, ControlType.UA, true);
+        LOG.info("Got SABM, sending UA");
+        session.reset();
+        session.setState(State.CONNECTED);
+        UFrame ua = UFrame.create(dest, source, Command.RESPONSE, ControlType.UA, true);
         response.accept(ua);
 
+        // Send a welcome message
         LOG.info("Sending welcome message");
-        // Welcome message
-        IFrame info = IFrame.create(dest, source,
-            0, 0, true, Protocol.NO_LAYER3,
+        IFrame info = IFrame.create(dest, source, Command.COMMAND,
+            session.getNextSendState(),
+            0,
+            true,
+            Protocol.NO_LAYER3,
             "Welcome to the David's Java Node Controller\r".getBytes(StandardCharsets.US_ASCII));
         response.accept(info);
+      } else if(session.getState().equals(State.CONNECTING)) {
+        // Already sent one UA but was not heard, try again
+        LOG.info("Got another SABM, sending UA again");
+        UFrame ua = UFrame.create(dest, source, Command.RESPONSE, ControlType.UA, true);
+        response.accept(ua);
+        session.setState(State.CONNECTING);
       } else {
         // Reject the connection
-        UFrame ua = UFrame.create(dest, source, ControlType.DM, true);
+        UFrame ua = UFrame.create(dest, source, Command.RESPONSE, ControlType.DM, true);
         response.accept(ua);
+      }
+    } else if(frame.getControlType().equals(ControlType.DISC)) {
+      // Got a disconnect request, respond with UA and/or DM
+      AX25Call source = frame.getSourceCall();
+      AX25Call dest = frame.getDestCall();
+      DXE session = sessions.computeIfAbsent(source, ax25Call -> new DXE(source, dest));
+      if(session.getState().equals(State.CONNECTED)) {
+        // Acknowledge the disconnect request
+        LOG.info("Got DISC, sending UA and DM");
+        UFrame ua = UFrame.create(source, dest, Command.RESPONSE, ControlType.UA, true);
+        response.accept(ua);
+        UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, true);
+        response.accept(dm);
+      } else {
+        LOG.info("Got DISC but not connected, just sending DM");
+        // Reject the disconnect
+        UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, true);
+        response.accept(dm);
       }
     }
   }
 
   void handleUIFrame(UIFrame frame, Consumer<Packet> response) {
     LOG.info("<UI>" + frame.getInfoAsASCII());
+    DXE session = sessions.computeIfAbsent(frame.getSourceCall(),
+        ax25Call -> new DXE(frame.getSourceCall(), frame.getDestCall()));
   }
 }

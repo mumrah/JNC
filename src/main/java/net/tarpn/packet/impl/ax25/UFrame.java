@@ -18,12 +18,19 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
   public static UFrame create(
       AX25Call destCall,
       AX25Call sourceCall,
+      Command command,
       ControlType controlType,
       boolean pollFinalSet) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
+    // Update flags in SSID
+
     destCall.clearFlags();
-    destCall.write(buffer::put);
+    sourceCall.clearFlags();
     sourceCall.setLast(true);
+    command.updateCalls(destCall, sourceCall);
+
+    // Write out calls
+    destCall.write(buffer::put);
     sourceCall.write(buffer::put);
     // TODO repeater paths
     buffer.put(controlType.asByte(pollFinalSet));

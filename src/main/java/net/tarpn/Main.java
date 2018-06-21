@@ -4,7 +4,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -27,7 +26,6 @@ import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.SerialDataPort;
 import net.tarpn.io.impl.SocketDataPortServer;
 import net.tarpn.message.Message;
-import net.tarpn.network.NetRomPacketHandler;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
@@ -38,11 +36,6 @@ import net.tarpn.packet.impl.AX25PacketWriter;
 import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
-import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
-import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
-import net.tarpn.packet.impl.ax25.IFrame;
-import net.tarpn.packet.impl.ax25.UFrame;
-import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,7 +131,7 @@ public class Main {
               frameHandler.onFrame(new DefaultFrameRequest(frame, outboundFrames::add));
             });
           }
-          Thread.sleep(500);
+          Thread.sleep(50);
         }
       } catch (IOException | InterruptedException e) {
         LOG.error("Failed when polling " + port.getName(), e);

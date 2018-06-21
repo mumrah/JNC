@@ -32,10 +32,10 @@ public class DefaultPacketRequest implements PacketRequest {
 
   @Override
   public void replyWith(Packet response) {
-    if(!done) {
+    //if(!done) {
       responsePacketConsumer.accept(response);
       done = true;
-    }
+    //}
   }
 
   @Override

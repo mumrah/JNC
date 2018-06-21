@@ -22,14 +22,27 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
     this.protocol = Protocol.valueOf(pid);
   }
 
-  public static IFrame create(AX25Call destCall, AX25Call sourceCall,
-      int sendSeqNumber, int recvSeqNumber, boolean pollFinalSet,
-      Protocol protocol, byte[] info) {
+  public static IFrame create(
+      AX25Call destCall,
+      AX25Call sourceCall,
+      Command command,
+      int sendSeqNumber,
+      int recvSeqNumber,
+      boolean pollFinalSet,
+      Protocol protocol,
+      byte[] info) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+    // Update flags in SSID
     destCall.clearFlags();
-    destCall.write(buffer::put);
+    sourceCall.clearFlags();
     sourceCall.setLast(true);
+    command.updateCalls(destCall, sourceCall);
+
+    // Write out calls
+    destCall.write(buffer::put);
     sourceCall.write(buffer::put);
+
     // TODO repeater paths
     byte controlByte = (byte)(((recvSeqNumber << 5) & 0xE0) | ((sendSeqNumber << 1) & 0x0E));
     controlByte |= (pollFinalSet ? 0x10 : 0x00);
