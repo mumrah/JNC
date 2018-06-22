@@ -1,6 +1,6 @@
 package net.tarpn.packet.impl.ax25.fsm;
 
-public enum State {
+public enum StateType {
   DISCONNECTED,
   AWAITING_CONNECTION,
   CONNECTED;

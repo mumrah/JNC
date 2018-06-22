@@ -42,6 +42,7 @@ import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.UIFrame;
+import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,11 +159,12 @@ public class Main {
     executorService.submit(portManager.getReaderRunnable());
     executorService.submit(portManager.getWriterRunnable());
 
+    AX25StateHandler ax25StateHandler = new AX25StateHandler();
 
     executorService.submit(() -> {
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
-          new AX25PacketHandler()
+          ax25StateHandler
       );
       while(true) {
         Packet packet = portManager.getInboundPackets().poll();
@@ -179,6 +181,8 @@ public class Main {
         }
       }
     });
+
+    ax25StateHandler.start();
 
 
 
