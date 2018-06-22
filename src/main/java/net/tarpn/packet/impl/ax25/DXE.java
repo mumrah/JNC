@@ -1,8 +1,26 @@
 package net.tarpn.packet.impl.ax25;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DXE {
+
+  /**
+   * Acknowledgement timer
+   */
+  public static final int T1_TIMEOUT_MS = 100;
+
+  /**
+   * Response delay timer
+   */
+  public static final int T2_TIMEOUT_MS = 100;
+
+  /**
+   * Inactive link timer
+   */
+  public static final int T3_TIMEOUT_MS = 120000; // 2 minutes
+
+
   private final AX25Call sourceCall;
   private final AX25Call destCall;
 
@@ -12,7 +30,7 @@ public class DXE {
   private int nr;
   private int ns;
 
-  private volatile long lastHeard;
+  private Timer t1Timer = Timer.create(T1_TIMEOUT_MS);
 
   private volatile State state = State.CLOSED;
 
@@ -86,6 +104,12 @@ public class DXE {
     this.nr = nr;
   }
 
+  // Timers
+
+  public Timer getT1Timer() {
+    return t1Timer;
+  }
+
   /**
    * Test if the current V(S) is equal to the last heard N(S) + 7. If that's true, flow control
    * can get corrupted.
@@ -101,5 +125,46 @@ public class DXE {
     vs.set(0);
     vr.set(0);
     state = State.CLOSED;
+    t1Timer.reset();
+  }
+
+
+  public static class Timer {
+    private final long timeout;
+
+    private long startTime;
+    private boolean cancelled;
+
+    Timer(long timeout) {
+      this.startTime = System.currentTimeMillis();
+      this.cancelled = false;
+      this.timeout = timeout;
+    }
+
+    public static Timer create(long timeout) {
+      return new Timer(timeout);
+    }
+
+    public void cancel() {
+      cancelled = true;
+    }
+
+    public boolean isValid() {
+      return !cancelled && (System.currentTimeMillis() - startTime) < timeout;
+    }
+
+    public void reset() {
+      cancelled = false;
+      startTime = System.currentTimeMillis();
+    }
+
+    @Override
+    public String toString() {
+      return "Timer{" +
+          "startTime=" + startTime +
+          ", cancelled=" + cancelled +
+          ", valid=" + isValid() +
+          '}';
+    }
   }
 }

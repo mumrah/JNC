@@ -57,6 +57,7 @@ public class AX25PacketHandler implements PacketHandler {
     if(session.getState().equals(State.CONNECTED)) {
       String message = new String(frame.getInfo(), StandardCharsets.US_ASCII).trim();
       if(frame.getSendSequenceNumber() == session.getReceiveState()) {
+        // Got an I Frame with expected N(R)
         session.incrementReceiveState();
         if(session.getReceiveState() % 2 == 0) {
           IFrame info = IFrame.create(

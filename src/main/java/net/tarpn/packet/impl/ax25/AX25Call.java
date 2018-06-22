@@ -25,6 +25,15 @@ public class AX25Call {
     this.last = last;
   }
 
+  public static AX25Call create(String call) {
+    return create(call, 0);
+  }
+
+  public static AX25Call create(String call, int ssid) {
+    return new AX25Call(call, ssid, 0, false, false);
+  }
+
+
   public static AX25Call read(ByteBuffer buffer) {
     StringBuilder call = new StringBuilder();
     for(int i=0; i<6; i++) {

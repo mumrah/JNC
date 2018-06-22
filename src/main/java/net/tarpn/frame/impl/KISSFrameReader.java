@@ -30,7 +30,7 @@ public class KISSFrameReader implements FrameReader {
 
   @Override
   public void accept(int b, Consumer<Frame> frameHandler) {
-    System.err.println("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
+    //System.err.println("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
     if(currentTime - frameTime > 4000) {

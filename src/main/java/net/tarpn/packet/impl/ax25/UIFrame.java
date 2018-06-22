@@ -22,13 +22,24 @@ public class UIFrame extends UFrame implements HasInfo {
       AX25Call sourceCall,
       Protocol pid,
       byte[] info) {
-
     ControlType controlType = ControlType.UI;
     ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+    // Update flags in SSID
+    destCall.clearFlags();
+    sourceCall.clearFlags();
+    sourceCall.setLast(true);
+    Command.COMMAND.updateCalls(destCall, sourceCall);
+
+    // Write out calls
+    destCall.write(buffer::put);
+    sourceCall.write(buffer::put);
+
     destCall.clearFlags();
     destCall.write(buffer::put);
     sourceCall.setLast(true);
     sourceCall.write(buffer::put);
+
     // TODO repeater paths
     buffer.put(controlType.asByte(true));
     buffer.put(pid.asByte());

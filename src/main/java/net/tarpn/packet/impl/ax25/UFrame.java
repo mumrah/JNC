@@ -22,8 +22,8 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
       ControlType controlType,
       boolean pollFinalSet) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
-    // Update flags in SSID
 
+    // Update flags in SSID
     destCall.clearFlags();
     sourceCall.clearFlags();
     sourceCall.setLast(true);
@@ -32,6 +32,7 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
     // Write out calls
     destCall.write(buffer::put);
     sourceCall.write(buffer::put);
+
     // TODO repeater paths
     buffer.put(controlType.asByte(pollFinalSet));
 
