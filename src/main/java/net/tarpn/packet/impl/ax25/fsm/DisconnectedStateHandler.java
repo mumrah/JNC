@@ -45,7 +45,7 @@ public class DisconnectedStateHandler implements StateHandler {
       } case AX25_SABM: {
         // Check if we can connect (are we busy?)
         // Send UA
-        UFrame ua = UFrame.create(dest, source, Command.RESPONSE, ControlType.UA, true);
+        UFrame ua = UFrame.create(source, dest, Command.RESPONSE, ControlType.UA, true);
         outgoingPackets.accept(ua);
         // Reset exceptions, state values, and timers
         state.reset();

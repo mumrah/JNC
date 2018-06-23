@@ -29,7 +29,7 @@ public class StateEvent {
     AX25_SABM,
     AX25_SABME,
     AX25_UNKNOWN,
-    AX25_IFRAME,
+    AX25_INFO,
     AX25_FRMR,
     AX25_RR,
     AX25_RNR,

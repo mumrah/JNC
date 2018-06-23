@@ -106,11 +106,6 @@ public class DataPortManager {
       Consumer<byte[]> toDataPort = bytes -> {
         LOG.info("Sending data to port " + dataPort.getPortNumber());
         try {
-          for(int i=0; i<bytes.length; i++) {
-            byte b = bytes[i];
-            //System.err.println("KISS WRITE " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
-          }
-
           outputStream.write(bytes);
           outputStream.flush();
         } catch (IOException e) {

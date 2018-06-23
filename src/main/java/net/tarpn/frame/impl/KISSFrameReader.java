@@ -4,8 +4,9 @@ import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameReader;
-import net.tarpn.frame.impl.KISS.Command;
 import net.tarpn.frame.impl.KISS.Protocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Read KISS framed data one byte at a time.
@@ -14,6 +15,8 @@ import net.tarpn.frame.impl.KISS.Protocol;
  * TODO add FEND sync
  */
 public class KISSFrameReader implements FrameReader {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KISSFrameReader.class);
 
   private volatile boolean inFrame = false;
   private volatile boolean inEscape = false;
@@ -30,7 +33,7 @@ public class KISSFrameReader implements FrameReader {
 
   @Override
   public void accept(int b, Consumer<Frame> frameHandler) {
-    System.err.println("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
+    LOG.debug("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
     if(currentTime - frameTime > 4000) {

@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -22,9 +23,13 @@ public class AX25StateHandler implements PacketHandler {
   private final Map<AX25Call, State> sessions = new ConcurrentHashMap<>();
   private final Map<StateType, StateHandler> handlers = new HashMap<>();
   private final Queue<StateEvent> eventQueue = new ConcurrentLinkedQueue<>();
+  private final Consumer<AX25Packet> outgoingPackets;
 
-  public AX25StateHandler() {
+  public AX25StateHandler(Consumer<AX25Packet> outgoingPackets) {
+    this.outgoingPackets = outgoingPackets;
+
     handlers.put(StateType.DISCONNECTED, new DisconnectedStateHandler());
+    handlers.put(StateType.CONNECTED, new ConnectedStateHandler());
   }
 
   @Override
@@ -34,11 +39,13 @@ public class AX25StateHandler implements PacketHandler {
     switch (ax25Packet.getFrameType()) {
       case I: {
         // TODO
-        event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
+        event = new StateEvent(ax25Packet, Type.AX25_INFO);
         break;
       } case S: {
         switch (((SFrame) ax25Packet).getControlType()) {
           case RR:
+            event = new StateEvent(ax25Packet, Type.AX25_RR);
+            break;
           case RNR:
           case REJ:
           default:
@@ -93,7 +100,7 @@ public class AX25StateHandler implements PacketHandler {
             State state = sessions.computeIfAbsent(packet.getSourceCall(),
                 ax25Call -> new State(packet.getSourceCall(), packet.getDestCall()));
             StateHandler handler = handlers.get(state.getState());
-            handler.onEvent(state, event, System.err::println);
+            handler.onEvent(state, event, outgoingPackets::accept);
           } else {
             Thread.sleep(50);
           }

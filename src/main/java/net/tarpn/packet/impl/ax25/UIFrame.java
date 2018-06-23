@@ -35,17 +35,13 @@ public class UIFrame extends UFrame implements HasInfo {
     destCall.write(buffer::put);
     sourceCall.write(buffer::put);
 
-    destCall.clearFlags();
-    destCall.write(buffer::put);
-    sourceCall.setLast(true);
-    sourceCall.write(buffer::put);
-
     // TODO repeater paths
     buffer.put(controlType.asByte(true));
     buffer.put(pid.asByte());
     buffer.put(info);
     int len = buffer.position();
     byte[] packet = new byte[len];
+
     buffer.position(0);
     buffer.get(packet, 0, len);
     return new UIFrame(packet, destCall, sourceCall, Collections.emptyList(),

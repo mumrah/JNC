@@ -159,11 +159,13 @@ public class Main {
     executorService.submit(portManager.getReaderRunnable());
     executorService.submit(portManager.getWriterRunnable());
 
-    AX25StateHandler ax25StateHandler = new AX25StateHandler();
+    AX25StateHandler ax25StateHandler = new AX25StateHandler(portManager.getOutboundPackets()::add);
+    ax25StateHandler.start();
 
     executorService.submit(() -> {
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
+          //new AX25PacketHandler()
           ax25StateHandler
       );
       while(true) {
@@ -182,13 +184,12 @@ public class Main {
       }
     });
 
-    ax25StateHandler.start();
-
 
 
     //Queue<Frame> outgoingFrames = new ConcurrentLinkedQueue<>();
     //executorService.submit(newPortReader(port1, outgoingFrames));
     //executorService.submit(newPortWriter(port1, outgoingFrames));
+
 
     scheduledExecutorService.scheduleWithFixedDelay(() -> {
       //LOG.info("Sending automatic ID message");
@@ -198,12 +199,10 @@ public class Main {
           AX25Call.create("K4DBZ"),
           Protocol.NO_LAYER3,
           "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r".getBytes(StandardCharsets.US_ASCII));
-      //PacketWriter packetWriter = new AX25PacketWriter();
-      //packetWriter.accept(idPacket, outgoingFrames::add);
       //portManager.getOutboundPackets().add(idPacket);
     }, 15, 30, TimeUnit.SECONDS);
 
-    /*
+
     scheduledExecutorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic NODES message");
       // TODO on all ports
@@ -217,11 +216,13 @@ public class Main {
           'D',
           '2'
       };
-      UIFrame ui = UIFrame.create("K4DBZ-2", "NODES-0", Protocol.NETROM, msg);
-      PacketWriter packetWriter = new AX25PacketWriter();
-      packetWriter.accept(ui, outgoingFrames::add);
+      UIFrame ui = UIFrame.create(
+          AX25Call.create("NODES", 0),
+          AX25Call.create("K4DBZ", 2),
+          Protocol.NETROM, msg);
+      portManager.getOutboundPackets().add(ui);
     }, 5, 300, TimeUnit.SECONDS);
-    */
+
 
     //SocketDataPortServer server = new SocketDataPortServer(outgoingFrames);
     //executorService.submit(server);

@@ -4,10 +4,28 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
     </Console>
+    <File name="KISS" filename="build/kiss.log">
+      <PatternLayout>
+        <pattern>%d %m%n</pattern>
+      </PatternLayout>
+    </File>
   </Appenders>
   <Loggers>
-    <Root level="info">
+    <Root level="INFO" additivity="false">
       <AppenderRef ref="Console"/>
     </Root>
+    <Logger name="net.tarpn.frame.impl.KISSFrameReader" level="INFO">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Logger name="net.tarpn.frame.impl.KISSFrameWriter" level="INFO">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <Logger name="net.tarpn.frame.impl.KISSFrameReader" level="DEBUG" additivity="false">
+      <AppenderRef ref="KISS"/>
+    </Logger>
+    <Logger name="net.tarpn.frame.impl.KISSFrameWriter" level="DEBUG" additivity="false">
+      <AppenderRef ref="KISS"/>
+    </Logger>
   </Loggers>
 </Configuration>

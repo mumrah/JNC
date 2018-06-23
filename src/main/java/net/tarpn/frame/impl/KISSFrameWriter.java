@@ -1,13 +1,19 @@
 package net.tarpn.frame.impl;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameWriter;
 import net.tarpn.frame.impl.KISS.Command;
 import net.tarpn.frame.impl.KISS.Protocol;
+import org.apache.commons.io.HexDump;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KISSFrameWriter implements FrameWriter {
+
+  private static final Logger LOG = LoggerFactory.getLogger(KISSFrameWriter.class);
 
   private final ByteBuffer buffer = ByteBuffer.allocate(1024);
 
@@ -40,6 +46,20 @@ public class KISSFrameWriter implements FrameWriter {
     buffer.position(0);
     buffer.get(out, 0, len);
     buffer.clear();
-    dataSink.accept(out);
+
+    Consumer<byte[]> logger = bytes -> {
+      for(int i=0; i<bytes.length; i++) {
+        byte b = bytes[i];
+        LOG.debug("KISS WRITE " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
+      }
+    };
+    //dataSink.accept(out);
+    try {
+      HexDump.dump(frame.getData(), 0, System.err, 0);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    logger.andThen(dataSink).accept(out);
   }
 }

@@ -14,6 +14,10 @@ public class State {
 
   private final AtomicInteger vs = new AtomicInteger(0);
   private final AtomicInteger vr = new AtomicInteger(0);
+  private final AtomicInteger va = new AtomicInteger(0);
+
+  private int nr;
+  private int ns;
 
   private Timer t1Timer = Timer.create(T1_TIMEOUT_MS);
 
@@ -23,13 +27,36 @@ public class State {
     this.currentState = StateType.DISCONNECTED;
   }
 
-
   public void setState(StateType newState) {
     currentState = newState;
   }
 
   public StateType getState() {
     return currentState;
+  }
+
+  public int getSendState() {
+    return vs.get() % 8;
+  }
+
+  public int getNextSendState() {
+    return vs.getAndIncrement() % 8;
+  }
+
+  public void setLastSendHeard(int ns) {
+    this.ns = ns;
+  }
+
+  public int getReceiveState() {
+    return vr.get() % 8;
+  }
+
+  public void incrementReceiveState() {
+    this.vr.incrementAndGet();
+  }
+
+  public void setLastReceiveHeard(int nr) {
+    this.nr = nr;
   }
 
   public void reset() {
