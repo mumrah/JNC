@@ -30,26 +30,37 @@ public class AX25StateHandler implements PacketHandler {
 
     handlers.put(StateType.DISCONNECTED, new DisconnectedStateHandler());
     handlers.put(StateType.CONNECTED, new ConnectedStateHandler());
+    // TODO StateType.AWAITING_CONNECTION
   }
 
+  /**
+   * Translate incoming packets to {@link StateEvent} objects and put them
+   * on the queue.
+   * @param packet
+   */
   @Override
   public void onPacket(PacketRequest packet) {
     AX25Packet ax25Packet = (AX25Packet)packet.getPacket();
     final StateEvent event;
     switch (ax25Packet.getFrameType()) {
       case I: {
-        // TODO
         event = new StateEvent(ax25Packet, Type.AX25_INFO);
         break;
       } case S: {
         switch (((SFrame) ax25Packet).getControlType()) {
-          case RR:
+          case RR: {
             event = new StateEvent(ax25Packet, Type.AX25_RR);
             break;
-          case RNR:
-          case REJ:
+          }
+          case RNR: {
+            event = new StateEvent(ax25Packet, Type.AX25_RNR);
+            break;
+          }
+          case REJ: {
+            event = new StateEvent(ax25Packet, Type.AX25_REJ);
+            break;
+          }
           default:
-            // TODO
             event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
             break;
         }
@@ -72,7 +83,10 @@ public class AX25StateHandler implements PacketHandler {
             event = new StateEvent(ax25Packet, Type.AX25_UA);
             break;
           }
-          case FRMR:
+          case FRMR: {
+            event = new StateEvent(ax25Packet, Type.AX25_FRMR);
+            break;
+          }
           default: {
             event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
             break;

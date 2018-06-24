@@ -5,6 +5,8 @@ import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.IFrame;
+import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
@@ -18,31 +20,18 @@ public class DisconnectedStateHandler implements StateHandler {
 
     final StateType newState;
     switch (event.getType()) {
-      case AX25_UA: {
-        // print error N
-        newState = StateType.DISCONNECTED;
-        break;
-      } case AX25_DM: {
-        // no action
-        newState = StateType.DISCONNECTED;
-        break;
-      } case AX25_UI: {
-        // pass UI frame to layer 3
+      case AX25_UI: {
         if (((UIFrame) event.getPacket()).isPollFinalSet()) {
           // Send DM F=1
           UFrame ua = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, true);
           outgoingPackets.accept(ua);
+        } else {
+          // Pass UI to layer 3
         }
         newState = StateType.DISCONNECTED;
         break;
-      } case AX25_DISC: {
-        // Send DM F=P
-        boolean finalFlag = ((UFrame) event.getPacket()).isPollFinalSet();
-        UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, finalFlag);
-        outgoingPackets.accept(dm);
-        newState = StateType.DISCONNECTED;
-        break;
-      } case AX25_SABM: {
+      }
+      case AX25_SABM: {
         // Check if we can connect (are we busy?)
         // Send UA
         UFrame ua = UFrame.create(source, dest, Command.RESPONSE, ControlType.UA, true);
@@ -51,14 +40,41 @@ public class DisconnectedStateHandler implements StateHandler {
         state.reset();
         newState = StateType.CONNECTED;
         break;
-      } case AX25_SABME: {
-        // Send DM F=P (not going to support 2.2 yet)
+      }
+      case AX25_UA:
+        // print error N
+      case AX25_DM:
+      case AX25_SABME: // not going to support this yet
+      case AX25_FRMR:
+      case AX25_DISC: {
+        // Send DM F=P
         boolean finalFlag = ((UFrame) event.getPacket()).isPollFinalSet();
         UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, finalFlag);
         outgoingPackets.accept(dm);
         newState = StateType.DISCONNECTED;
         break;
-      } default: {
+      }
+      case AX25_RR:
+      case AX25_RNR:
+      case AX25_SREJ:
+      case AX25_REJ: {
+        boolean pollBitSet = ((SFrame) event.getPacket()).isPollOrFinalSet();
+        UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, pollBitSet);
+        outgoingPackets.accept(dm);
+        newState = StateType.DISCONNECTED;
+        break;
+      }
+      case AX25_INFO: {
+        boolean pollBitSet = ((IFrame) event.getPacket()).isPollBitSet();
+        UFrame dm = UFrame.create(source, dest, Command.RESPONSE, ControlType.DM, pollBitSet);
+        outgoingPackets.accept(dm);
+        newState = StateType.DISCONNECTED;
+        break;
+      }
+      case T1_EXPIRE:
+      case T3_EXPIRE:
+      case AX25_UNKNOWN:
+      default: {
         // Log error
         newState = StateType.DISCONNECTED;
         break;

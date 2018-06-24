@@ -19,11 +19,13 @@ import net.tarpn.frame.impl.KISSCommandHandler;
 import net.tarpn.frame.impl.KISSFrame;
 import net.tarpn.frame.impl.KISSFrameReader;
 import net.tarpn.frame.impl.KISSFrameWriter;
+import net.tarpn.frame.impl.PCapDumpFrameHandler;
 import net.tarpn.frame.impl.PacketReadingFrameHandler;
 import net.tarpn.io.DataPort;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;
 import net.tarpn.packet.impl.AX25PacketReader;
+import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.FakePacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,7 @@ public class DataPortManager {
   private final DataPort dataPort;
   private final Queue<Packet> inboundPackets;
   private final Queue<Packet> outboundPackets;
+  private final PCapDumpFrameHandler pCapDumpFrameHandler;
 
   private DataPortManager(
       DataPort dataPort,
@@ -42,6 +45,8 @@ public class DataPortManager {
     this.dataPort = dataPort;
     this.inboundPackets = inboundPackets;
     this.outboundPackets = outboundPackets;
+    this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
+
   }
 
   public static DataPortManager initialize(DataPort port) {
@@ -72,6 +77,7 @@ public class DataPortManager {
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(
           new ConsoleFrameHandler(),
+          pCapDumpFrameHandler,
           new KISSCommandHandler(),
           new PacketReadingFrameHandler(packetReader, inboundPackets::add)
       );
@@ -120,6 +126,9 @@ public class DataPortManager {
           Packet outgoingPacket = outboundPackets.poll();
           if (outgoingPacket != null) {
             LOG.info("Sending " + outgoingPacket);
+            if(outgoingPacket instanceof AX25Packet) {
+              pCapDumpFrameHandler.dump(outgoingPacket.getPayload());
+            }
             Frame outgoingFrame = new KISSFrame(0, Command.Data, outgoingPacket.getPayload());
             frameWriter.accept(outgoingFrame, toDataPort);
           } else {

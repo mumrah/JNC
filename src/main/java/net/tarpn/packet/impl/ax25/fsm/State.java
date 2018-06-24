@@ -65,4 +65,13 @@ public class State {
     t1Timer.reset();
   }
 
+  @Override
+  public String toString() {
+    return "State{" +
+        "state=" + currentState +
+        ", V(s)=" + vs.get() +
+        ", V(r)=" + vr.get() +
+        ", V(a)=" + va.get() +
+        '}';
+  }
 }
