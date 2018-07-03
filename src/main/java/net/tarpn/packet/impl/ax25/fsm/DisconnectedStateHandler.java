@@ -88,6 +88,11 @@ public class DisconnectedStateHandler implements StateHandler {
         newState = StateType.DISCONNECTED;
         break;
       }
+      case DL_DATA: {
+        // error
+        newState = StateType.DISCONNECTED;
+        break;
+      }
       case T1_EXPIRE:
       case T3_EXPIRE:
       case AX25_UNKNOWN:

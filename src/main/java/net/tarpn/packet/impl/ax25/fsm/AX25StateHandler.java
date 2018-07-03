@@ -63,60 +63,60 @@ public class AX25StateHandler implements PacketHandler {
     final StateEvent event;
     switch (ax25Packet.getFrameType()) {
       case I: {
-        event = StateEvent.create(ax25Packet, Type.AX25_INFO);
+        event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_INFO);
         break;
       } case S: {
         switch (((SFrame) ax25Packet).getControlType()) {
           case RR: {
-            event = StateEvent.create(ax25Packet, Type.AX25_RR);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_RR);
             break;
           }
           case RNR: {
-            event = StateEvent.create(ax25Packet, Type.AX25_RNR);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_RNR);
             break;
           }
           case REJ: {
-            event = StateEvent.create(ax25Packet, Type.AX25_REJ);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_REJ);
             break;
           }
           default:
-            event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_UNKNOWN);
             break;
         }
         break;
       } case U: {
         switch (((UFrame) ax25Packet).getControlType()) {
           case SABM: {
-            event = StateEvent.create(ax25Packet, Type.AX25_SABM);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_SABM);
             break;
           }
           case DISC: {
-            event = StateEvent.create(ax25Packet, Type.AX25_DISC);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_DISC);
             break;
           }
           case DM: {
-            event = StateEvent.create(ax25Packet, Type.AX25_DM);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_DM);
             break;
           }
           case UA: {
-            event = StateEvent.create(ax25Packet, Type.AX25_UA);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_UA);
             break;
           }
           case FRMR: {
-            event = StateEvent.create(ax25Packet, Type.AX25_FRMR);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_FRMR);
             break;
           }
           default: {
-            event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
+            event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_UNKNOWN);
             break;
           }
         }
         break;
       } case UI: {
-        event = StateEvent.create(ax25Packet, Type.AX25_UI);
+        event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_UI);
         break;
       } default: {
-        event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
+        event = StateEvent.createIncomingEvent(ax25Packet, Type.AX25_UNKNOWN);
         break;
       }
     }

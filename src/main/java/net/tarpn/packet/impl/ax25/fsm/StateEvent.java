@@ -15,12 +15,25 @@ public class StateEvent {
     this.type = type;
   }
 
-  public static StateEvent create(AX25Packet packet, Type type) {
+  /**
+   * Create an event for an incoming packet. The session ID will be the source callsign of this packet
+   */
+  public static StateEvent createIncomingEvent(AX25Packet packet, Type type) {
     return new StateEvent(packet.getSource(), packet, type);
   }
 
-  public static StateEvent create(String sessionId, AX25Packet packet, Type type) {
-    return new StateEvent(sessionId, packet, type);
+  /**
+   * Create an event for an outgoing packet. The session ID will be the destination callsign of this packet
+   */
+  public static StateEvent createOutgoingEvent(AX25Packet packet, Type type) {
+    return new StateEvent(packet.getDestination(), packet, type);
+  }
+
+  /**
+   * Create a UI event. A static session ID of "UI" will be used.
+   */
+  public static StateEvent createUIEvent(AX25Packet packet, Type type) {
+    return new StateEvent("UI", packet, type);
   }
 
   public String getSessionId() {
@@ -53,7 +66,7 @@ public class StateEvent {
     T3_EXPIRE,
     //DL_CONNECT,
     //DL_DISCONNECT,
-    //DL_DATA,
+    DL_DATA,
     DL_UNIT_DATA,
     //DL_FLOW_OFF,
     //DL_FLOW_ON,

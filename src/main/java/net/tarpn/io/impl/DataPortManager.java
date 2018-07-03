@@ -23,12 +23,16 @@ import net.tarpn.frame.impl.PCapDumpFrameHandler;
 import net.tarpn.frame.impl.PacketReadingFrameHandler;
 import net.tarpn.io.DataPort;
 import net.tarpn.packet.Packet;
+import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
 import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.AX25PacketReader;
+import net.tarpn.packet.impl.CompositePacketHandler;
+import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.FakePacket;
+import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,23 +43,26 @@ public class DataPortManager {
   private final Queue<PacketRequest> inboundPackets;
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
+  private final AX25StateHandler ax25StateHandler;
 
   private DataPortManager(
       DataPort dataPort,
       Queue<PacketRequest> inboundPackets,
-      Queue<Packet> outboundPackets) {
+      Queue<Packet> outboundPackets,
+      Consumer<AX25Packet> networkPacketConsumer) {
     this.dataPort = dataPort;
     this.inboundPackets = inboundPackets;
     this.outboundPackets = outboundPackets;
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-
+    this.ax25StateHandler = new AX25StateHandler(outboundPackets::add, networkPacketConsumer);
   }
 
-  public static DataPortManager initialize(DataPort port) {
+  public static DataPortManager initialize(DataPort port, Consumer<AX25Packet> networkPacketConsumer) {
     return new DataPortManager(
         port,
         new ConcurrentLinkedQueue<>(),
-        new ConcurrentLinkedQueue<>()
+        new ConcurrentLinkedQueue<>(),
+        networkPacketConsumer
     );
   }
 
@@ -71,13 +78,23 @@ public class DataPortManager {
     return outboundPackets;
   }
 
+  public AX25StateHandler getAx25StateHandler() {
+    return ax25StateHandler;
+  }
+
   public Runnable getReaderRunnable() {
     return () -> {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
 
-      Consumer<Packet> packetConsumer = packet -> inboundPackets.add(
+      PacketHandler packetHandler = CompositePacketHandler.wrap(
+          new ConsolePacketHandler(),
+          ax25StateHandler
+      );
+
+      Consumer<Packet> packetConsumer = packet -> packetHandler.onPacket(
           new DefaultPacketRequest(getDataPort().getPortNumber(), packet, getOutboundPackets()::add));
+
 
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(

@@ -2,6 +2,7 @@ package net.tarpn.frame.impl;
 
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
+import net.tarpn.Util;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameReader;
 import net.tarpn.frame.impl.KISS.Protocol;
@@ -50,7 +51,11 @@ public class KISSFrameReader implements FrameReader {
           buffer.position(0);
           byte[] frame = new byte[len];
           buffer.get(frame, 0, len);
-          frameHandler.accept(new KISSFrame(port, kissCommand, frame));
+          try {
+            frameHandler.accept(new KISSFrame(port, kissCommand, frame));
+          } catch (Throwable t) {
+            LOG.warn("Failed to parse packet\n" + Util.toHexDump(frame));
+          }
           reset();
           return;
         }

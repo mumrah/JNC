@@ -4,6 +4,7 @@ import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
+import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.IFrame;
@@ -119,6 +120,24 @@ public class ConnectedStateHandler implements StateHandler {
             state.getReceiveState(),
             true);
         outgoingPackets.accept(resp);
+        newState = StateType.CONNECTED;
+        break;
+      }
+      case DL_UNIT_DATA: {
+        if(packet.getFrameType().equals(FrameType.UI)) {
+          outgoingPackets.accept(packet);
+        } else {
+          // warning
+        }
+        newState = StateType.CONNECTED;
+        break;
+      }
+      case DL_DATA: {
+        if(packet.getFrameType().equals(FrameType.I)) {
+          outgoingPackets.accept(packet);
+        } else {
+          // warning
+        }
         newState = StateType.CONNECTED;
         break;
       }

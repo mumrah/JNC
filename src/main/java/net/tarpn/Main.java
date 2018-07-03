@@ -10,17 +10,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.DataPortManager;
 import net.tarpn.io.impl.SerialDataPort;
-import net.tarpn.packet.Packet;
-import net.tarpn.packet.PacketHandler;
-import net.tarpn.packet.PacketRequest;
-import net.tarpn.packet.impl.CompositePacketHandler;
-import net.tarpn.packet.impl.ConsolePacketHandler;
-import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
 import net.tarpn.packet.impl.ax25.fsm.StateEvent;
 import net.tarpn.packet.impl.ax25.fsm.StateEvent.Type;
 import net.tarpn.packet.impl.netrom.NetworkManager;
@@ -35,56 +28,44 @@ public class Main {
     ExecutorService executorService = Executors.newCachedThreadPool();
     ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
-    // Define a port and initialize it with a DataPortManager
+    // Level 3: The network layer
+    NetworkManager network = NetworkManager.create();
+
+    // Level 2: The data link layer. Define a port and initialize it
     DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
     //DataPort port1 = SerialDataPort.openPort(1, "/tmp/vmodem0", 9600);
     port1.open();
 
-    DataPortManager portManager = DataPortManager.initialize(port1);
-    executorService.submit(portManager.getReaderRunnable());
-    executorService.submit(portManager.getWriterRunnable());
+    DataPortManager portManager = DataPortManager.initialize(port1, network.getInboundPackets()::add);
+    executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
+    executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
+    executorService.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
 
     // In general a data link can accept packets from multiple senders, so the output from the data
     // link layer should include the port number.
 
-    // Level 3 network layer
-    NetworkManager network = NetworkManager.create();
-
-    // Start up the AX.25 layer
-    AX25StateHandler ax25StateHandler = new AX25StateHandler(
-        portManager.getOutboundPackets()::add,
-        network.getInboundPackets()::add);
-    executorService.submit(ax25StateHandler.getRunnable());
-
-    // Poll the port manager for incoming frames and pass them to the packet handler
-    executorService.submit(() -> {
-      PacketHandler packetHandler = CompositePacketHandler.wrap(
-          new ConsolePacketHandler(),
-          ax25StateHandler
-      );
-      while(true) {
-        PacketRequest packetRequest = portManager.getInboundPackets().poll();
-        try {
-          if (packetRequest != null) {
-            packetHandler.onPacket(packetRequest);
-          } else {
-            Thread.sleep(50);
-          }
-        } catch (Throwable t) {
-          LOG.error("Failure when processing incoming packets", t);
-        }
-      }
-    });
-
-
-    // TODO fixme, for now just send all pending outbound networking packets
-    // TODO run this through the AX.25 state machine
     executorService.submit(() -> {
       while(true) {
         AX25Packet packet = network.getOutboundPackets().poll();
         try {
           if (packet != null) {
-            portManager.getOutboundPackets().add(packet);
+            switch(packet.getFrameType()) {
+              case I: {
+                portManager.getAx25StateHandler().getEventQueue().add(
+                    StateEvent.createOutgoingEvent(packet, Type.DL_DATA)
+                );
+                break;
+              }
+              case UI: {
+                portManager.getAx25StateHandler().getEventQueue().add(
+                    StateEvent.createUIEvent(packet, Type.DL_UNIT_DATA)
+                );
+                break;
+              }
+              default: {
+                break;
+              }
+            }
           } else {
             Thread.sleep(50);
           }
@@ -94,7 +75,7 @@ public class Main {
       }
     });
 
-    // Start the network layer
+    // Start up the network
     executorService.submit(network.getRunnable());
 
 
@@ -113,11 +94,9 @@ public class Main {
           "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r"
               .getBytes(StandardCharsets.US_ASCII));
       // Send this message to each port
-      for (String sessionId : ax25StateHandler.getSessionIds()) {
-        ax25StateHandler.getEventQueue().add(
-            StateEvent.create(sessionId, idPacket, Type.DL_UNIT_DATA));
-      }
-    }, 5, 30, TimeUnit.SECONDS);
+      portManager.getAx25StateHandler().getEventQueue().add(
+          StateEvent.createUIEvent(idPacket, Type.DL_UNIT_DATA));
+    }, 5, 300, TimeUnit.SECONDS);
 
 
     String[] nodes = new String[]{"TWO   ", "THREE ", "FOUR  "};
