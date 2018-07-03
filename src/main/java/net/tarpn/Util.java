@@ -100,5 +100,13 @@ public class Util {
         (byte)0x68, (byte)0x88, (byte)0x84, (byte)0xB4, (byte)0x40, (byte)0x85, (byte)0x73
     });
   }
+
+  public static byte[] copyFromBuffer(ByteBuffer buffer) {
+    int len = buffer.position();
+    byte[] arr = new byte[len];
+    buffer.position(0);
+    buffer.get(arr, 0, len);
+    return arr;
+  }
 }
 

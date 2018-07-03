@@ -4,16 +4,22 @@ import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
+import net.tarpn.packet.impl.netrom.NetRomNodes;
 
 public class DisconnectedStateHandler implements StateHandler {
 
   @Override
-  public void onEvent(State state, StateEvent event, Consumer<AX25Packet> outgoingPackets) {
+  public void onEvent(
+      State state,
+      StateEvent event,
+      Consumer<AX25Packet> outgoingPackets,
+      Consumer<AX25Packet> L3Packets) {
     AX25Packet packet = event.getPacket();
     AX25Call source = packet.getSourceCall();
     AX25Call dest = packet.getDestCall();
@@ -27,6 +33,7 @@ public class DisconnectedStateHandler implements StateHandler {
           outgoingPackets.accept(ua);
         } else {
           // Pass UI to layer 3
+          L3Packets.accept(event.getPacket());
         }
         newState = StateType.DISCONNECTED;
         break;

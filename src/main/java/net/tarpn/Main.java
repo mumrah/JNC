@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -11,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameHandler;
@@ -31,6 +33,7 @@ import net.tarpn.message.Message;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
+import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.PacketWriter;
 import net.tarpn.packet.impl.AX25PacketHandler;
 import net.tarpn.packet.impl.AX25PacketReader;
@@ -43,6 +46,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
+import net.tarpn.packet.impl.netrom.NetRomHandler;
+import net.tarpn.packet.impl.netrom.NetworkManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,6 +157,7 @@ public class Main {
 
     // Port 1
     DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
+    //DataPort port1 = SerialDataPort.openPort(1, "/tmp/vmodem0", 9600);
     port1.open();
 
 
@@ -159,13 +165,16 @@ public class Main {
     executorService.submit(portManager.getReaderRunnable());
     executorService.submit(portManager.getWriterRunnable());
 
-    AX25StateHandler ax25StateHandler = new AX25StateHandler(portManager.getOutboundPackets()::add);
+    NetworkManager network = NetworkManager.create();
+
+    AX25StateHandler ax25StateHandler = new AX25StateHandler(
+        portManager.getOutboundPackets()::add,
+        network.getInboundPackets()::add);
     ax25StateHandler.start();
 
     executorService.submit(() -> {
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
-          //new AX25PacketHandler()
           ax25StateHandler
       );
       while(true) {
@@ -185,6 +194,28 @@ public class Main {
     });
 
 
+    // TODO fixme, for now just send all pending outbound networking packets
+    // TODO run this through the AX.25 state machine
+    executorService.submit(() -> {
+      while(true) {
+        AX25Packet packet = network.getOutboundPackets().poll();
+        try {
+          if (packet != null) {
+            portManager.getOutboundPackets().add(packet);
+          } else {
+            Thread.sleep(50);
+          }
+        }  catch (Throwable t) {
+          LOG.error("Failure when sending network packets", t);
+        }
+      }
+    });
+
+    // Start the network layer
+    executorService.submit(network.getRunnable());
+
+
+
 
     //Queue<Frame> outgoingFrames = new ConcurrentLinkedQueue<>();
     //executorService.submit(newPortReader(port1, outgoingFrames));
@@ -200,28 +231,44 @@ public class Main {
           Protocol.NO_LAYER3,
           "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r".getBytes(StandardCharsets.US_ASCII));
       //portManager.getOutboundPackets().add(idPacket);
-    }, 15, 30, TimeUnit.SECONDS);
+    }, 5, 30, TimeUnit.SECONDS);
 
 
+    String[] nodes = new String[]{"TWO   ", "THREE ", "FOUR  "};
+    AtomicInteger n = new AtomicInteger(0);
     scheduledExecutorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic NODES message");
       // TODO on all ports
+      //int i = n.getAndIncrement() % 3;
+      //String node = nodes[i];
 
-      byte[] msg = new byte[] {
-          (byte)0xff,
-          'D',
-          'A',
-          'V',
-          'I',
-          'D',
-          '2'
-      };
+      ByteBuffer buffer = ByteBuffer.allocate(1024);
+      buffer.put((byte)0xff);
+      buffer.put("DAVID2".getBytes(StandardCharsets.US_ASCII));
+
+      AX25Call.create("K4DBZ", 3, 0x03, true, true).write(buffer::put);
+      buffer.put("JUDE  ".getBytes(StandardCharsets.US_ASCII));
+      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
+      buffer.put((byte)(223));
+
+      AX25Call.create("K4DBZ", 4, 0x03, true, true).write(buffer::put);
+      buffer.put("FIONA ".getBytes(StandardCharsets.US_ASCII));
+      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
+      buffer.put((byte)(224));
+
+      AX25Call.create("K4DBZ", 5, 0x03, true, true).write(buffer::put);
+      buffer.put("FELCTY".getBytes(StandardCharsets.US_ASCII));
+      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
+      buffer.put((byte)(225));
+
+
+      byte[] msg = Util.copyFromBuffer(buffer);
       UIFrame ui = UIFrame.create(
           AX25Call.create("NODES", 0),
           AX25Call.create("K4DBZ", 2),
           Protocol.NETROM, msg);
       portManager.getOutboundPackets().add(ui);
-    }, 5, 300, TimeUnit.SECONDS);
+    }, 10, 300, TimeUnit.SECONDS);
 
 
     //SocketDataPortServer server = new SocketDataPortServer(outgoingFrames);

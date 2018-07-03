@@ -14,7 +14,11 @@ import net.tarpn.packet.impl.ax25.UIFrame;
 public class ConnectedStateHandler implements StateHandler {
 
   @Override
-  public void onEvent(State state, StateEvent event, Consumer<AX25Packet> outgoingPackets) {
+  public void onEvent(
+      State state,
+      StateEvent event,
+      Consumer<AX25Packet> outgoingPackets,
+      Consumer<AX25Packet> L3Packets) {
     AX25Packet packet = event.getPacket();
     AX25Call source = packet.getSourceCall();
     AX25Call dest = packet.getDestCall();
@@ -36,12 +40,16 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
       case AX25_UI: {
-        UIFrame frame = (UIFrame) event.getPacket();
-        // ack the incoming UI frame
-        SFrame rr = SFrame.create(source, dest, Command.COMMAND, SupervisoryFrame.ControlType.RR,
-            state.getReceiveState(), true);
+        // Emit DL-DATA
+        L3Packets.accept(event.getPacket());
+
+        // If P=1, send RR
+        if(((UIFrame)event.getPacket()).isPollFinalSet()) {
+          SFrame rr = SFrame.create(source, dest, Command.COMMAND, SupervisoryFrame.ControlType.RR,
+              state.getReceiveState(), true);
+          outgoingPackets.accept(rr);
+        }
         newState = StateType.CONNECTED;
-        outgoingPackets.accept(rr);
         break;
       }
       case AX25_DISC: {
@@ -76,6 +84,7 @@ public class ConnectedStateHandler implements StateHandler {
           if (frame.getSendSequenceNumber() == state.getReceiveState()) {
             state.incrementReceiveState();
             // Emit DL-DATA
+            L3Packets.accept(frame);
             boolean pollFlag = ((IFrame) event.getPacket()).isPollBitSet();
             if(pollFlag) { // Asking for an Ack
               SFrame ack = SFrame.create(

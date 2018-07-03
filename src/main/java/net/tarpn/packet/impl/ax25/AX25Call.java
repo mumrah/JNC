@@ -30,9 +30,12 @@ public class AX25Call {
   }
 
   public static AX25Call create(String call, int ssid) {
-    return new AX25Call(call, ssid, 0, false, false);
+    return create(call, ssid, 0, false, false);
   }
 
+  public static AX25Call create(String call, int ssid, int rr, boolean cFlag, boolean last) {
+    return new AX25Call(call, ssid, rr, cFlag, last);
+  }
 
   public static AX25Call read(ByteBuffer buffer) {
     StringBuilder call = new StringBuilder();

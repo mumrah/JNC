@@ -38,3 +38,36 @@ should be dropped.
 > Ack: UA R F
 ```
 
+
+
+
+ 
+ 
+On RPI:
+
+    socat -d -d pty,raw,echo=0,link=/tmp/vmodem0 tcp-l:54321,reuseaddr,fork
+ 
+Then configure linbpq to use /tmp/vmodem0 serial device (it's a pty, not a real device). 
+ 
+Then on another machine, run:
+ 
+    socat -d -d tcp:david-packet.local:54321 pty,raw,echo=0,link=/tmp/vmodem0
+   
+Which makes another pty that you can connect to. We can create many of these types of bridges
+to emulate multiple ports connected to linbpq. Well, at least two if we're using `tarpn config`
+
+
+On the Java side, we can run multiple instances of JNC connected in this way
+for testing.
+
+
+## G8BPQ behavior:
+
+When we send a new NODES message from a new call/alias, it will send a SABM message.
+This changes the ROUTES output to include ">" which I think means you're connected.
+Does it always try to keep an active connection to every known node? This might make
+sense actually since it seems to use I frames (not UI) for the Net/Rom packets (I frames
+require a connection).
+
+
+Need to set QUALITY=0 in bpq32.cfg for ports?

@@ -24,10 +24,11 @@ public class AX25StateHandler implements PacketHandler {
   private final Map<StateType, StateHandler> handlers = new HashMap<>();
   private final Queue<StateEvent> eventQueue = new ConcurrentLinkedQueue<>();
   private final Consumer<AX25Packet> outgoingPackets;
+  private final Consumer<AX25Packet> L3Packets;
 
-  public AX25StateHandler(Consumer<AX25Packet> outgoingPackets) {
+  public AX25StateHandler(Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
     this.outgoingPackets = outgoingPackets;
-
+    this.L3Packets = L3Packets;
     handlers.put(StateType.DISCONNECTED, new DisconnectedStateHandler());
     handlers.put(StateType.CONNECTED, new ConnectedStateHandler());
     // TODO StateType.AWAITING_CONNECTION
@@ -114,7 +115,7 @@ public class AX25StateHandler implements PacketHandler {
             State state = sessions.computeIfAbsent(packet.getSourceCall(),
                 ax25Call -> new State(packet.getSourceCall(), packet.getDestCall()));
             StateHandler handler = handlers.get(state.getState());
-            handler.onEvent(state, event, outgoingPackets::accept);
+            handler.onEvent(state, event, outgoingPackets, L3Packets);
           } else {
             Thread.sleep(50);
           }
