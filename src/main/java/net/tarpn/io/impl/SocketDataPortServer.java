@@ -31,8 +31,7 @@ public class SocketDataPortServer implements Runnable {
         Socket clientSocket = serverSocket.accept();
         System.err.println("New connection at " + clientSocket.getLocalAddress());
         DataPort port = new SocketDataPort(clientSocket.getLocalPort(), clientSocket.getRemoteSocketAddress().toString(), clientSocket);
-        clientExecutor.submit(
-            Main.newPortReader(port, outboundFrames));
+        // TODO wire this in
       }
     } catch (IOException e) {
       throw new RuntimeException("Socket server had an error", e);

@@ -6,6 +6,15 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Networking layer (level 3)
+ *
+ * Handle incoming NET/ROM packets from the Data Link layer (level 2) and decide what to do with
+ * them.
+ *
+ * TODO routing
+ * TODO circuits (sessions)
+ */
 public class NetworkManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);

@@ -17,16 +17,8 @@ public class BaseNetRomPacket implements NetRomPacket {
   private final byte rxSeqNumber;
   private final byte opCode;
 
-  BaseNetRomPacket(
-      byte[] packet,
-      AX25Call originNode,
-      AX25Call destNode,
-      byte ttl,
-      byte circuitIndex,
-      byte circuitId,
-      byte txSeqNumber,
-      byte rxSeqNumber,
-      byte opCode) {
+  BaseNetRomPacket(byte[] packet, AX25Call originNode, AX25Call destNode, byte ttl,
+      byte circuitIndex, byte circuitId, byte txSeqNumber, byte rxSeqNumber, byte opCode) {
     this.packet = packet;
     this.originNode = originNode;
     this.destNode = destNode;
@@ -38,15 +30,8 @@ public class BaseNetRomPacket implements NetRomPacket {
     this.opCode = opCode;
   }
 
-  static void writeHeaders(
-      ByteConsumer byteConsumer,
-      AX25Call originNode,
-      AX25Call destNode,
-      byte ttl,
-      byte circuitIndex,
-      byte circuitId,
-      byte txSeqNumber,
-      byte rxSeqNumber,
+  static void writeHeaders(ByteConsumer byteConsumer, AX25Call originNode, AX25Call destNode,
+      byte ttl, byte circuitIndex, byte circuitId, byte txSeqNumber, byte rxSeqNumber,
       byte opCode) {
     originNode.write(byteConsumer);
     destNode.write(byteConsumer);
@@ -58,12 +43,8 @@ public class BaseNetRomPacket implements NetRomPacket {
     byteConsumer.accept(opCode);
   }
 
-  public static BaseNetRomPacket createDisconnectAck(
-      AX25Call originNode,
-      AX25Call destNode,
-      byte ttl,
-      byte circuitIndex,
-      byte circuitId) {
+  public static BaseNetRomPacket createDisconnectAck(AX25Call originNode, AX25Call destNode,
+      byte ttl, byte circuitIndex, byte circuitId) {
     byte opByte = OpType.DisconnectAcknowledge.asByte(false, false, false);
     ByteBuffer buffer = ByteBuffer.allocate(1024);
     writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, (byte)0x00, (byte)0x00, opByte);
@@ -81,12 +62,8 @@ public class BaseNetRomPacket implements NetRomPacket {
     );
   }
 
-  public static BaseNetRomPacket createDisconnectRequest(
-      AX25Call originNode,
-      AX25Call destNode,
-      byte ttl,
-      byte circuitIndex,
-      byte circuitId) {
+  public static BaseNetRomPacket createDisconnectRequest(AX25Call originNode, AX25Call destNode,
+      byte ttl, byte circuitIndex, byte circuitId) {
     byte opByte = OpType.DisconnectRequest.asByte(false, false, false);
     ByteBuffer buffer = ByteBuffer.allocate(1024);
     writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, (byte)0x00, (byte)0x00, opByte);
@@ -104,13 +81,8 @@ public class BaseNetRomPacket implements NetRomPacket {
     );
   }
 
-  public static BaseNetRomPacket createInfoAck(
-      AX25Call originNode,
-      AX25Call destNode,
-      byte ttl,
-      byte circuitIndex,
-      byte circuitId,
-      byte rxSeqNumber) {
+  public static BaseNetRomPacket createInfoAck(AX25Call originNode, AX25Call destNode, byte ttl,
+      byte circuitIndex, byte circuitId, byte rxSeqNumber) {
     byte opByte = OpType.InformationAcknowledge.asByte(false, false, false);
     ByteBuffer buffer = ByteBuffer.allocate(1024);
     writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, (byte)0x00, rxSeqNumber, opByte);

@@ -17,13 +17,34 @@ import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.fsm.StateEvent.Type;
 
+/**
+ * Handle incoming AX.25 frames and send them to the appropriate state handler.
+ */
 public class AX25StateHandler implements PacketHandler {
 
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
-  private final Map<AX25Call, State> sessions = new ConcurrentHashMap<>();
+  /**
+   * Map of state handlers for the state machine
+   */
   private final Map<StateType, StateHandler> handlers = new HashMap<>();
+
+  /**
+   * One event queue for all AX.25 state machines
+   */
   private final Queue<StateEvent> eventQueue = new ConcurrentLinkedQueue<>();
+
+  /**
+   * Map of AX.25 state machines, keyed by a "session id" which is the source call
+   */
+  private final Map<String, State> sessions = new ConcurrentHashMap<>();
+
+  /**
+   * Outbound AX.25 packets
+   */
   private final Consumer<AX25Packet> outgoingPackets;
+
+  /**
+   * Inbound level 3 packets (NET/ROM only for now)
+   */
   private final Consumer<AX25Packet> L3Packets;
 
   public AX25StateHandler(Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
@@ -105,15 +126,16 @@ public class AX25StateHandler implements PacketHandler {
     eventQueue.add(event);
   }
 
-  public void start() {
-    Future<?> future = executor.submit(() -> {
+  public Runnable getRunnable() {
+    return () -> {
       while(true) {
         StateEvent event = eventQueue.poll();
         try {
           if (event != null) {
+            // For each incoming event, figure out which state machine should handle it
             AX25Packet packet = event.getPacket();
-            State state = sessions.computeIfAbsent(packet.getSourceCall(),
-                ax25Call -> new State(packet.getSourceCall(), packet.getDestCall()));
+            State state = sessions.computeIfAbsent(event.getSessionId(),
+                ax25Call -> new State(event.getSessionId(), packet.getSourceCall(), packet.getDestCall()));
             StateHandler handler = handlers.get(state.getState());
             handler.onEvent(state, event, outgoingPackets, L3Packets);
           } else {
@@ -123,6 +145,13 @@ public class AX25StateHandler implements PacketHandler {
           t.printStackTrace();
         }
       }
-    });
+    };
+  }
+
+  /**
+   * Used for external components to add events to be processed by a state machine
+   */
+  public Queue<StateEvent> getEventQueue() {
+    return eventQueue;
   }
 }

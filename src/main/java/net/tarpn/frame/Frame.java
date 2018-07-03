@@ -7,8 +7,8 @@ import java.util.Arrays;
  * A Data Frame
  *
  * This represents the physical packet heard on the data link. It is a data stream heard by one of
- * our neighbors. No packet has been decoded at this point, this object only contains the un-framed
- * bytes.
+ * our links. No packet has been decoded at this point, this object only contains the data as it
+ * was heard by the link and sent in a {@link net.tarpn.io.DataPort}
  *
  * TODO:
  * <li>frame check sequence</li>
@@ -28,7 +28,7 @@ public class Frame {
   }
 
   public byte[] getData() {
-    return data; // todo protect this array
+    return data;
   }
 
   @Override

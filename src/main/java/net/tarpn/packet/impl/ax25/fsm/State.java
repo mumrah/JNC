@@ -7,6 +7,7 @@ import net.tarpn.packet.impl.ax25.DXE.Timer;
 public class State {
   public static final int T1_TIMEOUT_MS = 100;
 
+  private final String stateId;
   private final AX25Call sourceCall;
   private final AX25Call destCall;
 
@@ -21,10 +22,15 @@ public class State {
 
   private Timer t1Timer = Timer.create(T1_TIMEOUT_MS);
 
-  public State(AX25Call sourceCall, AX25Call destCall) {
+  public State(String stateId, AX25Call sourceCall, AX25Call destCall) {
+    this.stateId = stateId;
     this.sourceCall = sourceCall;
     this.destCall = destCall;
     this.currentState = StateType.DISCONNECTED;
+  }
+
+  public String getStateId() {
+    return stateId;
   }
 
   public void setState(StateType newState) {
