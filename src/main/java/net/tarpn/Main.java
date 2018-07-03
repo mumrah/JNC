@@ -12,6 +12,7 @@ import net.tarpn.io.impl.DataPortManager;
 import net.tarpn.io.impl.SerialDataPort;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
+import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
@@ -20,6 +21,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
+import net.tarpn.packet.impl.ax25.fsm.StateEvent;
+import net.tarpn.packet.impl.ax25.fsm.StateEvent.Type;
 import net.tarpn.packet.impl.netrom.NetworkManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +44,9 @@ public class Main {
     executorService.submit(portManager.getReaderRunnable());
     executorService.submit(portManager.getWriterRunnable());
 
+    // In general a data link can accept packets from multiple senders, so the output from the data
+    // link layer should include the port number.
+
     // Level 3 network layer
     NetworkManager network = NetworkManager.create();
 
@@ -57,12 +63,10 @@ public class Main {
           ax25StateHandler
       );
       while(true) {
-        Packet packet = portManager.getInboundPackets().poll();
+        PacketRequest packetRequest = portManager.getInboundPackets().poll();
         try {
-          if (packet != null) {
-            packetHandler.onPacket(
-                new DefaultPacketRequest(portManager.getDataPort().getPortNumber(), packet,
-                    responsePacket -> portManager.getOutboundPackets().add(responsePacket)));
+          if (packetRequest != null) {
+            packetHandler.onPacket(packetRequest);
           } else {
             Thread.sleep(50);
           }
@@ -100,16 +104,19 @@ public class Main {
     //executorService.submit(newPortReader(port1, outgoingFrames));
     //executorService.submit(newPortWriter(port1, outgoingFrames));
 
-
     scheduledExecutorService.scheduleWithFixedDelay(() -> {
-      //LOG.info("Sending automatic ID message");
-      // TODO on all ports
+      LOG.info("Sending automatic ID message");
       AX25Packet idPacket = UIFrame.create(
           AX25Call.create("ID"),
           AX25Call.create("K4DBZ"),
           Protocol.NO_LAYER3,
-          "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r".getBytes(StandardCharsets.US_ASCII));
-      //portManager.getOutboundPackets().add(idPacket);
+          "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r"
+              .getBytes(StandardCharsets.US_ASCII));
+      // Send this message to each port
+      for (String sessionId : ax25StateHandler.getSessionIds()) {
+        ax25StateHandler.getEventQueue().add(
+            StateEvent.create(sessionId, idPacket, Type.DL_UNIT_DATA));
+      }
     }, 5, 30, TimeUnit.SECONDS);
 
 

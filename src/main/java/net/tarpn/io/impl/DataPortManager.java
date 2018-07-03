@@ -24,7 +24,9 @@ import net.tarpn.frame.impl.PacketReadingFrameHandler;
 import net.tarpn.io.DataPort;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;
+import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.AX25PacketReader;
+import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.FakePacket;
 import org.slf4j.Logger;
@@ -34,13 +36,13 @@ public class DataPortManager {
   private static final Logger LOG = LoggerFactory.getLogger(DataPortManager.class);
 
   private final DataPort dataPort;
-  private final Queue<Packet> inboundPackets;
+  private final Queue<PacketRequest> inboundPackets;
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
 
   private DataPortManager(
       DataPort dataPort,
-      Queue<Packet> inboundPackets,
+      Queue<PacketRequest> inboundPackets,
       Queue<Packet> outboundPackets) {
     this.dataPort = dataPort;
     this.inboundPackets = inboundPackets;
@@ -61,7 +63,7 @@ public class DataPortManager {
     return dataPort;
   }
 
-  public Queue<Packet> getInboundPackets() {
+  public Queue<PacketRequest> getInboundPackets() {
     return inboundPackets;
   }
 
@@ -74,12 +76,15 @@ public class DataPortManager {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
 
+      Consumer<Packet> packetConsumer = packet -> inboundPackets.add(
+          new DefaultPacketRequest(getDataPort().getPortNumber(), packet, getOutboundPackets()::add));
+
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(
           new ConsoleFrameHandler(),
           pCapDumpFrameHandler,
           new KISSCommandHandler(),
-          new PacketReadingFrameHandler(packetReader, inboundPackets::add)
+          new PacketReadingFrameHandler(packetReader, packetConsumer)
       );
 
       Consumer<Frame> frameConsumer = frame ->

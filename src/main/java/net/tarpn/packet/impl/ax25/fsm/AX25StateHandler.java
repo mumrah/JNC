@@ -3,15 +3,12 @@ package net.tarpn.packet.impl.ax25.fsm;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
-import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -66,60 +63,60 @@ public class AX25StateHandler implements PacketHandler {
     final StateEvent event;
     switch (ax25Packet.getFrameType()) {
       case I: {
-        event = new StateEvent(ax25Packet, Type.AX25_INFO);
+        event = StateEvent.create(ax25Packet, Type.AX25_INFO);
         break;
       } case S: {
         switch (((SFrame) ax25Packet).getControlType()) {
           case RR: {
-            event = new StateEvent(ax25Packet, Type.AX25_RR);
+            event = StateEvent.create(ax25Packet, Type.AX25_RR);
             break;
           }
           case RNR: {
-            event = new StateEvent(ax25Packet, Type.AX25_RNR);
+            event = StateEvent.create(ax25Packet, Type.AX25_RNR);
             break;
           }
           case REJ: {
-            event = new StateEvent(ax25Packet, Type.AX25_REJ);
+            event = StateEvent.create(ax25Packet, Type.AX25_REJ);
             break;
           }
           default:
-            event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
+            event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
             break;
         }
         break;
       } case U: {
         switch (((UFrame) ax25Packet).getControlType()) {
           case SABM: {
-            event = new StateEvent(ax25Packet, Type.AX25_SABM);
+            event = StateEvent.create(ax25Packet, Type.AX25_SABM);
             break;
           }
           case DISC: {
-            event = new StateEvent(ax25Packet, Type.AX25_DISC);
+            event = StateEvent.create(ax25Packet, Type.AX25_DISC);
             break;
           }
           case DM: {
-            event = new StateEvent(ax25Packet, Type.AX25_DM);
+            event = StateEvent.create(ax25Packet, Type.AX25_DM);
             break;
           }
           case UA: {
-            event = new StateEvent(ax25Packet, Type.AX25_UA);
+            event = StateEvent.create(ax25Packet, Type.AX25_UA);
             break;
           }
           case FRMR: {
-            event = new StateEvent(ax25Packet, Type.AX25_FRMR);
+            event = StateEvent.create(ax25Packet, Type.AX25_FRMR);
             break;
           }
           default: {
-            event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
+            event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
             break;
           }
         }
         break;
       } case UI: {
-        event = new StateEvent(ax25Packet, Type.AX25_UI);
+        event = StateEvent.create(ax25Packet, Type.AX25_UI);
         break;
       } default: {
-        event = new StateEvent(ax25Packet, Type.AX25_UNKNOWN);
+        event = StateEvent.create(ax25Packet, Type.AX25_UNKNOWN);
         break;
       }
     }
@@ -153,5 +150,12 @@ public class AX25StateHandler implements PacketHandler {
    */
   public Queue<StateEvent> getEventQueue() {
     return eventQueue;
+  }
+
+  /**
+   * Return the current set of session IDs
+   */
+  public Set<String> getSessionIds() {
+    return sessions.keySet();
   }
 }

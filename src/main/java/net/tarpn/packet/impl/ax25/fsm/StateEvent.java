@@ -9,14 +9,18 @@ public class StateEvent {
   private final AX25Packet packet;
   private final Type type;
 
-  public StateEvent(AX25Packet packet, Type type) {
-    this(packet.getSource(), packet, type);
-  }
-
-  public StateEvent(String sessionId, AX25Packet packet, Type type) {
+  private StateEvent(String sessionId, AX25Packet packet, Type type) {
     this.sessionId = sessionId;
     this.packet = packet;
     this.type = type;
+  }
+
+  public static StateEvent create(AX25Packet packet, Type type) {
+    return new StateEvent(packet.getSource(), packet, type);
+  }
+
+  public static StateEvent create(String sessionId, AX25Packet packet, Type type) {
+    return new StateEvent(sessionId, packet, type);
   }
 
   public String getSessionId() {
@@ -31,7 +35,7 @@ public class StateEvent {
     return type;
   }
 
-  enum Type {
+  public enum Type {
     AX25_UA,
     AX25_DM,
     AX25_UI,
