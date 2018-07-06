@@ -1,5 +1,10 @@
 package net.tarpn;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
@@ -10,12 +15,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.DataPortManager;
 import net.tarpn.io.impl.SerialDataPort;
+import net.tarpn.io.impl.SocketDataPort;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
+import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
+import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.fsm.StateEvent;
 import net.tarpn.packet.impl.ax25.fsm.StateEvent.Type;
+import net.tarpn.packet.impl.netrom.NetRomConnectAck;
+import net.tarpn.packet.impl.netrom.NetRomConnectRequest;
 import net.tarpn.packet.impl.netrom.NetworkManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,6 +146,35 @@ public class Main {
     }, 10, 300, TimeUnit.SECONDS);
 
 
+    // NET/ROM connect
+    scheduledExecutorService.schedule(() -> {
+      NetRomConnectRequest req = NetRomConnectRequest.create(
+          AX25Call.create("K4DBZ", 3), // JUDE
+          AX25Call.create("K4DBZ", 1), // RPi
+          (byte) 7, // ttl
+          (byte) 99, // my circuit idx
+          (byte) 0, // my circuit id
+          (byte) 0, // tx
+          (byte) 0, // rx
+          (byte) 1, // proposed window
+          AX25Call.create("K4DBZ", 0),
+          AX25Call.create("K4DBZ", 3)
+      );
+
+      IFrame frame = IFrame.create(AX25Call.create("K4DBZ", 1), AX25Call.create("K4DBZ", 2),
+          Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, req.getPayload());
+      //portManager.getOutboundPackets().add(frame);
+    }, 60, TimeUnit.SECONDS);
+
+
+
+    // Initiate a connect
+    scheduledExecutorService.schedule(() -> {
+      //portManager.getAx25StateHandler().getEventQueue().add(
+      //    StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 1))
+      //);
+    }, 7, TimeUnit.SECONDS);
+
     //SocketDataPortServer server = new SocketDataPortServer(outgoingFrames);
     //executorService.submit(server);
 
@@ -153,5 +192,42 @@ public class Main {
         e.printStackTrace();
       }
     }));
+
+
+    ServerSocket serverSocket = new ServerSocket(7777);
+    System.err.println("Started socket server on 7777");
+    while(true) {
+      Socket clientSocket = serverSocket.accept();
+      executorService.submit(() -> {
+        try {
+          BufferedReader reader = new BufferedReader(
+              new InputStreamReader(clientSocket.getInputStream()));
+          String line;
+          while ((line = reader.readLine()) != null) {
+            if(line.trim().equalsIgnoreCase("C")) {
+              System.err.println("Trying for CONNECT");
+              portManager.getAx25StateHandler().getEventQueue().add(
+                  StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 9))
+              );
+            } else if(line.trim().equalsIgnoreCase("D")) {
+              System.err.println("Trying for DISCONNECT");
+              portManager.getAx25StateHandler().getEventQueue().add(
+                  StateEvent.createDisconnectEvent(AX25Call.create("K4DBZ", 9))
+              );
+            } else {
+              System.err.println("Sending INFO");
+              IFrame data = IFrame.create(AX25Call.create("K4DBZ", 9), Configuration.getOwnNodeCallsign(),
+                  Command.COMMAND, 0, 0, true, Protocol.NO_LAYER3,
+                  line.trim().concat("\r").getBytes(StandardCharsets.US_ASCII));
+              portManager.getAx25StateHandler().getEventQueue().add(
+                  StateEvent.createOutgoingEvent(data, Type.DL_DATA)
+              );
+            }
+          }
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      });
+    }
   }
 }

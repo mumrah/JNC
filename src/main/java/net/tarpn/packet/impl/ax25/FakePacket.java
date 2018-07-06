@@ -22,6 +22,10 @@ public class FakePacket implements Packet {
     return new FakePacket(id, payload);
   }
 
+  public static FakePacket empty() {
+    return new FakePacket("", new byte[]{});
+  }
+
   @Override
   public byte[] getPayload() {
     return payload;

@@ -6,12 +6,8 @@ import java.net.Socket;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import net.tarpn.Main;
 import net.tarpn.frame.Frame;
-import net.tarpn.frame.FrameReader;
-import net.tarpn.frame.impl.KISSFrameReader;
 import net.tarpn.io.DataPort;
-import net.tarpn.message.Message;
 
 public class SocketDataPortServer implements Runnable {
 

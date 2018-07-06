@@ -69,21 +69,38 @@ public class NetRomHandler {
 
         System.err.println(netRomPacket);
 
-        if(netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
-          NetRomConnectRequest netromReq = (NetRomConnectRequest)netRomPacket;
+        // TODO for now, just have this here for testing
+        if (netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
+          NetRomConnectRequest netromReq = (NetRomConnectRequest) netRomPacket;
           NetRomConnectAck netromResp = NetRomConnectAck.create(
               netromReq.getDestNode(),
               netromReq.getOriginNode(),
-              (byte)0x07,
+              (byte) 0x07,
               netromReq.getCircuitIndex(),
               netromReq.getCircuitId(),
-              (byte)0x64, // my circuit idx
-              (byte)0x02, // my circuit id
+              (byte) 0x64, // my circuit idx (100)
+              (byte) 0x02, // my circuit id  (2)
               netromReq.getProposedWindowSize()
           );
 
           IFrame resp = IFrame.create(infoFrame.getSourceCall(), infoFrame.getDestCall(),
-              Command.COMMAND, (byte)0, (byte)0, true, Protocol.NETROM, netromResp.getPayload());
+              Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, netromResp.getPayload());
+          outgoing.accept(resp);
+        }
+
+        if (netRomPacket.getOpType().equals(OpType.Information)) {
+          NetRomInfo netromReq = (NetRomInfo) netRomPacket;
+          NetRomPacket netromResp = BaseNetRomPacket.createInfoAck(
+              netromReq.getDestNode(),
+              netromReq.getOriginNode(),
+              (byte) 0x07,
+              netromReq.getCircuitIndex(),
+              netromReq.getCircuitId(),
+              (byte)(netromReq.getTxSeqNumber() + 1)
+          );
+
+          IFrame resp = IFrame.create(infoFrame.getSourceCall(), infoFrame.getDestCall(),
+              Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, netromResp.getPayload());
           outgoing.accept(resp);
         }
       }

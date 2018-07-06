@@ -29,6 +29,11 @@ public class AX25Call {
     return create(call, 0);
   }
 
+  public static AX25Call fromString(String callWithSSID) {
+    String[] tokens = callWithSSID.split("-");
+    return create(tokens[0].trim(), Integer.parseInt(tokens[1]));
+  }
+
   public static AX25Call create(String call, int ssid) {
     return create(call, ssid, 0, false, false);
   }
@@ -78,11 +83,11 @@ public class AX25Call {
     return ssid;
   }
 
-  public int getRr() {
+  public int getRR() {
     return rr;
   }
 
-  public boolean isCFlag() {
+  public boolean isCommandFlagSet() {
     return cFlag;
   }
 
@@ -96,11 +101,11 @@ public class AX25Call {
     this.last = false;
   }
 
-  public void setRr(int rr) {
+  public void setRR(int rr) {
     this.rr = rr;
   }
 
-  public void setcFlag(boolean cFlag) {
+  public void setCommandFlag(boolean cFlag) {
     this.cFlag = cFlag;
   }
 

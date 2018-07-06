@@ -44,6 +44,7 @@ public class DataPortManager {
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
   private final AX25StateHandler ax25StateHandler;
+  private final Object portLock = new Object();
 
   private DataPortManager(
       DataPort dataPort,
@@ -112,11 +113,13 @@ public class DataPortManager {
       try {
         while(true) {
           // Read off any input data
-          while(inputStream.available() > 0) {
-            int d = inputStream.read();
-            frameReader.accept(d, frame -> {
-              frameHandler.onFrame(new DefaultFrameRequest(frame, frameConsumer));
-            });
+          synchronized (portLock) { // don't write anything while we're reading
+            while(inputStream.available() > 0) {
+              int d = inputStream.read();
+              frameReader.accept(d, frame -> {
+                frameHandler.onFrame(new DefaultFrameRequest(frame, frameConsumer));
+              });
+            }
           }
           Thread.sleep(50);
         }
@@ -132,12 +135,14 @@ public class DataPortManager {
 
       // TODO need to sync output to port (frame queue or a lock)
       Consumer<byte[]> toDataPort = bytes -> {
-        LOG.info("Sending data to port " + dataPort.getPortNumber());
-        try {
-          outputStream.write(bytes);
-          outputStream.flush();
-        } catch (IOException e) {
-          LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
+        synchronized (portLock) {
+          LOG.info("Sending data to port " + dataPort.getPortNumber());
+          try {
+            outputStream.write(bytes);
+            outputStream.flush();
+          } catch (IOException e) {
+            LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
+          }
         }
       };
 

@@ -49,7 +49,8 @@ public class AX25StateHandler implements PacketHandler {
     this.L3Packets = L3Packets;
     handlers.put(StateType.DISCONNECTED, new DisconnectedStateHandler());
     handlers.put(StateType.CONNECTED, new ConnectedStateHandler());
-    // TODO StateType.AWAITING_CONNECTION
+    handlers.put(StateType.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
+    handlers.put(StateType.TIMER_RECOVERY, new TimerRecoveryStateHandler());
   }
 
   /**
@@ -129,12 +130,14 @@ public class AX25StateHandler implements PacketHandler {
         StateEvent event = eventQueue.poll();
         try {
           if (event != null) {
+            String sessionId = event.getRemoteCall().toString();
             // For each incoming event, figure out which state machine should handle it
-            AX25Packet packet = event.getPacket();
-            State state = sessions.computeIfAbsent(event.getSessionId(),
-                ax25Call -> new State(event.getSessionId(), packet.getSourceCall(), packet.getDestCall()));
+            State state = sessions.computeIfAbsent(sessionId,
+                ax25Call -> new State(sessionId, event.getRemoteCall(), eventQueue::add));
             StateHandler handler = handlers.get(state.getState());
+            System.err.println("Before state handler: " + state);
             handler.onEvent(state, event, outgoingPackets, L3Packets);
+            System.err.println("After state handler: " + state);
           } else {
             Thread.sleep(50);
           }

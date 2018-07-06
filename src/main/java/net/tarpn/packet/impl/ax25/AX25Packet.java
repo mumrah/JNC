@@ -17,8 +17,8 @@ public interface AX25Packet extends Packet {
   AX25Call getSourceCall();
 
   default Command getCommand() {
-    boolean destC = getDestCall().isCFlag();
-    boolean sourceC = getSourceCall().isCFlag();
+    boolean destC = getDestCall().isCommandFlagSet();
+    boolean sourceC = getSourceCall().isCommandFlagSet();
     if(destC) {
       if(sourceC) {
         return Command.LEGACY;
@@ -138,12 +138,12 @@ public interface AX25Packet extends Packet {
         case LEGACY:
           break;
         case COMMAND:
-          dest.setcFlag(true);
-          source.setcFlag(false);
+          dest.setCommandFlag(true);
+          source.setCommandFlag(false);
           break;
         case RESPONSE:
-          dest.setcFlag(false);
-          source.setcFlag(true);
+          dest.setCommandFlag(false);
+          source.setCommandFlag(true);
           break;
       }
     }
