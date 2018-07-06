@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25;
 
 public enum StateType {
   DISCONNECTED,

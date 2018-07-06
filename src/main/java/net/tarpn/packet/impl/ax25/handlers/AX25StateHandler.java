@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +12,10 @@ import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
-import net.tarpn.packet.impl.ax25.fsm.StateEvent.Type;
+import net.tarpn.packet.impl.ax25.State;
+import net.tarpn.packet.impl.ax25.StateEvent;
+import net.tarpn.packet.impl.ax25.StateEvent.Type;
+import net.tarpn.packet.impl.ax25.StateType;
 
 /**
  * Handle incoming AX.25 frames and send them to the appropriate state handler.
@@ -136,7 +139,8 @@ public class AX25StateHandler implements PacketHandler {
                 ax25Call -> new State(sessionId, event.getRemoteCall(), eventQueue::add));
             StateHandler handler = handlers.get(state.getState());
             System.err.println("Before state handler: " + state);
-            handler.onEvent(state, event, outgoingPackets, L3Packets);
+            StateType newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
+            state.setState(newState);
             System.err.println("After state handler: " + state);
           } else {
             Thread.sleep(50);

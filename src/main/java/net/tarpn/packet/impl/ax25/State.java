@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -6,12 +6,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class State {
   public static final int T1_TIMEOUT_MS = 4000;
   public static final int T3_TIMEOUT_MS = 180000; // 3 minutes
-
 
   private final String sessionId;
   private final AX25Call remoteNodeCall;
@@ -136,7 +134,7 @@ public class State {
 
   @Override
   public String toString() {
-    return "State{" +
+    return "State(" + sessionId + "){" +
         "state=" + currentState +
         ", V(s)=" + vs.get() +
         ", V(r)=" + vr.get() +

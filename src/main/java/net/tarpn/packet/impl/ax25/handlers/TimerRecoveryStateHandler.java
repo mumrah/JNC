@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
 import net.tarpn.Configuration;
@@ -9,10 +9,13 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
+import net.tarpn.packet.impl.ax25.State;
+import net.tarpn.packet.impl.ax25.StateEvent;
+import net.tarpn.packet.impl.ax25.StateType;
 
 public class TimerRecoveryStateHandler implements StateHandler {
   @Override
-  public void onEvent(
+  public StateType onEvent(
       State state,
       StateEvent event,
       Consumer<AX25Packet> outgoingPackets,
@@ -106,7 +109,8 @@ public class TimerRecoveryStateHandler implements StateHandler {
       }
       default:
         newState = StateType.TIMER_RECOVERY;
+        break;
     }
-    state.setState(newState);
+    return newState;
   }
 }

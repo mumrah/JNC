@@ -1,22 +1,22 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25.handlers;
 
-import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.Configuration;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
-import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
-import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
+import net.tarpn.packet.impl.ax25.State;
+import net.tarpn.packet.impl.ax25.StateEvent;
+import net.tarpn.packet.impl.ax25.StateType;
 
 public class AwaitingConnectionStateHandler implements StateHandler {
 
   @Override
-  public void onEvent(
+  public StateType onEvent(
       State state,
       StateEvent event,
       Consumer<AX25Packet> outgoingPackets,
@@ -104,6 +104,6 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         break;
       }
     }
-    state.setState(newState);
+    return newState;
   }
 }

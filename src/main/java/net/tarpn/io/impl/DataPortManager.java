@@ -32,7 +32,7 @@ import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.FakePacket;
-import net.tarpn.packet.impl.ax25.fsm.AX25StateHandler;
+import net.tarpn.packet.impl.ax25.handlers.AX25StateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

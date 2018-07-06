@@ -1,10 +1,7 @@
-package net.tarpn.packet.impl.ax25.fsm;
+package net.tarpn.packet.impl.ax25;
 
 
-import java.util.Collections;
 import java.util.List;
-import net.tarpn.packet.impl.ax25.AX25Call;
-import net.tarpn.packet.impl.ax25.AX25Packet;
 
 public class StateEvent {
 
