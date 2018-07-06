@@ -6,6 +6,9 @@ import java.io.OutputStream;
 import java.net.Socket;
 import net.tarpn.io.DataPort;
 
+/**
+ * A TCP socket data port
+ */
 public class SocketDataPort implements DataPort {
 
   private final int port;
@@ -19,7 +22,7 @@ public class SocketDataPort implements DataPort {
   }
 
   @Override
-  public void open() throws IOException {
+  public void open() {
     // No-op, already opened
   }
 

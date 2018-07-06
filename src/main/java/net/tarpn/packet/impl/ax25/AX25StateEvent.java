@@ -1,15 +1,18 @@
 package net.tarpn.packet.impl.ax25;
 
-
 import java.util.List;
 
-public class StateEvent {
+/**
+ * A uniform event type to allow for sequential processing of all AX.25 state primitives, packets,
+ * and timers.
+ */
+public class AX25StateEvent {
 
   private final AX25Call remoteCall;
   private final AX25Packet packet;
   private final Type type;
 
-  private StateEvent(AX25Call remoteCall, AX25Packet packet, Type type) {
+  private AX25StateEvent(AX25Call remoteCall, AX25Packet packet, Type type) {
     this.remoteCall = remoteCall;
     this.packet = packet;
     this.type = type;
@@ -18,38 +21,38 @@ public class StateEvent {
   /**
    * Create an event for an incoming packet. The session ID will be the source callsign of this packet
    */
-  public static StateEvent createIncomingEvent(AX25Packet packet, Type type) {
-    return new StateEvent(packet.getSourceCall(), packet, type);
+  public static AX25StateEvent createIncomingEvent(AX25Packet packet, Type type) {
+    return new AX25StateEvent(packet.getSourceCall(), packet, type);
   }
 
   /**
    * Create an event for an outgoing packet. The session ID will be the destination callsign of this packet
    */
-  public static StateEvent createOutgoingEvent(AX25Packet packet, Type type) {
-    return new StateEvent(packet.getDestCall(), packet, type);
+  public static AX25StateEvent createOutgoingEvent(AX25Packet packet, Type type) {
+    return new AX25StateEvent(packet.getDestCall(), packet, type);
   }
 
   /**
    * Create a UI event. A static session ID of "UI" will be used.
    */
-  public static StateEvent createUIEvent(AX25Packet packet, Type type) {
-    return new StateEvent(packet.getDestCall(), packet, type);
+  public static AX25StateEvent createUIEvent(AX25Packet packet, Type type) {
+    return new AX25StateEvent(packet.getDestCall(), packet, type);
   }
 
-  public static StateEvent createT1ExpireEvent(AX25Call retryConnectTo) {
-    return new StateEvent(retryConnectTo, DummyAX25Packet.empty(), Type.T1_EXPIRE);
+  public static AX25StateEvent createT1ExpireEvent(AX25Call retryConnectTo) {
+    return new AX25StateEvent(retryConnectTo, DummyAX25Packet.empty(), Type.T1_EXPIRE);
   }
 
-  public static StateEvent createT3ExpireEvent(AX25Call retryConnectTo) {
-    return new StateEvent(retryConnectTo, DummyAX25Packet.empty(), Type.T3_EXPIRE);
+  public static AX25StateEvent createT3ExpireEvent(AX25Call retryConnectTo) {
+    return new AX25StateEvent(retryConnectTo, DummyAX25Packet.empty(), Type.T3_EXPIRE);
   }
 
-  public static StateEvent createConnectEvent(AX25Call dest) {
-    return new StateEvent(dest, DummyAX25Packet.empty(), Type.DL_CONNECT);
+  public static AX25StateEvent createConnectEvent(AX25Call dest) {
+    return new AX25StateEvent(dest, DummyAX25Packet.empty(), Type.DL_CONNECT);
   }
 
-  public static StateEvent createDisconnectEvent(AX25Call dest) {
-    return new StateEvent(dest, DummyAX25Packet.empty(), Type.DL_DISCONNECT);
+  public static AX25StateEvent createDisconnectEvent(AX25Call dest) {
+    return new AX25StateEvent(dest, DummyAX25Packet.empty(), Type.DL_DISCONNECT);
   }
 
   public AX25Call getRemoteCall() {

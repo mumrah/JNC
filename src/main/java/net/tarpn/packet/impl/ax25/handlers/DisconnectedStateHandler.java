@@ -10,20 +10,20 @@ import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.packet.impl.ax25.State;
-import net.tarpn.packet.impl.ax25.StateEvent;
-import net.tarpn.packet.impl.ax25.StateType;
+import net.tarpn.packet.impl.ax25.AX25State;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class DisconnectedStateHandler implements StateHandler {
 
   @Override
-  public StateType onEvent(
-      State state,
-      StateEvent event,
+  public State onEvent(
+      AX25State state,
+      AX25StateEvent event,
       Consumer<AX25Packet> outgoingPackets,
       Consumer<AX25Packet> L3Packets) {
     final AX25Packet packet = event.getPacket();
-    final StateType newState;
+    final State newState;
     switch (event.getType()) {
       case AX25_UI: {
         L3Packets.accept(packet);
@@ -32,7 +32,7 @@ public class DisconnectedStateHandler implements StateHandler {
           UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, true);
           outgoingPackets.accept(ua);
         }
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case AX25_SABM: {
@@ -45,7 +45,7 @@ public class DisconnectedStateHandler implements StateHandler {
         // DL-CONNECT indication
         // Set TIV (T initial value?)
         state.getT3Timer().start();
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case AX25_UA:
@@ -58,7 +58,7 @@ public class DisconnectedStateHandler implements StateHandler {
         boolean finalFlag = ((UFrame) packet).isPollFinalSet();
         UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, finalFlag);
         outgoingPackets.accept(dm);
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case AX25_RR:
@@ -68,14 +68,14 @@ public class DisconnectedStateHandler implements StateHandler {
         boolean pollBitSet = ((SFrame) packet).isPollOrFinalSet();
         UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, pollBitSet);
         outgoingPackets.accept(dm);
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case AX25_INFO: {
         boolean pollBitSet = ((IFrame) packet).isPollBitSet();
         UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, pollBitSet);
         outgoingPackets.accept(dm);
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case DL_UNIT_DATA: {
@@ -84,12 +84,12 @@ public class DisconnectedStateHandler implements StateHandler {
         } else {
           // warning
         }
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case DL_DATA: {
         // error
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case DL_CONNECT: {
@@ -98,7 +98,7 @@ public class DisconnectedStateHandler implements StateHandler {
         outgoingPackets.accept(sabm);
         state.getT3Timer().cancel();
         state.getT1Timer().start();
-        newState = StateType.AWAITING_CONNECTION;
+        newState = State.AWAITING_CONNECTION;
         break;
       }
       case T1_EXPIRE:
@@ -107,7 +107,7 @@ public class DisconnectedStateHandler implements StateHandler {
       case AX25_UNKNOWN:
       default: {
         // Log error
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
     }

@@ -9,19 +9,19 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
-import net.tarpn.packet.impl.ax25.State;
-import net.tarpn.packet.impl.ax25.StateEvent;
-import net.tarpn.packet.impl.ax25.StateType;
+import net.tarpn.packet.impl.ax25.AX25State;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class TimerRecoveryStateHandler implements StateHandler {
   @Override
-  public StateType onEvent(
-      State state,
-      StateEvent event,
+  public State onEvent(
+      AX25State state,
+      AX25StateEvent event,
       Consumer<AX25Packet> outgoingPackets,
       Consumer<AX25Packet> L3Packets) {
     final AX25Packet packet = event.getPacket();
-    final StateType newState;
+    final State newState;
     switch(event.getType()) {
       case AX25_RNR:
       case AX25_RR: {
@@ -33,14 +33,14 @@ public class TimerRecoveryStateHandler implements StateHandler {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             if(state.getSendState() == state.getAcknowledgeState()) {
               state.getT3Timer().start();
-              newState = StateType.CONNECTED;
+              newState = State.CONNECTED;
             } else {
               // retransmission
-              newState = StateType.TIMER_RECOVERY;
+              newState = State.TIMER_RECOVERY;
             }
           } else {
             // N(R) error recovery
-            newState = StateType.AWAITING_CONNECTION;
+            newState = State.AWAITING_CONNECTION;
           }
         } else {
           if (sFrame.getCommand().equals(Command.COMMAND) && sFrame.isPollOrFinalSet()) {
@@ -58,10 +58,10 @@ public class TimerRecoveryStateHandler implements StateHandler {
           if (state.getAcknowledgeState() <= sFrame.getReceiveSequenceNumber() &&
               sFrame.getReceiveSequenceNumber() <= state.getSendState()) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
-            newState = StateType.TIMER_RECOVERY;
+            newState = State.TIMER_RECOVERY;
           } else {
             // N(R) error recovery
-            newState = StateType.AWAITING_CONNECTION;
+            newState = State.AWAITING_CONNECTION;
           }
         }
         break;
@@ -78,7 +78,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         }
         state.reset();
         state.getT3Timer().start();
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case T1_EXPIRE: {
@@ -103,12 +103,12 @@ public class TimerRecoveryStateHandler implements StateHandler {
           // DL-DISCONNECT
           UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND, ControlType.DM, true);
           outgoingPackets.accept(dm);
-          newState = StateType.DISCONNECTED;
+          newState = State.DISCONNECTED;
           break;
         }
       }
       default:
-        newState = StateType.TIMER_RECOVERY;
+        newState = State.TIMER_RECOVERY;
         break;
     }
     return newState;

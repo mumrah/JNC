@@ -3,35 +3,39 @@ package net.tarpn.io.impl;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import net.tarpn.frame.Frame;
+import java.util.function.Consumer;
 import net.tarpn.io.DataPort;
+import net.tarpn.packet.impl.ax25.AX25Packet;
 
-public class SocketDataPortServer implements Runnable {
+// TODO need to wire this in with the NetworkManager stuff
+public class SocketDataPortServer {
 
   private final ExecutorService clientExecutor = Executors.newCachedThreadPool();
-  private final Queue<Frame> outboundFrames;
+  private final Consumer<AX25Packet> incomingPackets;
 
-  public SocketDataPortServer(Queue<Frame> outboundFrames) {
-    this.outboundFrames = outboundFrames;
+  public SocketDataPortServer(Consumer<AX25Packet> incomingPackets) {
+    this.incomingPackets = incomingPackets;
   }
 
-  @Override
-  public void run() {
-    try {
-      ServerSocket serverSocket = new ServerSocket(7777);
-      System.err.println("Started socket server on 7777");
-      while(true) {
-        Socket clientSocket = serverSocket.accept();
-        System.err.println("New connection at " + clientSocket.getLocalAddress());
-        DataPort port = new SocketDataPort(clientSocket.getLocalPort(), clientSocket.getRemoteSocketAddress().toString(), clientSocket);
-        // TODO wire this in
+  public Runnable getRunnable() {
+    return () -> {
+      try {
+        ServerSocket serverSocket = new ServerSocket(7777);
+        System.err.println("Started socket server on 7777");
+        while(true) {
+          Socket clientSocket = serverSocket.accept();
+          System.err.println("New connection at " + clientSocket.getLocalAddress());
+          DataPort port = new SocketDataPort(clientSocket.getLocalPort(), clientSocket.getRemoteSocketAddress().toString(), clientSocket);
+          DataPortManager portManager = DataPortManager.initialize(port, incomingPackets);
+          clientExecutor.submit(portManager.getReaderRunnable()); // read data off the incoming port
+          clientExecutor.submit(portManager.getWriterRunnable()); // write outbound packets to the port
+          clientExecutor.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
+        }
+      } catch (IOException e) {
+        throw new RuntimeException("Socket server had an error", e);
       }
-    } catch (IOException e) {
-      throw new RuntimeException("Socket server had an error", e);
-    }
-
+    };
   }
 }

@@ -4,9 +4,11 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import net.tarpn.Util;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameHandler;
 import net.tarpn.frame.FrameReader;
@@ -31,7 +33,6 @@ import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.FakePacket;
 import net.tarpn.packet.impl.ax25.handlers.AX25StateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,14 +107,15 @@ public class DataPortManager {
       );
 
       Consumer<Frame> frameConsumer = frame ->
-          outboundPackets.add(FakePacket.create("Fake", frame.getData()));
+          outboundPackets.add(new PayloadOnlyPacket("Fake", frame.getData()));
 
       // Read bytes from the DataPort and feed into the frame reader
       InputStream inputStream = new BufferedInputStream(dataPort.getInputStream());
       try {
         while(true) {
-          // Read off any input data
-          synchronized (portLock) { // don't write anything while we're reading
+          // don't write anything while we're reading
+          synchronized (portLock) {
+            // Read off any input data
             while(inputStream.available() > 0) {
               int d = inputStream.read();
               frameReader.accept(d, frame -> {
@@ -121,6 +123,7 @@ public class DataPortManager {
               });
             }
           }
+          // yield the lock so the writer may obtain it
           Thread.sleep(50);
         }
       } catch (IOException | InterruptedException e) {
@@ -166,5 +169,43 @@ public class DataPortManager {
         }
       }
     };
+  }
+
+  /**
+   * A "fake" packet which just contains the payload, no source or destination information.
+   * This is used for things like responding to KISS commands.
+   */
+  private static class PayloadOnlyPacket implements Packet {
+
+    private final String id;
+    private final byte[] payload;
+
+    PayloadOnlyPacket(String id, byte[] payload) {
+      this.id = id;
+      this.payload = payload;
+    }
+
+    @Override
+    public byte[] getPayload() {
+      return payload;
+    }
+
+    @Override
+    public String getSource() {
+      return id;
+    }
+
+    @Override
+    public String getDestination() {
+      return id;
+    }
+
+    @Override
+    public String toString() {
+      return "PayloadOnlyPacket{" +
+          "id='" + id + '\'' +
+          ", payload=" + Util.toEscapedASCII(payload) +
+          '}';
+    }
   }
 }

@@ -6,6 +6,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import net.tarpn.io.DataPort;
 
+/**
+ * A Serial data port. Typically something like /dev/ttyUSB0
+ */
 public class SerialDataPort implements DataPort {
   private final int portNumber;
   private final String portName;
@@ -57,7 +60,6 @@ public class SerialDataPort implements DataPort {
   public String getType() {
     return "serial";
   }
-
 
   public static DataPort openPort(int number, String tty, int baud) {
     SerialPort port = SerialPort.getCommPort(tty);

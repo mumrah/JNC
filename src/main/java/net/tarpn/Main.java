@@ -21,8 +21,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.packet.impl.ax25.StateEvent;
-import net.tarpn.packet.impl.ax25.StateEvent.Type;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.netrom.NetRomConnectRequest;
 import net.tarpn.packet.impl.netrom.NetworkManager;
 import org.slf4j.Logger;
@@ -60,13 +60,13 @@ public class Main {
             switch(packet.getFrameType()) {
               case I: {
                 portManager.getAx25StateHandler().getEventQueue().add(
-                    StateEvent.createOutgoingEvent(packet, Type.DL_DATA)
+                    AX25StateEvent.createOutgoingEvent(packet, Type.DL_DATA)
                 );
                 break;
               }
               case UI: {
                 portManager.getAx25StateHandler().getEventQueue().add(
-                    StateEvent.createUIEvent(packet, Type.DL_UNIT_DATA)
+                    AX25StateEvent.createUIEvent(packet, Type.DL_UNIT_DATA)
                 );
                 break;
               }
@@ -103,7 +103,7 @@ public class Main {
               .getBytes(StandardCharsets.US_ASCII));
       // Send this message to each port
       portManager.getAx25StateHandler().getEventQueue().add(
-          StateEvent.createUIEvent(idPacket, Type.DL_UNIT_DATA));
+          AX25StateEvent.createUIEvent(idPacket, Type.DL_UNIT_DATA));
     }, 5, 300, TimeUnit.SECONDS);
 
 
@@ -205,12 +205,12 @@ public class Main {
             if(line.trim().equalsIgnoreCase("C")) {
               System.err.println("Trying for CONNECT");
               portManager.getAx25StateHandler().getEventQueue().add(
-                  StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 9))
+                  AX25StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 9))
               );
             } else if(line.trim().equalsIgnoreCase("D")) {
               System.err.println("Trying for DISCONNECT");
               portManager.getAx25StateHandler().getEventQueue().add(
-                  StateEvent.createDisconnectEvent(AX25Call.create("K4DBZ", 9))
+                  AX25StateEvent.createDisconnectEvent(AX25Call.create("K4DBZ", 9))
               );
             } else {
               System.err.println("Sending INFO");
@@ -218,7 +218,7 @@ public class Main {
                   Command.COMMAND, 0, 0, true, Protocol.NO_LAYER3,
                   line.trim().concat("\r").getBytes(StandardCharsets.US_ASCII));
               portManager.getAx25StateHandler().getEventQueue().add(
-                  StateEvent.createOutgoingEvent(data, Type.DL_DATA)
+                  AX25StateEvent.createOutgoingEvent(data, Type.DL_DATA)
               );
             }
           }

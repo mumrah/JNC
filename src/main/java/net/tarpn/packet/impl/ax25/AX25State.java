@@ -7,14 +7,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-public class State {
+public class AX25State {
   public static final int T1_TIMEOUT_MS = 4000;
   public static final int T3_TIMEOUT_MS = 180000; // 3 minutes
 
   private final String sessionId;
   private final AX25Call remoteNodeCall;
 
-  private StateType currentState;
+  private State currentState;
 
   /**
    * Send state variable
@@ -42,18 +42,18 @@ public class State {
 
   private boolean ackPending = false;
 
-  public State(String sessionId, AX25Call remoteNodeCall, Consumer<StateEvent> stateEventConsumer) {
+  public AX25State(String sessionId, AX25Call remoteNodeCall, Consumer<AX25StateEvent> stateEventConsumer) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
-    this.currentState = StateType.DISCONNECTED;
+    this.currentState = State.DISCONNECTED;
     this.t1Timer = Timer.create(T1_TIMEOUT_MS, () -> {
       System.err.println("T1 expired");
-      stateEventConsumer.accept(StateEvent.createT1ExpireEvent(remoteNodeCall));
+      stateEventConsumer.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
     });
 
     this.t3Timer = Timer.create(T3_TIMEOUT_MS, () -> {
       System.err.println("T3 expired");
-      stateEventConsumer.accept(StateEvent.createT3ExpireEvent(remoteNodeCall));
+      stateEventConsumer.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
     });
   }
 
@@ -89,11 +89,11 @@ public class State {
     return sessionId;
   }
 
-  public void setState(StateType newState) {
+  public void setState(State newState) {
     currentState = newState;
   }
 
-  public StateType getState() {
+  public State getState() {
     return currentState;
   }
 
@@ -202,5 +202,12 @@ public class State {
           ", remaining=" + timeRemaining() +
           '}';
     }
+  }
+
+  public enum State {
+    DISCONNECTED,
+    AWAITING_CONNECTION,
+    CONNECTED,
+    TIMER_RECOVERY;
   }
 }

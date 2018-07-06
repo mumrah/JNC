@@ -11,26 +11,26 @@ import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.packet.impl.ax25.State;
-import net.tarpn.packet.impl.ax25.StateEvent;
-import net.tarpn.packet.impl.ax25.StateEvent.Type;
-import net.tarpn.packet.impl.ax25.StateType;
+import net.tarpn.packet.impl.ax25.AX25State;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
+import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class ConnectedStateHandler implements StateHandler {
 
   @Override
-  public StateType onEvent(
-      State state,
-      StateEvent event,
+  public State onEvent(
+      AX25State state,
+      AX25StateEvent event,
       Consumer<AX25Packet> outgoingPackets,
       Consumer<AX25Packet> L3Packets) {
     final AX25Packet packet = event.getPacket();
-    final StateType newState;
+    final State newState;
     switch(event.getType()) {
       case AX25_UA: {
         // Emit DL-ERROR C
         // Clear layer 3
-        newState = StateType.AWAITING_CONNECTION;
+        newState = State.AWAITING_CONNECTION;
         break;
       }
       case AX25_DM: {
@@ -39,7 +39,7 @@ public class ConnectedStateHandler implements StateHandler {
         // Clear I Queue
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case AX25_UI: {
@@ -52,7 +52,7 @@ public class ConnectedStateHandler implements StateHandler {
               state.getReceiveState(), true);
           outgoingPackets.accept(rr);
         }
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case AX25_DISC: {
@@ -63,7 +63,7 @@ public class ConnectedStateHandler implements StateHandler {
         // Emit DL-DISCONNECT
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
-        newState = StateType.DISCONNECTED;
+        newState = State.DISCONNECTED;
         break;
       }
       case AX25_SABM:
@@ -79,7 +79,7 @@ public class ConnectedStateHandler implements StateHandler {
           //   Clear I Queue?
           //   Emit DL-CONNECT
         }
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case AX25_INFO: {
@@ -105,15 +105,15 @@ public class ConnectedStateHandler implements StateHandler {
                 state.clearAckPending();
               }
             }
-            newState = StateType.CONNECTED;
+            newState = State.CONNECTED;
           } else {
             // N(R) error recovery
-            newState = StateType.AWAITING_CONNECTION;
+            newState = State.AWAITING_CONNECTION;
           }
         } else {
           // Emit DL-ERROR S
           // Discard this frame
-          newState = StateType.CONNECTED;
+          newState = State.CONNECTED;
         }
         break;
       }
@@ -149,10 +149,10 @@ public class ConnectedStateHandler implements StateHandler {
               state.getT1Timer().start();
             }
           }
-          newState = StateType.CONNECTED;
+          newState = State.CONNECTED;
         } else {
           // N(R) error recovery
-          newState = StateType.AWAITING_CONNECTION;
+          newState = State.AWAITING_CONNECTION;
         }
         break;
       }
@@ -162,7 +162,7 @@ public class ConnectedStateHandler implements StateHandler {
         } else {
           // warning
         }
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case DL_DATA: {
@@ -182,7 +182,7 @@ public class ConnectedStateHandler implements StateHandler {
         } else {
           // warning
         }
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
       }
       case DL_DISCONNECT: {
@@ -192,7 +192,7 @@ public class ConnectedStateHandler implements StateHandler {
         outgoingPackets.accept(disc);
         state.getT3Timer().cancel();
         state.getT1Timer().cancel(); // TODO start (waiting on UA or DM)
-        newState = StateType.DISCONNECTED; // TODO AWAITING_RELEASE
+        newState = State.DISCONNECTED; // TODO AWAITING_RELEASE
         break;
       }
       case AX25_UNKNOWN:
@@ -216,11 +216,11 @@ public class ConnectedStateHandler implements StateHandler {
             true);
         outgoingPackets.accept(resp);
         state.getT1Timer().start();
-        newState = StateType.TIMER_RECOVERY;
+        newState = State.TIMER_RECOVERY;
         break;
       }
       default:
-        newState = StateType.CONNECTED;
+        newState = State.CONNECTED;
         break;
     }
     return newState;
