@@ -1,23 +1,98 @@
 package net.tarpn.network.netrom;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import net.tarpn.config.Configuration;
+import net.tarpn.network.netrom.NetRomNodes.NodeDestination;
+import net.tarpn.network.netrom.NetRomRouter.Destination.DestinationRoute;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomRouter {
 
+  private final Configuration config;
   private final Map<AX25Call, Neighbor> neighbors;
   private final Map<AX25Call, Destination> destinations;
 
-  public NetRomRouter() {
+  public NetRomRouter(Configuration config) {
+    this.config = config;
     this.neighbors = new HashMap<>();
     this.destinations = new HashMap<>();
+  }
+
+  public void updateNodes(AX25Call heardFrom, int heardOnPort, NetRomNodes nodes) {
+    System.err.println("Routing table for " + nodes.getSendingAlias());
+    for(NetRomNodes.NodeDestination dest : nodes.getDestinationList()) {
+      System.err.println(dest.getDestNode() + "\t" + dest.getDestAlias() + "\t" + dest.getBestNeighborNode() + "\t" + Integer.toString((int)dest.getQuality() & 0xff));
+    }
+
+    Neighbor neighbor = neighbors.computeIfAbsent(heardFrom,
+        call -> new Neighbor(call, heardOnPort, 255));
+
+    Destination destination = destinations.computeIfAbsent(heardFrom,
+        call -> new Destination(call, nodes.getSendingAlias())
+    );
+
+    // Add direct route to whoever send the NODES
+    destination.getNeighbors().add(new DestinationRoute(heardFrom, 255));
+
+    nodes.getDestinationList().forEach(nodeDestination -> {
+      final int routeQuality;
+      if(nodeDestination.getBestNeighborNode().equals(config.getNodeCall())) {
+        // Best neighbor is us, this is a "trivial loop", quality is zero
+        routeQuality = 0;
+      } else {
+        int qualityProduct = nodeDestination.getQuality() * neighbor.getQuality();
+        routeQuality = (qualityProduct + 128) / 256;
+      }
+      Destination neighborDest = destinations.computeIfAbsent(nodeDestination.getDestNode(),
+          call -> new Destination(call, nodeDestination.getDestAlias())
+      );
+      neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
+    });
+    System.err.println("New Routing table: " + toString());
+  }
+
+  public NetRomNodes getNodes() {
+    List<NodeDestination> destinations = new ArrayList<>();
+    getDestinations().forEach((destCall, dest) -> {
+      Optional<DestinationRoute> bestNeighbor = dest.getNeighbors().stream().findFirst();
+      if(bestNeighbor.isPresent()) {
+        // TODO configure thresholds
+        if(bestNeighbor.get().getObsolescence() > 4 && bestNeighbor.get().getQuality() > 60) {
+          new NodeDestination(dest.getNodeCall(), dest.getNodeAlias(), bestNeighbor.get().getNeighbor(), bestNeighbor.get().getQuality());
+        }
+      }
+    });
+    return new NetRomNodes(config.getAlias(), destinations);
+  }
+
+  /**
+   * Return a list of potential neighbors to route a packet for this call to.
+   * @param destCall
+   * @return
+   */
+  public List<AX25Call> routePacket(AX25Call destCall) {
+    Destination destination = destinations.get(destCall);
+    if(destination != null) {
+      System.err.println("Found routes to " + destCall);
+      System.err.println(destination.getNeighbors());
+      return destination.getNeighbors().stream()
+          .map(DestinationRoute::getNeighbor)
+          .collect(Collectors.toList());
+      // loop through routes for this dest in order of quality
+      // if there's an existing link to this neighbor, use it
+      // if not, open a link and send the frame
+    } else {
+      return Collections.emptyList();
+    }
   }
 
   public Map<AX25Call, Neighbor> getNeighbors() {

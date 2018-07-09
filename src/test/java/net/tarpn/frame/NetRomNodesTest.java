@@ -31,35 +31,7 @@ public class NetRomNodesTest {
       AX25Packet packet = AX25PacketReader.parse(packetBytes);
       byte[] info = ((UIFrame)packet).getInfo();
       NetRomNodes nodes = NetRomNodes.read(info);
-      System.err.println("Routing table for " + nodes.getSendingAlias());
-      for(NetRomNodes.NodeDestination dest : nodes.getDestinationList()) {
-        System.err.println(dest.getDestNode() + "\t" + dest.getDestAlias() + "\t" + dest.getBestNeighborNode() + "\t" + Integer.toString((int)dest.getQuality() & 0xff));
-      }
 
-      Neighbor neighbor = router.getNeighbors().computeIfAbsent(packet.getSourceCall(),
-          call -> new Neighbor(call, 0, 255));
-
-      Destination destination = router.getDestinations().computeIfAbsent(packet.getSourceCall(),
-          call -> new Destination(call, nodes.getSendingAlias())
-      );
-
-      // Add direct route to whoever send the NODES
-      destination.getNeighbors().add(new DestinationRoute(packet.getSourceCall(), 255));
-
-      nodes.getDestinationList().forEach(nodeDestination -> {
-        final int routeQuality;
-        if(nodeDestination.getBestNeighborNode().equals(Configuration.getOwnNodeCallsign())) {
-          // Best neighbor is us, this is a "trivial loop", quality is zero
-          routeQuality = 0;
-        } else {
-          int qualityProduct = nodeDestination.getQuality() * neighbor.getQuality();
-          routeQuality = (qualityProduct + 128) / 256;
-        }
-        Destination neighborDest = router.getDestinations().computeIfAbsent(nodeDestination.getDestNode(),
-            call -> new Destination(call, nodeDestination.getDestAlias())
-        );
-        neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
-      });
     }
 
     router.getDestinations().forEach((call, dest) -> {

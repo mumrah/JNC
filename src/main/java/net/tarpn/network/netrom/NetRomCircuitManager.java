@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
-import net.tarpn.Configuration;
+import net.tarpn.config.Configuration;
 import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.handlers.AwaitingConnectionStateHandler;
@@ -23,15 +23,18 @@ import net.tarpn.packet.impl.ax25.IFrame;
 
 public class NetRomCircuitManager {
 
+  private final Configuration config;
+
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
 
   private final Map<State, StateHandler> stateHandlers = new HashMap<>();
 
-  public NetRomCircuitManager() {
-    stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
-    stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
-    stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
-    stateHandlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
+  public NetRomCircuitManager(Configuration config) {
+    this.config = config;
+    this.stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
+    this.stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
+    this.stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
+    this.stateHandlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
   }
 
   public int getNextCircuitId() {
@@ -98,7 +101,7 @@ public class NetRomCircuitManager {
             throw new IllegalStateException("Cannot get here");
         }
 
-        if(!netRomPacket.getDestNode().equals(Configuration.getOwnNodeCallsign())) {
+        if(!netRomPacket.getDestNode().equals(config.getNodeCall())) {
           // forward it
           outgoing.accept(netRomPacket);
           return;

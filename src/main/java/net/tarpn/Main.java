@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.tarpn.config.Configuration;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.SerialDataPort;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -21,7 +22,6 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.network.netrom.NetRomConnectRequest;
 import net.tarpn.network.NetworkManager;
 import org.slf4j.Logger;
@@ -32,16 +32,23 @@ public class Main {
   static Logger LOG = LoggerFactory.getLogger(Main.class);
 
   public static void main(String[] args) throws Exception {
+    Configuration config = Configuration.newBuilder()
+        .setAlias("DAVID2")
+        .setNodeCall(AX25Call.create("K4DBZ", 2))
+        .build();
+
     ExecutorService executorService = Executors.newCachedThreadPool();
     ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
     // Level 3: The network layer
-    NetworkManager network = NetworkManager.create();
+    NetworkManager network = NetworkManager.create(config);
 
     // Level 2: The data link layer. Define a port and initialize it
     DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
-    //DataPort port1 = SerialDataPort.openPort(1, "/tmp/vmodem0", 9600);
     port1.open();
+
+    DataPort port2 = SerialDataPort.openPort(2, "/tmp/vmodem0", 9600);
+    port2.open();
 
     /*
     DataPortManager portManager = DataPortManager.initialize(port1, network.getInboundPackets()::add);
@@ -51,97 +58,8 @@ public class Main {
     */
 
     network.addPort(port1);
+    network.addPort(port2);
     network.start();
-
-    // In general a data link can accept packets from multiple senders, so the output from the data
-    // link layer should include the port number.
-
-
-
-
-    //Queue<Frame> outgoingFrames = new ConcurrentLinkedQueue<>();
-    //executorService.submit(newPortReader(port1, outgoingFrames));
-    //executorService.submit(newPortWriter(port1, outgoingFrames));
-
-    scheduledExecutorService.scheduleWithFixedDelay(() -> {
-      LOG.info("Sending automatic ID message");
-      AX25Packet idPacket = UIFrame.create(
-          AX25Call.create("ID"),
-          AX25Call.create("K4DBZ"),
-          Protocol.NO_LAYER3,
-          "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r"
-              .getBytes(StandardCharsets.US_ASCII));
-      // Send this message to each port
-      network.getPortManager(1).getAx25StateHandler().getEventQueue().add(
-          AX25StateEvent.createUIEvent(idPacket));
-    }, 5, 300, TimeUnit.SECONDS);
-
-
-    String[] nodes = new String[]{"TWO   ", "THREE ", "FOUR  "};
-    AtomicInteger n = new AtomicInteger(0);
-    scheduledExecutorService.scheduleWithFixedDelay(() -> {
-      LOG.info("Sending automatic NODES message");
-      // TODO on all ports
-      //int i = n.getAndIncrement() % 3;
-      //String node = nodes[i];
-
-      ByteBuffer buffer = ByteBuffer.allocate(1024);
-      buffer.put((byte)0xff);
-      buffer.put("DAVID2".getBytes(StandardCharsets.US_ASCII));
-
-      AX25Call.create("K4DBZ", 3, 0x03, true, true).write(buffer::put);
-      buffer.put("JUDE  ".getBytes(StandardCharsets.US_ASCII));
-      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
-      buffer.put((byte)(223));
-
-      AX25Call.create("K4DBZ", 4, 0x03, true, true).write(buffer::put);
-      buffer.put("FIONA ".getBytes(StandardCharsets.US_ASCII));
-      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
-      buffer.put((byte)(224));
-
-      AX25Call.create("K4DBZ", 5, 0x03, true, true).write(buffer::put);
-      buffer.put("FELCTY".getBytes(StandardCharsets.US_ASCII));
-      AX25Call.create("K4DBZ", 2, 0x03, true, true).write(buffer::put);
-      buffer.put((byte)(225));
-
-
-      byte[] msg = Util.copyFromBuffer(buffer);
-      UIFrame ui = UIFrame.create(
-          AX25Call.create("NODES", 0),
-          AX25Call.create("K4DBZ", 2),
-          Protocol.NETROM, msg);
-      network.getPortManager(1).getOutboundPackets().add(ui);
-    }, 10, 300, TimeUnit.SECONDS);
-
-
-    // NET/ROM connect
-    scheduledExecutorService.schedule(() -> {
-      NetRomConnectRequest req = NetRomConnectRequest.create(
-          AX25Call.create("K4DBZ", 3), // JUDE
-          AX25Call.create("K4DBZ", 1), // RPi
-          (byte) 7, // ttl
-          (byte) 99, // my circuit idx
-          (byte) 0, // my circuit id
-          (byte) 0, // tx
-          (byte) 0, // rx
-          (byte) 1, // proposed window
-          AX25Call.create("K4DBZ", 0),
-          AX25Call.create("K4DBZ", 3)
-      );
-
-      IFrame frame = IFrame.create(AX25Call.create("K4DBZ", 1), AX25Call.create("K4DBZ", 2),
-          Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, req.getPayload());
-      //portManager.getOutboundPackets().add(frame);
-    }, 60, TimeUnit.SECONDS);
-
-
-
-    // Initiate a connect
-    scheduledExecutorService.schedule(() -> {
-      //portManager.getAx25StateHandler().getEventQueue().add(
-      //    StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 1))
-      //);
-    }, 7, TimeUnit.SECONDS);
 
     //SocketDataPortServer server = new SocketDataPortServer(outgoingFrames);
     //executorService.submit(server);
@@ -162,7 +80,7 @@ public class Main {
     }));
 
 
-    ServerSocket serverSocket = new ServerSocket(7777);
+    /*ServerSocket serverSocket = new ServerSocket(7777);
     System.err.println("Started socket server on 7777");
     while(true) {
       Socket clientSocket = serverSocket.accept();
@@ -197,5 +115,6 @@ public class Main {
         }
       });
     }
+    */
   }
 }

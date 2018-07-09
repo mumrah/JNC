@@ -1,7 +1,6 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.Configuration;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
@@ -187,7 +186,7 @@ public class ConnectedStateHandler implements StateHandler {
         } else {
           IFrame iFrame = IFrame.create(
               state.getRemoteNodeCall(),
-              Configuration.getOwnNodeCallsign(),
+              state.getLocalNodeCall(),
               Command.COMMAND,
               state.getSendStateByte(),
               state.getReceiveStateByte(),
@@ -207,7 +206,9 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case DL_DISCONNECT: {
         state.resetRC();
-        UFrame disc = UFrame.create(state.getRemoteNodeCall(), Configuration.getOwnNodeCallsign(),
+        UFrame disc = UFrame.create(
+            state.getRemoteNodeCall(),
+            state.getLocalNodeCall(),
             Command.COMMAND, ControlType.DISC, true);
         outgoingPackets.accept(disc);
         state.getT3Timer().cancel();
@@ -229,7 +230,7 @@ public class ConnectedStateHandler implements StateHandler {
         // Send RR to check on the other side
         SFrame resp = SFrame.create(
             state.getRemoteNodeCall(),
-            Configuration.getOwnNodeCallsign(),
+            state.getLocalNodeCall(),
             Command.COMMAND,
             SupervisoryFrame.ControlType.RR,
             state.getReceiveState(),

@@ -1,8 +1,6 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.Configuration;
-import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
@@ -95,7 +93,10 @@ public class DisconnectedStateHandler implements StateHandler {
       }
       case DL_CONNECT: {
         state.resetRC();
-        UFrame sabm = UFrame.create(state.getRemoteNodeCall(), Configuration.getOwnNodeCallsign(), Command.COMMAND, ControlType.SABM, true);
+        UFrame sabm = UFrame.create(
+            state.getRemoteNodeCall(),
+            state.getLocalNodeCall(),
+            Command.COMMAND, ControlType.SABM, true);
         outgoingPackets.accept(sabm);
         state.getT3Timer().cancel();
         state.getT1Timer().start();

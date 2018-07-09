@@ -7,15 +7,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import net.tarpn.config.Configuration;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
-import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.SFrame;
-import net.tarpn.packet.impl.ax25.UFrame;
-import net.tarpn.packet.impl.ax25.AX25State;
-import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.ax25.AX25State.State;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.ax25.handlers.AwaitingConnectionStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.ConnectedStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.DisconnectedStateHandler;
@@ -52,7 +48,11 @@ public class AX25PacketHandler implements PacketHandler {
    */
   private final Consumer<AX25Packet> L3Packets;
 
-  public AX25PacketHandler(Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
+  private final Configuration config;
+
+
+  public AX25PacketHandler(Configuration config, Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
+    this.config = config;
     this.outgoingPackets = outgoingPackets;
     this.L3Packets = L3Packets;
     handlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
@@ -141,7 +141,7 @@ public class AX25PacketHandler implements PacketHandler {
             String sessionId = event.getRemoteCall().toString();
             // For each incoming event, figure out which state machine should handle it
             AX25State state = sessions.computeIfAbsent(sessionId,
-                ax25Call -> new AX25State(sessionId, event.getRemoteCall(), eventQueue::add));
+                ax25Call -> new AX25State(sessionId, event.getRemoteCall(), config.getNodeCall(), eventQueue::add));
             StateHandler handler = handlers.get(state.getState());
             System.err.println("BEFORE: " + state + " got " + event);
             State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
@@ -155,6 +155,10 @@ public class AX25PacketHandler implements PacketHandler {
         }
       }
     };
+  }
+
+  public AX25State getState(AX25Call remoteCall) {
+    return sessions.getOrDefault(remoteCall.toString(), AX25State.NO_STATE);
   }
 
   /**

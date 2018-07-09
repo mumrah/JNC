@@ -1,21 +1,19 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.Configuration;
-import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.AX25State;
+import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
-import net.tarpn.packet.impl.ax25.AX25State;
-import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class TimerRecoveryStateHandler implements StateHandler {
 
@@ -51,7 +49,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
             // enquiry response (RR F=1)
             SFrame resp = SFrame.create(
                 state.getRemoteNodeCall(),
-                Configuration.getOwnNodeCallsign(),
+                state.getLocalNodeCall(),
                 Command.RESPONSE,
                 SupervisoryFrame.ControlType.RR,
                 state.getReceiveState(),
@@ -89,7 +87,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           // transmit enquiry
           SFrame rr = SFrame.create(
               state.getRemoteNodeCall(),
-              Configuration.getOwnNodeCallsign(),
+              state.getLocalNodeCall(),
               Command.RESPONSE,
               SupervisoryFrame.ControlType.RR,
               state.getReceiveState(),
@@ -121,7 +119,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         } else {
           IFrame iFrame = IFrame.create(
               state.getRemoteNodeCall(),
-              Configuration.getOwnNodeCallsign(),
+              state.getLocalNodeCall(),
               Command.COMMAND,
               state.getSendStateByte(),
               state.getReceiveStateByte(),

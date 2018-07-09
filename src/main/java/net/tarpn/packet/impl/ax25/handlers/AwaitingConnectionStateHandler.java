@@ -1,8 +1,6 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.Configuration;
-import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
@@ -29,7 +27,10 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         System.err.println("T1 expired!");
         // RC == N2? (retry count == max retries?)
         if(state.checkAndIncrementRC()) {
-          UFrame sabm = UFrame.create(state.getRemoteNodeCall(), Configuration.getOwnNodeCallsign(), Command.COMMAND, ControlType.SABM, true);
+          UFrame sabm = UFrame.create(
+              state.getRemoteNodeCall(),
+              state.getLocalNodeCall(),
+              Command.COMMAND, ControlType.SABM, true);
           outgoingPackets.accept(sabm);
           // Increase T1 and restart it
           state.getT1Timer().setTimeout(state.getT1Timer().getTimeout() * 2); // TODO fix this increase

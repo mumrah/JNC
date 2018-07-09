@@ -11,11 +11,21 @@ import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 
 public class AX25State {
+
+  public static final AX25State NO_STATE = new AX25State(
+      "N0CALL-0",
+      AX25Call.create("N0CALL", 0),
+      AX25Call.create("N0CALL", 0),
+      event -> {});
+
   public static final int T1_TIMEOUT_MS = 4000;
   public static final int T3_TIMEOUT_MS = 180000; // 3 minutes
 
   private final String sessionId;
+
   private final AX25Call remoteNodeCall;
+
+  private final AX25Call localNodeCall;
 
   private State currentState;
 
@@ -49,9 +59,14 @@ public class AX25State {
 
   private boolean ackPending = false;
 
-  public AX25State(String sessionId, AX25Call remoteNodeCall, Consumer<AX25StateEvent> stateEventConsumer) {
+  public AX25State(
+      String sessionId,
+      AX25Call remoteNodeCall,
+      AX25Call localNodeCall,
+      Consumer<AX25StateEvent> stateEventConsumer) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
+    this.localNodeCall = localNodeCall;
     this.stateEventConsumer = stateEventConsumer;
     this.currentState = State.DISCONNECTED;
     this.infoFrameQueue = new LinkedList<>();
@@ -89,6 +104,10 @@ public class AX25State {
 
   public AX25Call getRemoteNodeCall() {
     return remoteNodeCall;
+  }
+
+  public AX25Call getLocalNodeCall() {
+    return localNodeCall;
   }
 
   public Timer getT1Timer() {

@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import net.tarpn.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomNodes {
@@ -33,6 +34,21 @@ public class NetRomNodes {
       destinations.add(new NodeDestination(destNode, destAlias.trim(), neighbor, (quality & 0xff)));
     }
     return new NetRomNodes(sendingAlias.trim(), destinations);
+  }
+
+  public static byte[] write(NetRomNodes nodes) {
+    ByteBuffer buffer = ByteBuffer.allocate(1024);
+    buffer.put((byte)0xff);
+    byte[] alias = String.format("%1$-6s", nodes.getSendingAlias()).getBytes(StandardCharsets.US_ASCII);
+    buffer.put(alias);
+    for(NodeDestination dest : nodes.getDestinationList()) {
+      dest.getDestNode().write(buffer::put);
+      byte[] destAlias = String.format("%1$-6s", dest.getDestAlias()).getBytes(StandardCharsets.US_ASCII);
+      buffer.put(destAlias);
+      dest.getBestNeighborNode().write(buffer::put);
+      buffer.put((byte)(dest.getQuality() & 0xff));
+    }
+    return Util.copyFromBuffer(buffer);
   }
 
   public String getSendingAlias() {
