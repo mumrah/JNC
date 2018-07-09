@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.netrom;
+package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +30,7 @@ public class NetRomNodes {
       String destAlias = new String(alias, StandardCharsets.US_ASCII);
       AX25Call neighbor = AX25Call.read(buffer);
       byte quality = buffer.get();
-      destinations.add(new NodeDestination(destNode, destAlias.trim(), neighbor, quality));
+      destinations.add(new NodeDestination(destNode, destAlias.trim(), neighbor, (quality & 0xff)));
     }
     return new NetRomNodes(sendingAlias.trim(), destinations);
   }
@@ -55,11 +55,11 @@ public class NetRomNodes {
     private final AX25Call destNode;
     private final String destAlias;
     private final AX25Call bestNeighborNode;
-    private final byte quality;
+    private final int quality;
 
     public NodeDestination(
         AX25Call destNode, String destAlias,
-        AX25Call bestNeighborNode, byte quality) {
+        AX25Call bestNeighborNode, int quality) {
       this.destNode = destNode;
       this.destAlias = destAlias;
       this.bestNeighborNode = bestNeighborNode;
@@ -78,7 +78,7 @@ public class NetRomNodes {
       return bestNeighborNode;
     }
 
-    public byte getQuality() {
+    public int getQuality() {
       return quality;
     }
 

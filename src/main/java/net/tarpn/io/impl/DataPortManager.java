@@ -4,9 +4,9 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.frame.Frame;
@@ -32,8 +32,10 @@ import net.tarpn.packet.impl.AX25PacketReader;
 import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
+import net.tarpn.packet.impl.DestinationFilteringPacketHandler;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.handlers.AX25StateHandler;
+import net.tarpn.packet.impl.ax25.AX25PacketHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,27 +46,33 @@ public class DataPortManager {
   private final Queue<PacketRequest> inboundPackets;
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
-  private final AX25StateHandler ax25StateHandler;
+  private final BiConsumer<AX25Call, Integer> heardConsumer;
+  private final AX25PacketHandler ax25StateHandler;
   private final Object portLock = new Object();
 
   private DataPortManager(
       DataPort dataPort,
       Queue<PacketRequest> inboundPackets,
       Queue<Packet> outboundPackets,
-      Consumer<AX25Packet> networkPacketConsumer) {
+      Consumer<AX25Packet> networkPacketConsumer,
+      BiConsumer<AX25Call, Integer> heardConsumer) {
     this.dataPort = dataPort;
     this.inboundPackets = inboundPackets;
     this.outboundPackets = outboundPackets;
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-    this.ax25StateHandler = new AX25StateHandler(outboundPackets::add, networkPacketConsumer);
+    this.ax25StateHandler = new AX25PacketHandler(outboundPackets::add, networkPacketConsumer);
+    this.heardConsumer = heardConsumer;
   }
 
-  public static DataPortManager initialize(DataPort port, Consumer<AX25Packet> networkPacketConsumer) {
+  public static DataPortManager initialize(DataPort port,
+      Consumer<AX25Packet> networkPacketConsumer,
+      BiConsumer<AX25Call, Integer> heardConsumer) {
     return new DataPortManager(
         port,
         new ConcurrentLinkedQueue<>(),
         new ConcurrentLinkedQueue<>(),
-        networkPacketConsumer
+        networkPacketConsumer,
+        heardConsumer
     );
   }
 
@@ -80,7 +88,7 @@ public class DataPortManager {
     return outboundPackets;
   }
 
-  public AX25StateHandler getAx25StateHandler() {
+  public AX25PacketHandler getAx25StateHandler() {
     return ax25StateHandler;
   }
 
@@ -88,9 +96,13 @@ public class DataPortManager {
     return () -> {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
-
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
+          packetRequest -> heardConsumer.accept(
+              ((AX25Packet)packetRequest.getPacket()).getSourceCall(),
+              packetRequest.getPort()
+          ),
+          new DestinationFilteringPacketHandler(),
           ax25StateHandler
       );
 

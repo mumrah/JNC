@@ -26,8 +26,8 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
       AX25Call destCall,
       AX25Call sourceCall,
       Command command,
-      int sendSeqNumber,
-      int recvSeqNumber,
+      byte sendSeqNumber,
+      byte recvSeqNumber,
       boolean pollFinalSet,
       Protocol protocol,
       byte[] info) {

@@ -5,8 +5,10 @@ import net.tarpn.Configuration;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
+import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.AX25State.Timer;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -36,7 +38,7 @@ public class ConnectedStateHandler implements StateHandler {
       case AX25_DM: {
         // Emit DL-ERROR E
         // Emit DL-DISCONNECT
-        // Clear I Queue
+        state.clearIFrames();
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
         newState = State.DISCONNECTED;
@@ -57,6 +59,7 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case AX25_DISC: {
         // Clear I Queue
+        state.clearIFrames();
         boolean finalFlag = ((UFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, finalFlag);
         outgoingPackets.accept(ua);
@@ -72,13 +75,13 @@ public class ConnectedStateHandler implements StateHandler {
         boolean finalFlag = ((UFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, finalFlag);
         outgoingPackets.accept(ua);
+        // Clear exceptions?
         // Emit DL-ERROR F
         if(state.getSendState() == state.getAcknowledgeState()) {
-           state.reset();
-        } else {
-          //   Clear I Queue?
+          state.clearIFrames();
           //   Emit DL-CONNECT
         }
+        state.reset();
         newState = State.CONNECTED;
         break;
       }
@@ -86,8 +89,7 @@ public class ConnectedStateHandler implements StateHandler {
         // Got info frame, need to ack it
         IFrame frame = (IFrame) packet;
         if(frame.getCommand().equals(Command.COMMAND)) {
-          if (state.getAcknowledgeState() <= frame.getReceiveSequenceNumber() &&
-              frame.getReceiveSequenceNumber() <= state.getSendState()) {
+          if (frame.getReceiveSequenceNumber() <= state.getSendState()) {
             if(frame.getSendSequenceNumber() == state.getReceiveState()) {
               state.incrementReceiveState();
               // Emit DL-DATA
@@ -135,10 +137,10 @@ public class ConnectedStateHandler implements StateHandler {
           }
         }
 
-        if(state.getAcknowledgeState() <= frame.getReceiveSequenceNumber() &&
-            frame.getReceiveSequenceNumber() <= state.getSendState()) {
+        if(frame.getReceiveSequenceNumber() <= state.getSendState()) {
           // Check I Frames ack'd
           if(frame.getReceiveSequenceNumber() == state.getSendState()) {
+
             state.setAcknowledgeState(frame.getReceiveSequenceNumber());
             state.getT1Timer().cancel();
             state.getT3Timer().start();
@@ -166,21 +168,39 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
       case DL_DATA: {
-        if(packet.getFrameType().equals(FrameType.I)) {
-          IFrame data = IFrame.create(packet.getDestCall(), packet.getSourceCall(), Command.COMMAND,
-              state.getNextSendState(),
-              state.getReceiveState(),
+        if(packet instanceof HasInfo) {
+          state.pushIFrame((HasInfo)packet);
+        } else {
+          // warning
+        }
+        newState = State.CONNECTED;
+        break;
+      }
+      case IFRAME_READY: {
+        HasInfo pendingIFrame = state.popIFrame();
+        if(state.windowExceeded()) {
+          System.err.println("Window Full!!");
+          // one-shot timer to delay the re-sending a bit
+          Timer.create(10, () ->
+              state.pushIFrame(pendingIFrame)
+          ).start();
+        } else {
+          IFrame iFrame = IFrame.create(
+              state.getRemoteNodeCall(),
+              Configuration.getOwnNodeCallsign(),
+              Command.COMMAND,
+              state.getSendStateByte(),
+              state.getReceiveStateByte(),
               false,
-              ((IFrame)packet).getProtocol(),
-              ((IFrame)packet).getInfo());
-          outgoingPackets.accept(data);
+              pendingIFrame.getProtocol(),
+              pendingIFrame.getInfo());
+          outgoingPackets.accept(iFrame);
+          state.incrementSendState();
           state.clearAckPending();
           if(!state.getT1Timer().isRunning()) {
             state.getT3Timer().cancel();
             state.getT1Timer().start();
           }
-        } else {
-          // warning
         }
         newState = State.CONNECTED;
         break;

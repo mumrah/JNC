@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.ax25.handlers;
+package net.tarpn.packet.impl.ax25;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,11 +16,16 @@ import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.ax25.AX25State.State;
+import net.tarpn.packet.impl.ax25.handlers.AwaitingConnectionStateHandler;
+import net.tarpn.packet.impl.ax25.handlers.ConnectedStateHandler;
+import net.tarpn.packet.impl.ax25.handlers.DisconnectedStateHandler;
+import net.tarpn.packet.impl.ax25.handlers.StateHandler;
+import net.tarpn.packet.impl.ax25.handlers.TimerRecoveryStateHandler;
 
 /**
  * Handle incoming AX.25 frames and send them to the appropriate state handler.
  */
-public class AX25StateHandler implements PacketHandler {
+public class AX25PacketHandler implements PacketHandler {
 
   /**
    * Map of state handlers for the state machine
@@ -47,7 +52,7 @@ public class AX25StateHandler implements PacketHandler {
    */
   private final Consumer<AX25Packet> L3Packets;
 
-  public AX25StateHandler(Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
+  public AX25PacketHandler(Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
     this.outgoingPackets = outgoingPackets;
     this.L3Packets = L3Packets;
     handlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
@@ -138,10 +143,10 @@ public class AX25StateHandler implements PacketHandler {
             AX25State state = sessions.computeIfAbsent(sessionId,
                 ax25Call -> new AX25State(sessionId, event.getRemoteCall(), eventQueue::add));
             StateHandler handler = handlers.get(state.getState());
-            System.err.println("Before state handler: " + state);
+            System.err.println("BEFORE: " + state + " got " + event);
             State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
             state.setState(newState);
-            System.err.println("After state handler: " + state);
+            System.err.println("AFTER : " + state);
           } else {
             Thread.sleep(50);
           }

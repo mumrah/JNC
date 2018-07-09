@@ -13,7 +13,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.tarpn.io.DataPort;
-import net.tarpn.io.impl.DataPortManager;
 import net.tarpn.io.impl.SerialDataPort;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
@@ -23,8 +22,8 @@ import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
-import net.tarpn.packet.impl.netrom.NetRomConnectRequest;
-import net.tarpn.packet.impl.netrom.NetworkManager;
+import net.tarpn.network.netrom.NetRomConnectRequest;
+import net.tarpn.network.NetworkManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,47 +43,18 @@ public class Main {
     //DataPort port1 = SerialDataPort.openPort(1, "/tmp/vmodem0", 9600);
     port1.open();
 
+    /*
     DataPortManager portManager = DataPortManager.initialize(port1, network.getInboundPackets()::add);
     executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
     executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
     executorService.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
+    */
+
+    network.addPort(port1);
+    network.start();
 
     // In general a data link can accept packets from multiple senders, so the output from the data
     // link layer should include the port number.
-
-    executorService.submit(() -> {
-      while(true) {
-        AX25Packet packet = network.getOutboundPackets().poll();
-        try {
-          if (packet != null) {
-            switch(packet.getFrameType()) {
-              case I: {
-                portManager.getAx25StateHandler().getEventQueue().add(
-                    AX25StateEvent.createOutgoingEvent(packet, Type.DL_DATA)
-                );
-                break;
-              }
-              case UI: {
-                portManager.getAx25StateHandler().getEventQueue().add(
-                    AX25StateEvent.createUIEvent(packet, Type.DL_UNIT_DATA)
-                );
-                break;
-              }
-              default: {
-                break;
-              }
-            }
-          } else {
-            Thread.sleep(50);
-          }
-        }  catch (Throwable t) {
-          LOG.error("Failure when sending network packets", t);
-        }
-      }
-    });
-
-    // Start up the network
-    executorService.submit(network.getRunnable());
 
 
 
@@ -102,8 +72,8 @@ public class Main {
           "Terrestrial Amateur Radio Packet Network node DAVID2 op is K4DBZ\r"
               .getBytes(StandardCharsets.US_ASCII));
       // Send this message to each port
-      portManager.getAx25StateHandler().getEventQueue().add(
-          AX25StateEvent.createUIEvent(idPacket, Type.DL_UNIT_DATA));
+      network.getPortManager(1).getAx25StateHandler().getEventQueue().add(
+          AX25StateEvent.createUIEvent(idPacket));
     }, 5, 300, TimeUnit.SECONDS);
 
 
@@ -140,7 +110,7 @@ public class Main {
           AX25Call.create("NODES", 0),
           AX25Call.create("K4DBZ", 2),
           Protocol.NETROM, msg);
-      portManager.getOutboundPackets().add(ui);
+      network.getPortManager(1).getOutboundPackets().add(ui);
     }, 10, 300, TimeUnit.SECONDS);
 
 
@@ -204,21 +174,21 @@ public class Main {
           while ((line = reader.readLine()) != null) {
             if(line.trim().equalsIgnoreCase("C")) {
               System.err.println("Trying for CONNECT");
-              portManager.getAx25StateHandler().getEventQueue().add(
+              network.getPortManager(1).getAx25StateHandler().getEventQueue().add(
                   AX25StateEvent.createConnectEvent(AX25Call.create("K4DBZ", 9))
               );
             } else if(line.trim().equalsIgnoreCase("D")) {
               System.err.println("Trying for DISCONNECT");
-              portManager.getAx25StateHandler().getEventQueue().add(
+              network.getPortManager(1).getAx25StateHandler().getEventQueue().add(
                   AX25StateEvent.createDisconnectEvent(AX25Call.create("K4DBZ", 9))
               );
             } else {
-              System.err.println("Sending INFO");
-              IFrame data = IFrame.create(AX25Call.create("K4DBZ", 9), Configuration.getOwnNodeCallsign(),
-                  Command.COMMAND, 0, 0, true, Protocol.NO_LAYER3,
-                  line.trim().concat("\r").getBytes(StandardCharsets.US_ASCII));
-              portManager.getAx25StateHandler().getEventQueue().add(
-                  AX25StateEvent.createOutgoingEvent(data, Type.DL_DATA)
+              //System.err.println("Sending INFO");
+              network.getPortManager(1).getAx25StateHandler().getEventQueue().add(
+                  AX25StateEvent.createDataEvent(
+                      AX25Call.create("K4DBZ", 9),
+                      Protocol.NO_LAYER3,
+                      line.trim().concat("\r").getBytes(StandardCharsets.US_ASCII))
               );
             }
           }

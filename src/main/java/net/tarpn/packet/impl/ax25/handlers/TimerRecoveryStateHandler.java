@@ -2,11 +2,15 @@ package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
 import net.tarpn.Configuration;
+import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
+import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.AX25State.Timer;
+import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.AX25State;
@@ -14,6 +18,7 @@ import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class TimerRecoveryStateHandler implements StateHandler {
+
   @Override
   public State onEvent(
       AX25State state,
@@ -28,10 +33,9 @@ public class TimerRecoveryStateHandler implements StateHandler {
         SFrame sFrame = (SFrame)packet;
         if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
           state.getT1Timer().cancel();
-          if(state.getAcknowledgeState() <= sFrame.getReceiveSequenceNumber() &&
-              sFrame.getReceiveSequenceNumber() <= state.getSendState()) {
+          if(sFrame.getReceiveSequenceNumber() <= state.getSendState()) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
-            if(state.getSendState() == state.getAcknowledgeState()) {
+            if(state.checkSendEqAckSeq()) {
               state.getT3Timer().start();
               newState = State.CONNECTED;
             } else {
@@ -55,8 +59,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
             outgoingPackets.accept(resp);
             state.clearAckPending();
           }
-          if (state.getAcknowledgeState() <= sFrame.getReceiveSequenceNumber() &&
-              sFrame.getReceiveSequenceNumber() <= state.getSendState()) {
+          if (sFrame.getReceiveSequenceNumber() <= state.getSendStateByte()) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             newState = State.TIMER_RECOVERY;
           } else {
@@ -106,6 +109,35 @@ public class TimerRecoveryStateHandler implements StateHandler {
           newState = State.DISCONNECTED;
           break;
         }
+      }
+      case IFRAME_READY: {
+        HasInfo pendingIFrame = state.popIFrame();
+        if(state.windowExceeded()) {
+          System.err.println("Window Full!!");
+          // one-shot timer to delay the re-sending a bit
+          Timer.create(10, () ->
+              state.pushIFrame(pendingIFrame)
+          ).start();
+        } else {
+          IFrame iFrame = IFrame.create(
+              state.getRemoteNodeCall(),
+              Configuration.getOwnNodeCallsign(),
+              Command.COMMAND,
+              state.getSendStateByte(),
+              state.getReceiveStateByte(),
+              false,
+              pendingIFrame.getProtocol(),
+              pendingIFrame.getInfo());
+          outgoingPackets.accept(iFrame);
+          state.incrementSendState();
+          state.clearAckPending();
+          if(!state.getT1Timer().isRunning()) {
+            state.getT3Timer().cancel();
+            state.getT1Timer().start();
+          }
+        }
+        newState = State.TIMER_RECOVERY;
+        break;
       }
       default:
         newState = State.TIMER_RECOVERY;

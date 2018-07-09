@@ -1,4 +1,4 @@
-package net.tarpn.packet.impl.netrom;
+package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
 import net.tarpn.Util;

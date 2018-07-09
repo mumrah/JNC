@@ -1,6 +1,8 @@
 package net.tarpn.packet.impl.ax25;
 
 import java.util.List;
+import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 
 /**
  * A uniform event type to allow for sequential processing of all AX.25 state primitives, packets,
@@ -25,18 +27,16 @@ public class AX25StateEvent {
     return new AX25StateEvent(packet.getSourceCall(), packet, type);
   }
 
-  /**
-   * Create an event for an outgoing packet. The session ID will be the destination callsign of this packet
-   */
-  public static AX25StateEvent createOutgoingEvent(AX25Packet packet, Type type) {
-    return new AX25StateEvent(packet.getDestCall(), packet, type);
+
+  public static AX25StateEvent createDataEvent(AX25Call destCall, Protocol protocol, byte[] data) {
+    return new AX25StateEvent(destCall, new InternalInfo(protocol, data), Type.DL_DATA);
   }
 
   /**
    * Create a UI event. A static session ID of "UI" will be used.
    */
-  public static AX25StateEvent createUIEvent(AX25Packet packet, Type type) {
-    return new AX25StateEvent(packet.getDestCall(), packet, type);
+  public static AX25StateEvent createUIEvent(AX25Packet packet) {
+    return new AX25StateEvent(packet.getDestCall(), packet, Type.DL_UNIT_DATA);
   }
 
   public static AX25StateEvent createT1ExpireEvent(AX25Call retryConnectTo) {
@@ -45,6 +45,10 @@ public class AX25StateEvent {
 
   public static AX25StateEvent createT3ExpireEvent(AX25Call retryConnectTo) {
     return new AX25StateEvent(retryConnectTo, DummyAX25Packet.empty(), Type.T3_EXPIRE);
+  }
+
+  public static AX25StateEvent createIFrameQueueEvent(AX25Call iFrameDest) {
+    return new AX25StateEvent(iFrameDest, DummyAX25Packet.empty(), Type.IFRAME_READY);
   }
 
   public static AX25StateEvent createConnectEvent(AX25Call dest) {
@@ -65,6 +69,13 @@ public class AX25StateEvent {
 
   public Type getType() {
     return type;
+  }
+
+  @Override
+  public String toString() {
+    return "AX25StateEvent(" + type + "){" +
+        "remoteCall=" + remoteCall +
+        '}';
   }
 
   public enum Type {
@@ -89,6 +100,7 @@ public class AX25StateEvent {
     DL_UNIT_DATA,
     //DL_FLOW_OFF,
     //DL_FLOW_ON,
+    IFRAME_READY
   }
 
   public static final class DummyAX25Packet implements AX25Packet {
@@ -133,6 +145,61 @@ public class AX25StateEvent {
     @Override
     public byte[] getPayload() {
       throw new UnsupportedOperationException();
+    }
+  }
+
+  public static final class InternalInfo implements AX25Packet, HasInfo {
+    private final Protocol protocol;
+    private final byte[] data;
+
+    public InternalInfo(Protocol protocol, byte[] data) {
+      this.protocol = protocol;
+      this.data = data;
+    }
+
+    @Override
+    public AX25Call getDestCall() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public AX25Call getSourceCall() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<AX25Call> getRepeaterPaths() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public byte getControlByte() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FrameType getFrameType() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public byte[] getPayload() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public byte[] getInfo() {
+      return data;
+    }
+
+    @Override
+    public byte getProtocolByte() {
+      return protocol.asByte();
+    }
+
+    @Override
+    public Protocol getProtocol() {
+      return protocol;
     }
   }
 }

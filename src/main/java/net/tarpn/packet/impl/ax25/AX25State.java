@@ -1,11 +1,14 @@
 package net.tarpn.packet.impl.ax25;
 
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 
 public class AX25State {
   public static final int T1_TIMEOUT_MS = 4000;
@@ -15,6 +18,10 @@ public class AX25State {
   private final AX25Call remoteNodeCall;
 
   private State currentState;
+
+  private final Queue<HasInfo> infoFrameQueue;
+
+  private final Consumer<AX25StateEvent> stateEventConsumer;
 
   /**
    * Send state variable
@@ -45,16 +52,31 @@ public class AX25State {
   public AX25State(String sessionId, AX25Call remoteNodeCall, Consumer<AX25StateEvent> stateEventConsumer) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
+    this.stateEventConsumer = stateEventConsumer;
     this.currentState = State.DISCONNECTED;
+    this.infoFrameQueue = new LinkedList<>();
     this.t1Timer = Timer.create(T1_TIMEOUT_MS, () -> {
       System.err.println("T1 expired");
-      stateEventConsumer.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
+      this.stateEventConsumer.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
     });
 
     this.t3Timer = Timer.create(T3_TIMEOUT_MS, () -> {
       System.err.println("T3 expired");
-      stateEventConsumer.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
+      this.stateEventConsumer.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
     });
+  }
+
+  public void pushIFrame(HasInfo iFrameData) {
+    infoFrameQueue.add(iFrameData);
+    stateEventConsumer.accept(AX25StateEvent.createIFrameQueueEvent(remoteNodeCall));
+  }
+
+  public HasInfo popIFrame() {
+    return infoFrameQueue.poll();
+  }
+
+  public void clearIFrames() {
+    infoFrameQueue.clear();
   }
 
   public void clearAckPending() {
@@ -97,17 +119,28 @@ public class AX25State {
     return currentState;
   }
 
+
+
   public int getSendState() {
-    return vs.get() % 8;
+    return vs.get();
   }
 
-  public int getNextSendState() {
-    return vs.getAndIncrement() % 8;
+  public byte getSendStateByte() {
+    return (byte)(vs.get() % 8);
   }
+
+  public void incrementSendState() {
+    vs.getAndIncrement();
+  }
+
 
 
   public int getReceiveState() {
-    return vr.get() % 8;
+    return vr.get();
+  }
+
+  public byte getReceiveStateByte() {
+    return (byte)(vr.get() % 8);
   }
 
   public void incrementReceiveState() {
@@ -115,12 +148,21 @@ public class AX25State {
   }
 
 
+
   public int getAcknowledgeState() {
     return va.get();
   }
 
-  public void setAcknowledgeState(int value) {
-    va.set(value);
+  public void setAcknowledgeState(byte va) {
+    this.va.set(va & 0xff);
+  }
+
+  public boolean windowExceeded() {
+    return (vs.get() % 8) == ((va.get() + 7) % 8);
+  }
+
+  public boolean checkSendEqAckSeq() {
+    return (vs.get() % 8) == va.get();
   }
 
   public void reset() {
@@ -134,11 +176,13 @@ public class AX25State {
 
   @Override
   public String toString() {
-    return "State(" + sessionId + "){" +
+    return "AX25State(" + sessionId + "){" +
         "state=" + currentState +
-        ", V(s)=" + vs.get() +
-        ", V(r)=" + vr.get() +
-        ", V(a)=" + va.get() +
+        ", V(s)=" + getSendState() +
+        ", N(s)=" + (getSendStateByte() & 0xff) +
+        ", V(r)=" + getReceiveState() +
+        ", N(r)=" + (getReceiveStateByte() & 0xff) +
+        ", V(a)=" + getAcknowledgeState() +
         '}';
   }
 

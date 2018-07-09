@@ -1,23 +1,54 @@
-package net.tarpn.packet.impl.netrom;
+package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.OptionalInt;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.IntPredicate;
+import java.util.stream.IntStream;
+import net.tarpn.Configuration;
+import net.tarpn.network.netrom.NetRomPacket.OpType;
+import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.network.netrom.handlers.AwaitingConnectionStateHandler;
+import net.tarpn.network.netrom.handlers.AwaitingReleaseStateHandler;
+import net.tarpn.network.netrom.handlers.ConnectedStateHandler;
+import net.tarpn.network.netrom.handlers.DisconnectedStateHandler;
+import net.tarpn.network.netrom.handlers.StateHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
-import net.tarpn.packet.impl.netrom.NetRomPacket.OpType;
 
-public class NetRomHandler {
+public class NetRomCircuitManager {
 
-  public void onPacket(AX25Packet packet, Consumer<AX25Packet> outgoing) {
+  private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
+
+  private final Map<State, StateHandler> stateHandlers = new HashMap<>();
+
+  public NetRomCircuitManager() {
+    stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
+    stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
+    stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
+    stateHandlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
+  }
+
+  public int getNextCircuitId() {
+    OptionalInt nextFreeId = IntStream.range(0, 255)
+        .filter(((IntPredicate)circuits::containsKey).negate())
+        .findFirst();
+    return nextFreeId.orElse(-1);
+  }
+
+  public void onPacket(AX25Packet packet, Consumer<NetRomPacket> outgoing) {
     if(packet instanceof IFrame) {
       IFrame infoFrame = (IFrame) packet;
       if (infoFrame.getProtocol().equals(Protocol.NETROM)) {
         ByteBuffer infoBuffer = ByteBuffer.wrap(infoFrame.getInfo());
         AX25Call originNode = AX25Call.read(infoBuffer);
         AX25Call destNode = AX25Call.read(infoBuffer);
+
         byte ttl = infoBuffer.get();
         byte circuitIdx = infoBuffer.get();
         byte circuitId = infoBuffer.get();
@@ -67,8 +98,29 @@ public class NetRomHandler {
             throw new IllegalStateException("Cannot get here");
         }
 
-        System.err.println(netRomPacket);
+        if(!netRomPacket.getDestNode().equals(Configuration.getOwnNodeCallsign())) {
+          // forward it
+          outgoing.accept(netRomPacket);
+          return;
+        } else {
+          // handle it
+          int theCircuitId;
+          if(netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
+            // generate new circuit id
+            theCircuitId = getNextCircuitId();
+            // TODO handle -1
+          } else {
+            theCircuitId = circuitId;
+          }
+          NetRomCircuit circuit = circuits.computeIfAbsent(theCircuitId, NetRomCircuit::new);
+          StateHandler handler = stateHandlers.get(circuit.getState());
+          if(handler != null) {
+            State newState = handler.handle(circuit, netRomPacket, outgoing);
+            circuit.setState(newState);
+          }
+        }
 
+        /*
         // TODO for now, just have this here for testing
         if (netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
           NetRomConnectRequest netromReq = (NetRomConnectRequest) netRomPacket;
@@ -103,6 +155,7 @@ public class NetRomHandler {
               Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, netromResp.getPayload());
           outgoing.accept(resp);
         }
+        */
       }
     }
   }

@@ -28,10 +28,7 @@ public class SocketDataPortServer {
           Socket clientSocket = serverSocket.accept();
           System.err.println("New connection at " + clientSocket.getLocalAddress());
           DataPort port = new SocketDataPort(clientSocket.getLocalPort(), clientSocket.getRemoteSocketAddress().toString(), clientSocket);
-          DataPortManager portManager = DataPortManager.initialize(port, incomingPackets);
-          clientExecutor.submit(portManager.getReaderRunnable()); // read data off the incoming port
-          clientExecutor.submit(portManager.getWriterRunnable()); // write outbound packets to the port
-          clientExecutor.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
+          // TODO
         }
       } catch (IOException e) {
         throw new RuntimeException("Socket server had an error", e);
