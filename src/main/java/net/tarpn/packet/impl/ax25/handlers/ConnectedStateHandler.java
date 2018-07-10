@@ -177,6 +177,10 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case IFRAME_READY: {
         HasInfo pendingIFrame = state.popIFrame();
+        if(pendingIFrame == null) {
+          newState = State.CONNECTED;
+          break;
+        }
         if(state.windowExceeded()) {
           System.err.println("Window Full!!");
           // one-shot timer to delay the re-sending a bit

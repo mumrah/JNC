@@ -47,22 +47,13 @@ public class NetRomInfo extends BaseNetRomPacket {
     return info;
   }
 
-  public String getInfoAsASCII() {
-    return new String(getInfo(), StandardCharsets.US_ASCII)
-        .replace("\r", "\\r")
-        .replace("\n", "\\n")
-        .replace("\t", "\\t")
-        .replace("\b", "\\b")
-        .replace("\f", "\\f");
-  }
-
   @Override
   public String toString() {
     return "NetRom{" +
         "op=" + getOpType() +
         ", origin=" + getOriginNode() +
         ", dest=" + getDestNode() +
-        ", info=" + getInfoAsASCII() +
+        ", info=" + Util.toEscapedASCII(getInfo()) +
         ", ttl=" + getTTL() +
         ", idx=" + getCircuitIndex() +
         ", id=" + getCircuitId() +

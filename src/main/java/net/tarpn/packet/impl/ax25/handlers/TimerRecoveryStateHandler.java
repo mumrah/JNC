@@ -110,6 +110,10 @@ public class TimerRecoveryStateHandler implements StateHandler {
       }
       case IFRAME_READY: {
         HasInfo pendingIFrame = state.popIFrame();
+        if(pendingIFrame == null) {
+          newState = State.TIMER_RECOVERY;
+          break;
+        }
         if(state.windowExceeded()) {
           System.err.println("Window Full!!");
           // one-shot timer to delay the re-sending a bit

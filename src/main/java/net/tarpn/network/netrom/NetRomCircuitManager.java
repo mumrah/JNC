@@ -9,8 +9,8 @@ import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 import net.tarpn.config.Configuration;
-import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.network.netrom.handlers.AwaitingConnectionStateHandler;
 import net.tarpn.network.netrom.handlers.AwaitingReleaseStateHandler;
 import net.tarpn.network.netrom.handlers.ConnectedStateHandler;
@@ -101,6 +101,10 @@ public class NetRomCircuitManager {
             throw new IllegalStateException("Cannot get here");
         }
 
+        System.err.println(netRomPacket);
+
+        // Ignore KEEPLI-0, some INP3 thing
+
         if(!netRomPacket.getDestNode().equals(config.getNodeCall())) {
           // forward it
           outgoing.accept(netRomPacket);
@@ -118,47 +122,12 @@ public class NetRomCircuitManager {
           NetRomCircuit circuit = circuits.computeIfAbsent(theCircuitId, NetRomCircuit::new);
           StateHandler handler = stateHandlers.get(circuit.getState());
           if(handler != null) {
+            System.err.println("NETROM BEFORE: " + circuit + " got " + netRomPacket);
             State newState = handler.handle(circuit, netRomPacket, outgoing);
             circuit.setState(newState);
+            System.err.println("NETROM AFTER : " + circuit);
           }
         }
-
-        /*
-        // TODO for now, just have this here for testing
-        if (netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
-          NetRomConnectRequest netromReq = (NetRomConnectRequest) netRomPacket;
-          NetRomConnectAck netromResp = NetRomConnectAck.create(
-              netromReq.getDestNode(),
-              netromReq.getOriginNode(),
-              (byte) 0x07,
-              netromReq.getCircuitIndex(),
-              netromReq.getCircuitId(),
-              (byte) 0x64, // my circuit idx (100)
-              (byte) 0x02, // my circuit id  (2)
-              netromReq.getProposedWindowSize()
-          );
-
-          IFrame resp = IFrame.create(infoFrame.getSourceCall(), infoFrame.getDestCall(),
-              Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, netromResp.getPayload());
-          outgoing.accept(resp);
-        }
-
-        if (netRomPacket.getOpType().equals(OpType.Information)) {
-          NetRomInfo netromReq = (NetRomInfo) netRomPacket;
-          NetRomPacket netromResp = BaseNetRomPacket.createInfoAck(
-              netromReq.getDestNode(),
-              netromReq.getOriginNode(),
-              (byte) 0x07,
-              netromReq.getCircuitIndex(),
-              netromReq.getCircuitId(),
-              (byte)(netromReq.getTxSeqNumber() + 1)
-          );
-
-          IFrame resp = IFrame.create(infoFrame.getSourceCall(), infoFrame.getDestCall(),
-              Command.COMMAND, (byte) 0, (byte) 0, true, Protocol.NETROM, netromResp.getPayload());
-          outgoing.accept(resp);
-        }
-        */
       }
     }
   }

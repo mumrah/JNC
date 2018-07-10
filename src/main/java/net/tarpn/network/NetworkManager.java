@@ -1,5 +1,7 @@
 package net.tarpn.network;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -78,6 +80,12 @@ public class NetworkManager {
       }
     };
 
+    try {
+      dataPort.open();
+    } catch (IOException e) {
+      throw new RuntimeException("Could not open port " + dataPort, e);
+    }
+
     DataPortManager portManager = DataPortManager.initialize(config, dataPort, inboundPackets::add, netRomNodesHandler);
     executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
     executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
@@ -106,7 +114,7 @@ public class NetworkManager {
 
   public void start() {
     executorService.submit(() -> {
-      NetRomCircuitManager handler = new NetRomCircuitManager(config);
+      NetRomCircuitManager circuitManager = new NetRomCircuitManager(config);
       Consumer<NetRomPacket> packetRouter = netRomPacket -> {
         List<AX25Call> potentialRoutes = router.routePacket(netRomPacket.getDestNode());
         boolean routed = false;
@@ -131,7 +139,7 @@ public class NetworkManager {
         AX25Packet inboundPacket = inboundPackets.poll();
         try {
           if (inboundPacket != null) {
-            handler.onPacket(inboundPacket, packetRouter);
+            circuitManager.onPacket(inboundPacket, packetRouter);
           } else {
             Thread.sleep(50);
           }
@@ -156,5 +164,21 @@ public class NetworkManager {
         //Thread.sleep(2000); // Slight delay between broadcasts
       }
     }, 15, 300, TimeUnit.SECONDS);
+  }
+
+  public void stop() {
+    try {
+      executorService.shutdown();
+      executorService.awaitTermination(10, TimeUnit.SECONDS);
+      dataPorts.values().forEach(dataPort -> {
+        try {
+          dataPort.getDataPort().close();
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+      });
+    } catch (InterruptedException | UncheckedIOException e) {
+      throw new RuntimeException("Clean shutdown failed", e);
+    }
   }
 }

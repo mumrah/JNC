@@ -143,10 +143,10 @@ public class AX25PacketHandler implements PacketHandler {
             AX25State state = sessions.computeIfAbsent(sessionId,
                 ax25Call -> new AX25State(sessionId, event.getRemoteCall(), config.getNodeCall(), eventQueue::add));
             StateHandler handler = handlers.get(state.getState());
-            System.err.println("BEFORE: " + state + " got " + event);
+            System.err.println("AX25 BEFORE: " + state + " got " + event);
             State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
             state.setState(newState);
-            System.err.println("AFTER : " + state);
+            System.err.println("AX25 AFTER : " + state);
           } else {
             Thread.sleep(50);
           }
