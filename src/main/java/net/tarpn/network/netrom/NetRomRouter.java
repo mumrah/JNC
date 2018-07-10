@@ -14,8 +14,12 @@ import net.tarpn.config.Configuration;
 import net.tarpn.network.netrom.NetRomNodes.NodeDestination;
 import net.tarpn.network.netrom.NetRomRouter.Destination.DestinationRoute;
 import net.tarpn.packet.impl.ax25.AX25Call;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NetRomRouter {
+
+  private static final Logger LOG = LoggerFactory.getLogger(NetRomRouter.class);
 
   private final Configuration config;
   private final Map<AX25Call, Neighbor> neighbors;
@@ -28,9 +32,9 @@ public class NetRomRouter {
   }
 
   public void updateNodes(AX25Call heardFrom, int heardOnPort, NetRomNodes nodes) {
-    System.err.println("Routing table for " + nodes.getSendingAlias());
+    LOG.info("Got routing table from " + nodes.getSendingAlias());
     for(NetRomNodes.NodeDestination dest : nodes.getDestinationList()) {
-      System.err.println(dest.getDestNode() + "\t" + dest.getDestAlias() + "\t" + dest.getBestNeighborNode() + "\t" + Integer.toString((int)dest.getQuality() & 0xff));
+      LOG.debug(dest.getDestNode() + "\t" + dest.getDestAlias() + "\t" + dest.getBestNeighborNode() + "\t" + Integer.toString((int)dest.getQuality() & 0xff));
     }
 
     Neighbor neighbor = neighbors.computeIfAbsent(heardFrom,
@@ -57,7 +61,7 @@ public class NetRomRouter {
       );
       neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
     });
-    System.err.println("New Routing table: " + toString());
+    LOG.info("New Routing table: " + this);
   }
 
   public NetRomNodes getNodes() {
@@ -82,8 +86,7 @@ public class NetRomRouter {
   public List<AX25Call> routePacket(AX25Call destCall) {
     Destination destination = destinations.get(destCall);
     if(destination != null) {
-      System.err.println("Found routes to " + destCall);
-      System.err.println(destination.getNeighbors());
+      LOG.info("Found routes to " + destCall + ": " + destination.getNeighbors());
       return destination.getNeighbors().stream()
           .map(DestinationRoute::getNeighbor)
           .collect(Collectors.toList());

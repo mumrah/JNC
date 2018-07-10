@@ -9,8 +9,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AX25State {
+
+  private static final Logger LOG = LoggerFactory.getLogger(AX25State.class);
 
   public static final AX25State NO_STATE = new AX25State(
       "N0CALL-0",
@@ -59,6 +63,8 @@ public class AX25State {
 
   private boolean ackPending = false;
 
+  private boolean rejectException = false;
+
   public AX25State(
       String sessionId,
       AX25Call remoteNodeCall,
@@ -71,12 +77,12 @@ public class AX25State {
     this.currentState = State.DISCONNECTED;
     this.infoFrameQueue = new LinkedList<>();
     this.t1Timer = Timer.create(T1_TIMEOUT_MS, () -> {
-      System.err.println("T1 expired");
+      LOG.debug("T1 expired for " + this);
       this.stateEventConsumer.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
     });
 
     this.t3Timer = Timer.create(T3_TIMEOUT_MS, () -> {
-      System.err.println("T3 expired");
+      LOG.debug("T3 expired for " + this);
       this.stateEventConsumer.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
     });
   }
@@ -118,6 +124,7 @@ public class AX25State {
     return t3Timer;
   }
 
+
   public void resetRC() {
     RC = 0;
   }
@@ -125,6 +132,11 @@ public class AX25State {
   public boolean checkAndIncrementRC() {
     return RC++ < 4;
   }
+
+  public int getRC() {
+    return RC;
+  }
+
 
   public String getSessionId() {
     return sessionId;
@@ -184,6 +196,26 @@ public class AX25State {
     return (vs.get() % 8) == va.get();
   }
 
+
+  public boolean isRejectException() {
+    return rejectException;
+  }
+
+  public void setRejectException() {
+    rejectException = true;
+  }
+
+  public void clearRejectException() {
+    rejectException = false;
+  }
+
+
+
+  public void clearExceptions() {
+    rejectException = false;
+    ackPending = false;
+  }
+
   public void reset() {
     vs.set(0);
     vr.set(0);
@@ -192,6 +224,7 @@ public class AX25State {
     t1Timer.cancel();
     t3Timer.cancel();
   }
+
 
   @Override
   public String toString() {

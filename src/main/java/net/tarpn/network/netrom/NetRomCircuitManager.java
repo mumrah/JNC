@@ -20,8 +20,12 @@ import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NetRomCircuitManager {
+
+  private static final Logger LOG = LoggerFactory.getLogger(NetRomCircuitManager.class);
 
   private final Configuration config;
 
@@ -101,7 +105,7 @@ public class NetRomCircuitManager {
             throw new IllegalStateException("Cannot get here");
         }
 
-        System.err.println(netRomPacket);
+        LOG.info("Got NET/ROM packet: " + netRomPacket);
 
         // Ignore KEEPLI-0, some INP3 thing
 
@@ -122,10 +126,12 @@ public class NetRomCircuitManager {
           NetRomCircuit circuit = circuits.computeIfAbsent(theCircuitId, NetRomCircuit::new);
           StateHandler handler = stateHandlers.get(circuit.getState());
           if(handler != null) {
-            System.err.println("NETROM BEFORE: " + circuit + " got " + netRomPacket);
+            LOG.info("BEFORE: " + circuit + " got " + netRomPacket);
             State newState = handler.handle(circuit, netRomPacket, outgoing);
             circuit.setState(newState);
-            System.err.println("NETROM AFTER : " + circuit);
+            LOG.info("AFTER : " + circuit);
+          } else {
+            LOG.error("No handler found for state " + circuit.getState());
           }
         }
       }

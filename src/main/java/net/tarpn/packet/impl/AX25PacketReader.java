@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import net.tarpn.Util;
 import net.tarpn.frame.Frame;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;
@@ -27,7 +28,7 @@ public class AX25PacketReader implements PacketReader {
       AX25Packet packet = parse(frame.getData());
       packetHandler.accept(packet);
     } catch (Throwable t) {
-      LOG.error("Failed to parse AX.25 packet", t);
+      LOG.error("Failed to parse AX.25 packet " + Util.toHexDump(frame.getData()), t);
     }
   }
 

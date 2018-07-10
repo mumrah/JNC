@@ -12,10 +12,11 @@ import org.slf4j.LoggerFactory;
 /**
  * Read KISS framed data one byte at a time.
  *
- * TODO add read timeout
- * TODO add FEND sync
+ * TODO add read timeout ?
  */
 public class KISSFrameReader implements FrameReader {
+
+  public static final Integer L2_TIMEOUT = 100;
 
   private static final Logger LOG = LoggerFactory.getLogger(KISSFrameReader.class);
 
@@ -37,7 +38,8 @@ public class KISSFrameReader implements FrameReader {
     LOG.debug("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
-    if(currentTime - frameTime > 4000) {
+    if(currentTime - frameTime > L2_TIMEOUT) {
+      LOG.warn("KISS timeout");
       reset();
     }
     frameTime = System.currentTimeMillis();

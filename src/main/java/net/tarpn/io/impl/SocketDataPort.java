@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.function.Supplier;
 import net.tarpn.io.DataPort;
 
 /**
@@ -29,6 +30,16 @@ public class SocketDataPort implements DataPort {
   @Override
   public void close() throws IOException {
     clientSocket.close();
+  }
+
+  @Override
+  public boolean isOpen() {
+    return clientSocket.isConnected();
+  }
+
+  @Override
+  public boolean reopen() {
+    return false;
   }
 
   @Override

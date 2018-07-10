@@ -9,7 +9,6 @@ repositories {
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.25'
     compile 'com.fazecast:jSerialComm:2.0.2'
-    compile 'commons-io:commons-io:2.6'
 
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
 

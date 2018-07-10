@@ -14,6 +14,7 @@ import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
+import net.tarpn.packet.impl.ax25.UIFrame;
 
 public class TimerRecoveryStateHandler implements StateHandler {
 
@@ -46,16 +47,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           }
         } else {
           if (sFrame.getCommand().equals(Command.COMMAND) && sFrame.isPollOrFinalSet()) {
-            // enquiry response (RR F=1)
-            SFrame resp = SFrame.create(
-                state.getRemoteNodeCall(),
-                state.getLocalNodeCall(),
-                Command.RESPONSE,
-                SupervisoryFrame.ControlType.RR,
-                state.getReceiveState(),
-                true);
-            outgoingPackets.accept(resp);
-            state.clearAckPending();
+            StateHelper.enquiryResponse(state, sFrame, outgoingPackets);
           }
           if (sFrame.getReceiveSequenceNumber() <= state.getSendStateByte()) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
@@ -137,6 +129,14 @@ public class TimerRecoveryStateHandler implements StateHandler {
             state.getT3Timer().cancel();
             state.getT1Timer().start();
           }
+        }
+        newState = State.TIMER_RECOVERY;
+        break;
+      }
+      case AX25_UI: {
+        L3Packets.accept(packet);
+        if(((UIFrame)packet).isPollFinalSet()) {
+          StateHelper.enquiryResponse(state, packet, outgoingPackets);
         }
         newState = State.TIMER_RECOVERY;
         break;

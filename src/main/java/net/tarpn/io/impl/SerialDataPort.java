@@ -4,12 +4,19 @@ import com.fazecast.jSerialComm.SerialPort;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import net.tarpn.io.DataPort;
 
 /**
  * A Serial data port. Typically something like /dev/ttyUSB0
  */
 public class SerialDataPort implements DataPort {
+
   private final int portNumber;
   private final String portName;
   private final SerialPort serialPort;
@@ -34,6 +41,17 @@ public class SerialDataPort implements DataPort {
     if(!res) {
       throw new IOException("Could not close port " + portName);
     }
+  }
+
+  @Override
+  public boolean isOpen() {
+    return serialPort.isOpen();
+  }
+
+  @Override
+  public boolean reopen() {
+    serialPort.closePort();
+    return serialPort.openPort();
   }
 
   @Override
@@ -65,5 +83,13 @@ public class SerialDataPort implements DataPort {
     SerialPort port = SerialPort.getCommPort(tty);
     port.setBaudRate(baud);
     return new SerialDataPort(number, tty, port);
+  }
+
+  @Override
+  public String toString() {
+    return "SerialDataPort{" +
+        "portNumber=" + portNumber +
+        ", portName='" + portName + '\'' +
+        '}';
   }
 }

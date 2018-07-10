@@ -1,13 +1,11 @@
 package net.tarpn.frame.impl;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameWriter;
 import net.tarpn.frame.impl.KISS.Command;
 import net.tarpn.frame.impl.KISS.Protocol;
-import org.apache.commons.io.HexDump;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,11 +52,11 @@ public class KISSFrameWriter implements FrameWriter {
       }
     };
     //dataSink.accept(out);
-    try {
-      HexDump.dump(frame.getData(), 0, System.err, 0);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    //try {
+    //  HexDump.dump(frame.getData(), 0, System.err, 0);
+    //} catch (IOException e) {
+    //  e.printStackTrace();
+    //}
 
     logger.andThen(dataSink).accept(out);
   }

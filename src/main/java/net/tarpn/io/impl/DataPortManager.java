@@ -6,6 +6,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.Configuration;
@@ -39,6 +43,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DataPortManager {
+
+  private static final ScheduledExecutorService PORT_RECOVERY_EXECUTOR = Executors
+      .newSingleThreadScheduledExecutor();
+
   private static final Logger LOG = LoggerFactory.getLogger(DataPortManager.class);
 
   private final Configuration config;
@@ -49,6 +57,9 @@ public class DataPortManager {
   private final PacketHandler externalHandler;
   private final AX25PacketHandler ax25StateHandler;
   private final Object portLock = new Object();
+
+  private IOException fault;
+  private ScheduledFuture<?> recoveryThread;
 
   private DataPortManager(
       Configuration config,
@@ -71,7 +82,8 @@ public class DataPortManager {
       DataPort port,
       Consumer<AX25Packet> networkPacketConsumer,
       PacketHandler externalHandler) {
-    return new DataPortManager(
+
+    DataPortManager manager = new DataPortManager(
         config,
         port,
         new ConcurrentLinkedQueue<>(),
@@ -79,6 +91,37 @@ public class DataPortManager {
         networkPacketConsumer,
         externalHandler
     );
+
+    try {
+      port.open();
+    } catch (IOException e) {
+      manager.setFault(e);
+      LOG.warn("Could not open port " + port + ". Continuing anyways", e);
+    }
+
+    return manager;
+  }
+
+  public boolean hasFault() {
+    return fault != null;
+  }
+
+  public IOException getFault() {
+    return fault;
+  }
+
+  private void setFault(IOException e) {
+    this.fault = e;
+    this.recoveryThread = PORT_RECOVERY_EXECUTOR.scheduleWithFixedDelay(() -> {
+      if(dataPort.reopen()) {
+        LOG.info("Recovered connection to " + dataPort);
+        this.fault = null;
+        this.recoveryThread.cancel(true);
+        this.recoveryThread = null;
+      } else {
+        LOG.info("Still no connection to " + dataPort + ". Trying again later");
+      }
+    }, 100, 5000, TimeUnit.MILLISECONDS);
   }
 
   public DataPort getDataPort() {
@@ -124,64 +167,69 @@ public class DataPortManager {
           outboundPackets.add(new PayloadOnlyPacket("Fake", frame.getData()));
 
       // Read bytes from the DataPort and feed into the frame reader
-      InputStream inputStream = new BufferedInputStream(dataPort.getInputStream());
       try {
-        while(true) {
+        while(!Thread.currentThread().isInterrupted()) {
           // don't write anything while we're reading
           synchronized (portLock) {
-            // Read off any input data
-            while(inputStream.available() > 0) {
-              int d = inputStream.read();
-              frameReader.accept(d, frame -> {
-                frameHandler.onFrame(new DefaultFrameRequest(frame, frameConsumer));
-              });
+            if(hasFault()) {
+              //LOG.warn(dataPort + " has a fault, cannot read");
+            } else if(!dataPort.isOpen()) {
+              setFault(new IOException("Port is unexpectedly closed, cannot read"));
+            } else {
+              // Read off any input data
+              InputStream inputStream = dataPort.getInputStream();
+              try {
+                while(inputStream.available() > 0) {
+                  int d = inputStream.read();
+                  frameReader.accept(d, frame -> {
+                    frameHandler.onFrame(new DefaultFrameRequest(frame, frameConsumer));
+                  });
+                }
+              } catch (IOException e) {
+                LOG.error("Failed when polling " + dataPort.getName(), e);
+                setFault(e);
+              }
             }
           }
           // yield the lock so the writer may obtain it
           Thread.sleep(50);
         }
-      } catch (IOException | InterruptedException e) {
-        LOG.error("Failed when polling " + dataPort.getName(), e);
+      } catch( InterruptedException e) {
+        Thread.currentThread().interrupt();
       }
     };
   }
 
   public Runnable getWriterRunnable() {
     return () -> {
-      OutputStream outputStream = dataPort.getOutputStream();
-
-      // TODO need to sync output to port (frame queue or a lock)
-      Consumer<byte[]> toDataPort = bytes -> {
-        synchronized (portLock) {
-          LOG.info("Sending data to port " + dataPort.getPortNumber());
-          try {
-            outputStream.write(bytes);
-            outputStream.flush();
-          } catch (IOException e) {
-            LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
-          }
-        }
-      };
-
       FrameWriter frameWriter = new KISSFrameWriter();
 
-      while(true) {
-        try {
-          Packet outgoingPacket = outboundPackets.poll();
-          if (outgoingPacket != null) {
-            LOG.info("Sending " + outgoingPacket);
-            if(outgoingPacket instanceof AX25Packet) {
-              pCapDumpFrameHandler.dump(outgoingPacket.getPayload());
-            }
-            Frame outgoingFrame = new KISSFrame(0, Command.Data, outgoingPacket.getPayload());
-            frameWriter.accept(outgoingFrame, toDataPort);
-          } else {
-            Thread.sleep(50);
-          }
-        } catch (Throwable t) {
-          LOG.error("Error writing frame", t);
+      Util.queueProcessingLoop(outboundPackets::poll, outgoingPacket -> {
+        LOG.info("Sending " + outgoingPacket);
+        if (outgoingPacket instanceof AX25Packet) {
+          pCapDumpFrameHandler.dump(outgoingPacket.getPayload());
         }
-      }
+        Frame outgoingFrame = new KISSFrame(0, Command.Data, outgoingPacket.getPayload());
+        frameWriter.accept(outgoingFrame, bytes -> {
+          synchronized (portLock) {
+            if(hasFault()) {
+              LOG.warn(dataPort + " has a fault, cannot write", getFault());
+            } else if(!dataPort.isOpen()) {
+              setFault(new IOException("Port is unexpectedly closed, cannot write"));
+            } else {
+              LOG.info("Sending data to port " + dataPort.getPortNumber());
+              OutputStream outputStream = dataPort.getOutputStream();
+              try {
+                outputStream.write(bytes);
+                outputStream.flush();
+              } catch (IOException e) {
+                LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
+                setFault(e);
+              }
+            }
+          }
+        });
+      }, (failedPacket, t) -> LOG.error("Error handling outgoing packet " + failedPacket, t));
     };
   }
 

@@ -23,10 +23,10 @@ public class Main {
 
     // Level 2: The data link layer. Define a port and initialize it
     DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
-    DataPort port2 = SerialDataPort.openPort(2, "/tmp/vmodem0", 9600);
+    //DataPort port2 = SerialDataPort.openPort(2, "/tmp/vmodem0", 9600);
 
     network.addPort(port1);
-    network.addPort(port2);
+    //network.addPort(port2);
     network.start();
 
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {

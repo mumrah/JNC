@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import net.tarpn.Util;
 import net.tarpn.config.Configuration;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
@@ -17,11 +18,15 @@ import net.tarpn.packet.impl.ax25.handlers.ConnectedStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.DisconnectedStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.StateHandler;
 import net.tarpn.packet.impl.ax25.handlers.TimerRecoveryStateHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Handle incoming AX.25 frames and send them to the appropriate state handler.
  */
 public class AX25PacketHandler implements PacketHandler {
+
+  private static final Logger LOG = LoggerFactory.getLogger(AX25PacketHandler.class);
 
   /**
    * Map of state handlers for the state machine
@@ -134,26 +139,23 @@ public class AX25PacketHandler implements PacketHandler {
 
   public Runnable getRunnable() {
     return () -> {
-      while(true) {
-        AX25StateEvent event = eventQueue.poll();
-        try {
-          if (event != null) {
-            String sessionId = event.getRemoteCall().toString();
-            // For each incoming event, figure out which state machine should handle it
-            AX25State state = sessions.computeIfAbsent(sessionId,
-                ax25Call -> new AX25State(sessionId, event.getRemoteCall(), config.getNodeCall(), eventQueue::add));
-            StateHandler handler = handlers.get(state.getState());
-            System.err.println("AX25 BEFORE: " + state + " got " + event);
-            State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
-            state.setState(newState);
-            System.err.println("AX25 AFTER : " + state);
-          } else {
-            Thread.sleep(50);
-          }
-        } catch (Throwable t) {
-          t.printStackTrace();
-        }
-      }
+      Util.queueProcessingLoop(eventQueue::poll, event -> {
+        String sessionId = event.getRemoteCall().toString();
+        // For each incoming event, figure out which state machine should handle it
+        AX25State state = sessions.computeIfAbsent(sessionId,
+            ax25Call -> new AX25State(
+                sessionId,
+                event.getRemoteCall(),
+                config.getNodeCall(),
+                eventQueue::add
+            )
+        );
+        StateHandler handler = handlers.get(state.getState());
+        LOG.info("AX25 BEFORE: " + state + " got " + event);
+        State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
+        state.setState(newState);
+        LOG.info("AX25 AFTER : " + state);
+      }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));
     };
   }
 

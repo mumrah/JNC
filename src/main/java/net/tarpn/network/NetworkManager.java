@@ -3,17 +3,16 @@ package net.tarpn.network;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import net.tarpn.Util;
 import net.tarpn.config.Configuration;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.DataPortManager;
@@ -24,13 +23,11 @@ import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,12 +77,6 @@ public class NetworkManager {
       }
     };
 
-    try {
-      dataPort.open();
-    } catch (IOException e) {
-      throw new RuntimeException("Could not open port " + dataPort, e);
-    }
-
     DataPortManager portManager = DataPortManager.initialize(config, dataPort, inboundPackets::add, netRomNodesHandler);
     executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
     executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
@@ -131,23 +122,17 @@ public class NetworkManager {
           }
         }
         if(!routed) {
-          System.err.println("No route to destination " + netRomPacket.getDestNode());
+          LOG.warn("No route to destination " + netRomPacket.getDestNode());
         }
       };
 
-      while(true) {
-        AX25Packet inboundPacket = inboundPackets.poll();
-        try {
-          if (inboundPacket != null) {
-            circuitManager.onPacket(inboundPacket, packetRouter);
-          } else {
-            Thread.sleep(50);
-          }
-        } catch (Throwable t) {
-          LOG.error("Error processing packet " + inboundPacket, t);
-        }
-      }
+      Util.queueProcessingLoop(
+          inboundPackets::poll,
+          inboundPacket -> circuitManager.onPacket(inboundPacket, packetRouter),
+          (failedPacket, t) -> LOG.error("Error processing packet " + failedPacket, t));
+
     });
+
     executorService.scheduleAtFixedRate(() -> {
       NetRomNodes nodes = router.getNodes();
       AX25Packet nodesPacket = UIFrame.create(
@@ -168,7 +153,7 @@ public class NetworkManager {
 
   public void stop() {
     try {
-      executorService.shutdown();
+      executorService.shutdownNow();
       executorService.awaitTermination(10, TimeUnit.SECONDS);
       dataPorts.values().forEach(dataPort -> {
         try {

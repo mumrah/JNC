@@ -2,7 +2,7 @@
 <Configuration status="WARN">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+      <PatternLayout pattern="%d{ISO8601} - %-5p [%t:%C{3.}@%L] - %X - %m%n"/>
     </Console>
     <File name="KISS" filename="build/kiss.log">
       <PatternLayout>

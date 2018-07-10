@@ -44,14 +44,9 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
       case AX25_UI: {
-        // Emit DL-DATA
         L3Packets.accept(packet);
-
-        // If P=1, send RR
         if(((UIFrame)packet).isPollFinalSet()) {
-          SFrame rr = SFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND, SupervisoryFrame.ControlType.RR,
-              state.getReceiveState(), true);
-          outgoingPackets.accept(rr);
+          StateHelper.enquiryResponse(state, packet, outgoingPackets);
         }
         newState = State.CONNECTED;
         break;
@@ -89,8 +84,10 @@ public class ConnectedStateHandler implements StateHandler {
         IFrame frame = (IFrame) packet;
         if(frame.getCommand().equals(Command.COMMAND)) {
           if (frame.getReceiveSequenceNumber() <= state.getSendState()) {
+            StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
             if(frame.getSendSequenceNumber() == state.getReceiveState()) {
               state.incrementReceiveState();
+              state.clearRejectException();
               // Emit DL-DATA
               L3Packets.accept(frame);
               if(frame.isPollBitSet()) {
@@ -103,6 +100,33 @@ public class ConnectedStateHandler implements StateHandler {
                     state.getReceiveState(),
                     true);
                 outgoingPackets.accept(rr);
+                state.clearAckPending();
+              }
+            } else {
+              if(state.isRejectException()) {
+                // Discard IFrame
+                if(frame.isPollBitSet()) {
+                  SFrame rr = SFrame.create(
+                      frame.getSourceCall(),
+                      frame.getDestCall(),
+                      Command.RESPONSE,
+                      SupervisoryFrame.ControlType.RR,
+                      state.getReceiveState(),
+                      true);
+                  outgoingPackets.accept(rr);
+                  state.clearAckPending();
+                }
+              } else {
+                // Discard IFrame
+                state.setRejectException();
+                SFrame rej = SFrame.create(
+                    frame.getSourceCall(),
+                    frame.getDestCall(),
+                    Command.RESPONSE,
+                    SupervisoryFrame.ControlType.REJ,
+                    state.getReceiveState(),
+                    frame.isPollBitSet());
+                outgoingPackets.accept(rej);
                 state.clearAckPending();
               }
             }
@@ -120,36 +144,9 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case AX25_RR: {
         SFrame frame = (SFrame) packet;
-        if(frame.getCommand().equals(Command.COMMAND) && frame.isPollOrFinalSet()) {
-          // Sender is asking how we're doing
-          SFrame rr = SFrame.create(
-              frame.getSourceCall(),
-              frame.getDestCall(),
-              Command.RESPONSE,
-              SupervisoryFrame.ControlType.RR,
-              state.getReceiveState(),
-              true);
-          outgoingPackets.accept(rr);
-        } else {
-          if(frame.getCommand().equals(Command.RESPONSE) && frame.isPollOrFinalSet()) {
-            // Error A
-          }
-        }
-
+        StateHelper.checkNeedForResponse(state, frame, outgoingPackets);
         if(frame.getReceiveSequenceNumber() <= state.getSendState()) {
-          // Check I Frames ack'd
-          if(frame.getReceiveSequenceNumber() == state.getSendState()) {
-
-            state.setAcknowledgeState(frame.getReceiveSequenceNumber());
-            state.getT1Timer().cancel();
-            state.getT3Timer().start();
-          } else {
-            // All frames are ack'd
-            if(frame.getReceiveSequenceNumber() != state.getAcknowledgeState()) {
-              state.setAcknowledgeState(frame.getReceiveSequenceNumber());
-              state.getT1Timer().start();
-            }
-          }
+          StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
           newState = State.CONNECTED;
         } else {
           // N(R) error recovery
