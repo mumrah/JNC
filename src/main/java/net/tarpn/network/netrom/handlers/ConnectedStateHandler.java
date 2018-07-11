@@ -43,7 +43,7 @@ public class ConnectedStateHandler implements StateHandler {
           outgoing.accept(infoAck);
         } else {
           // NAK it
-          System.err.println("Need to NAK " + packet);
+          System.err.println("!!!Need to NAK " + packet);
         }
         newState = State.CONNECTED;
         break;

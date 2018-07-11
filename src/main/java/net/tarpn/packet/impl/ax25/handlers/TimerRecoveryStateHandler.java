@@ -1,6 +1,7 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.ByteUtil;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
@@ -32,7 +33,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         SFrame sFrame = (SFrame)packet;
         if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
           state.getT1Timer().cancel();
-          if(sFrame.getReceiveSequenceNumber() <= state.getSendState()) {
+          if(ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             if(state.checkSendEqAckSeq()) {
               state.getT3Timer().start();
@@ -49,7 +50,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           if (sFrame.getCommand().equals(Command.COMMAND) && sFrame.isPollOrFinalSet()) {
             StateHelper.enquiryResponse(state, sFrame, outgoingPackets);
           }
-          if (sFrame.getReceiveSequenceNumber() <= state.getSendStateByte()) {
+          if (ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             newState = State.TIMER_RECOVERY;
           } else {

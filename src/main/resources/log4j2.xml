@@ -9,10 +9,22 @@
         <pattern>%d %m%n</pattern>
       </PatternLayout>
     </File>
+    <RollingRandomAccessFile name="RollingFile" fileName="build/app.log" filePattern="build/app-%d{MM-dd-yyyy}-%i.log.gz">
+      <PatternLayout>
+        <pattern>%d{ISO8601} - %-5p [%t:%C{3}@%L] - %X - %m%n</pattern>
+      </PatternLayout>
+      <Policies>
+        <TimeBasedTriggeringPolicy/> <!-- Rotated everyday -->
+        <SizeBasedTriggeringPolicy size="100MB"/> <!-- Rotated every 100 MB -->
+      </Policies>
+      <DefaultRolloverStrategy max="5"/>
+    </RollingRandomAccessFile>
+
   </Appenders>
   <Loggers>
     <Root level="INFO" additivity="false">
       <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
     </Root>
     <Logger name="net.tarpn.frame.impl.KISSFrameReader" level="INFO">
       <AppenderRef ref="Console"/>

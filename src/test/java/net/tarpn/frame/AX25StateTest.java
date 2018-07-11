@@ -8,7 +8,11 @@ import org.junit.Test;
 public class AX25StateTest {
   @Test
   public void testWindowSize() {
-    AX25State state = new AX25State("test", AX25Call.create("TEST", 0), event -> {});
+    AX25State state = new AX25State(
+        "test",
+        AX25Call.create("TEST", 0),
+        AX25Call.create("TEST", 1),
+        event -> {});
     state.setAcknowledgeState((byte)0);
     state.incrementSendState();
     state.incrementSendState();

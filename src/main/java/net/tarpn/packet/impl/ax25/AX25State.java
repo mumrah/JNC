@@ -156,7 +156,7 @@ public class AX25State {
     return vs.get();
   }
 
-  public byte getSendStateByte() {
+  public Byte getSendStateByte() {
     return (byte)(vs.get() % 8);
   }
 
@@ -170,7 +170,7 @@ public class AX25State {
     return vr.get();
   }
 
-  public byte getReceiveStateByte() {
+  public Byte getReceiveStateByte() {
     return (byte)(vr.get() % 8);
   }
 

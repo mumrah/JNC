@@ -1,21 +1,22 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.ByteUtil;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.AX25State;
+import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.packet.impl.ax25.AX25State;
-import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
-import net.tarpn.packet.impl.ax25.AX25State.State;
 
 public class ConnectedStateHandler implements StateHandler {
 
@@ -83,9 +84,9 @@ public class ConnectedStateHandler implements StateHandler {
         // Got info frame, need to ack it
         IFrame frame = (IFrame) packet;
         if(frame.getCommand().equals(Command.COMMAND)) {
-          if (frame.getReceiveSequenceNumber() <= state.getSendState()) {
+          if(ByteUtil.lessThanEq(frame.getReceiveSequenceNumber(), state.getSendStateByte())) {
             StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
-            if(frame.getSendSequenceNumber() == state.getReceiveState()) {
+            if(ByteUtil.equals(frame.getSendSequenceNumber(), state.getReceiveStateByte())) {
               state.incrementReceiveState();
               state.clearRejectException();
               // Emit DL-DATA
@@ -145,7 +146,7 @@ public class ConnectedStateHandler implements StateHandler {
       case AX25_RR: {
         SFrame frame = (SFrame) packet;
         StateHelper.checkNeedForResponse(state, frame, outgoingPackets);
-        if(frame.getReceiveSequenceNumber() <= state.getSendState()) {
+        if(ByteUtil.lessThanEq(frame.getReceiveSequenceNumber(), state.getSendStateByte())) {
           StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
           newState = State.CONNECTED;
         } else {

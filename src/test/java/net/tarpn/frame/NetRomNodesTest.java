@@ -3,16 +3,14 @@ package net.tarpn.frame;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import net.tarpn.Configuration;
+import net.tarpn.config.Configuration;
+import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.network.netrom.NetRomRouter.Destination;
-import net.tarpn.network.netrom.NetRomRouter.Destination.DestinationRoute;
-import net.tarpn.network.netrom.NetRomRouter.Neighbor;
 import net.tarpn.packet.impl.AX25PacketReader;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.UIFrame;
-import net.tarpn.network.netrom.NetRomNodes;
 import org.junit.Test;
 
 public class NetRomNodesTest {
@@ -24,7 +22,11 @@ public class NetRomNodesTest {
         "data/doug-nodes.bin"
     };
 
-    NetRomRouter router = new NetRomRouter();
+    Configuration config = Configuration.newBuilder()
+        .setNodeCall(AX25Call.create("TEST", 1))
+        .setAlias("TEST")
+        .build();
+    NetRomRouter router = new NetRomRouter(config);
 
     for(String nodeFile : nodesFiles) {
       byte[] packetBytes = Files.readAllBytes(Paths.get(nodeFile));
