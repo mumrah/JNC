@@ -24,9 +24,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Handle incoming AX.25 frames and send them to the appropriate state handler.
  */
-public class AX25PacketHandler implements PacketHandler {
+public class AX25StateMachine implements PacketHandler {
 
-  private static final Logger LOG = LoggerFactory.getLogger(AX25PacketHandler.class);
+  private static final Logger LOG = LoggerFactory.getLogger(AX25StateMachine.class);
 
   /**
    * Map of state handlers for the state machine
@@ -51,16 +51,20 @@ public class AX25PacketHandler implements PacketHandler {
   /**
    * Inbound level 3 packets (NET/ROM only for now)
    */
-  private final Consumer<AX25Packet> L3Packets;
+  private final Consumer<DataLinkEvent> dataLinkEvents;
 
 
   private final Configuration config;
 
 
-  public AX25PacketHandler(Configuration config, Consumer<AX25Packet> outgoingPackets, Consumer<AX25Packet> L3Packets) {
+
+  public AX25StateMachine(
+      Configuration config,
+      Consumer<AX25Packet> outgoingPackets,
+      Consumer<DataLinkEvent> dataLinkEvents) {
     this.config = config;
     this.outgoingPackets = outgoingPackets;
-    this.L3Packets = L3Packets;
+    this.dataLinkEvents = dataLinkEvents;
     handlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
     handlers.put(State.CONNECTED, new ConnectedStateHandler());
     handlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
@@ -148,12 +152,13 @@ public class AX25PacketHandler implements PacketHandler {
                 sessionId,
                 event.getRemoteCall(),
                 config.getNodeCall(),
-                eventQueue::add
+                eventQueue::add,
+                dataLinkEvents
             )
         );
         StateHandler handler = handlers.get(state.getState());
         LOG.info("AX25 BEFORE: " + state + " got " + event);
-        State newState = handler.onEvent(state, event, outgoingPackets, L3Packets);
+        State newState = handler.onEvent(state, event, outgoingPackets);
         state.setState(newState);
         LOG.info("AX25 AFTER : " + state);
       }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));

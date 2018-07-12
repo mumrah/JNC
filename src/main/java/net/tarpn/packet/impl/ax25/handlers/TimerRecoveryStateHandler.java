@@ -12,6 +12,10 @@ import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -23,8 +27,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
   public State onEvent(
       AX25State state,
       AX25StateEvent event,
-      Consumer<AX25Packet> outgoingPackets,
-      Consumer<AX25Packet> L3Packets) {
+      Consumer<AX25Packet> outgoingPackets) {
     final AX25Packet packet = event.getPacket();
     final State newState;
     switch(event.getType()) {
@@ -60,6 +63,68 @@ public class TimerRecoveryStateHandler implements StateHandler {
         }
         break;
       }
+      case AX25_INFO: {
+        // Got info frame, need to ack it
+        IFrame frame = (IFrame) packet;
+        if(frame.getCommand().equals(Command.COMMAND)) {
+          if(ByteUtil.lessThanEq(frame.getReceiveSequenceNumber(), state.getSendStateByte())) {
+            StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
+            if(ByteUtil.equals(frame.getSendSequenceNumber(), state.getReceiveStateByte())) {
+              state.incrementReceiveState();
+              state.clearRejectException();
+              state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_DATA));
+              if(frame.isPollBitSet()) {
+                // Set N(R) = V(R)
+                SFrame rr = SFrame.create(
+                    frame.getSourceCall(),
+                    frame.getDestCall(),
+                    Command.RESPONSE,
+                    SupervisoryFrame.ControlType.RR,
+                    state.getReceiveState(),
+                    true);
+                outgoingPackets.accept(rr);
+                state.clearAckPending();
+              }
+            } else {
+              if(state.isRejectException()) {
+                // Discard IFrame
+                if(frame.isPollBitSet()) {
+                  SFrame rr = SFrame.create(
+                      frame.getSourceCall(),
+                      frame.getDestCall(),
+                      Command.RESPONSE,
+                      SupervisoryFrame.ControlType.RR,
+                      state.getReceiveState(),
+                      true);
+                  outgoingPackets.accept(rr);
+                  state.clearAckPending();
+                }
+              } else {
+                // Discard IFrame
+                state.setRejectException();
+                SFrame rej = SFrame.create(
+                    frame.getSourceCall(),
+                    frame.getDestCall(),
+                    Command.RESPONSE,
+                    SupervisoryFrame.ControlType.REJ,
+                    state.getReceiveState(),
+                    frame.isPollBitSet());
+                outgoingPackets.accept(rej);
+                state.clearAckPending();
+              }
+            }
+            newState = State.TIMER_RECOVERY;
+          } else {
+            // N(R) error recovery
+            newState = State.AWAITING_CONNECTION;
+          }
+        } else {
+          // Emit DL-ERROR S
+          // Discard this frame
+          newState = State.TIMER_RECOVERY;
+        }
+        break;
+      }
       case AX25_SABME:
       case AX25_SABM: {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
@@ -68,7 +133,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         // DL-ERROR F
         if(state.getSendState() != state.getAcknowledgeState()) {
           // discard i frame queue
-          // DL-CONNECT
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_CONNECT));
         }
         state.reset();
         state.getT3Timer().start();
@@ -94,7 +159,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           } else {
             // DL-ERROR I
           }
-          // DL-DISCONNECT
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
           UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND, ControlType.DM, true);
           outgoingPackets.accept(dm);
           newState = State.DISCONNECTED;
@@ -135,7 +200,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         break;
       }
       case AX25_UI: {
-        L3Packets.accept(packet);
+        state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_UNIT_DATA));
         if(((UIFrame)packet).isPollFinalSet()) {
           StateHelper.enquiryResponse(state, packet, outgoingPackets);
         }

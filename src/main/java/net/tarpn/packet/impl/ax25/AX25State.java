@@ -20,6 +20,7 @@ public class AX25State {
       "N0CALL-0",
       AX25Call.create("N0CALL", 0),
       AX25Call.create("N0CALL", 0),
+      event -> {},
       event -> {});
 
   public static final int T1_TIMEOUT_MS = 4000;
@@ -33,9 +34,11 @@ public class AX25State {
 
   private State currentState;
 
-  private final Queue<HasInfo> infoFrameQueue;
+  private final Queue<HasInfo> pendingInfoFrames;
 
-  private final Consumer<AX25StateEvent> stateEventConsumer;
+  private final Consumer<AX25StateEvent> internalEvents;
+
+  private final Consumer<DataLinkEvent> outgoingEvents;
 
   /**
    * Send state variable
@@ -69,35 +72,41 @@ public class AX25State {
       String sessionId,
       AX25Call remoteNodeCall,
       AX25Call localNodeCall,
-      Consumer<AX25StateEvent> stateEventConsumer) {
+      Consumer<AX25StateEvent> stateEventConsumer,
+      Consumer<DataLinkEvent> outgoingEvents) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
-    this.stateEventConsumer = stateEventConsumer;
+    this.internalEvents = stateEventConsumer;
+    this.outgoingEvents = outgoingEvents;
     this.currentState = State.DISCONNECTED;
-    this.infoFrameQueue = new LinkedList<>();
+    this.pendingInfoFrames = new LinkedList<>();
     this.t1Timer = Timer.create(T1_TIMEOUT_MS, () -> {
       LOG.debug("T1 expired for " + this);
-      this.stateEventConsumer.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
+      this.internalEvents.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
     });
 
     this.t3Timer = Timer.create(T3_TIMEOUT_MS, () -> {
       LOG.debug("T3 expired for " + this);
-      this.stateEventConsumer.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
+      this.internalEvents.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
     });
   }
 
   public void pushIFrame(HasInfo iFrameData) {
-    infoFrameQueue.add(iFrameData);
-    stateEventConsumer.accept(AX25StateEvent.createIFrameQueueEvent(remoteNodeCall));
+    pendingInfoFrames.add(iFrameData);
+    internalEvents.accept(AX25StateEvent.createIFrameQueueEvent(remoteNodeCall));
   }
 
   public HasInfo popIFrame() {
-    return infoFrameQueue.poll();
+    return pendingInfoFrames.poll();
   }
 
   public void clearIFrames() {
-    infoFrameQueue.clear();
+    pendingInfoFrames.clear();
+  }
+
+  public void sendDataLinkEvent(DataLinkEvent event) {
+    outgoingEvents.accept(event);
   }
 
   public void clearAckPending() {

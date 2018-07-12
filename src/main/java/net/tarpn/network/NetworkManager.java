@@ -28,6 +28,9 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,14 +49,14 @@ public class NetworkManager {
   private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);
 
   private final Configuration config;
-  private final Queue<AX25Packet> inboundPackets;
+  private final Queue<DataLinkEvent> dataLinkEvents;
   private final Map<Integer, DataPortManager> dataPorts;
   private final NetRomRouter router;
 
 
   private NetworkManager(Configuration config) {
     this.config = config;
-    this.inboundPackets = new ConcurrentLinkedQueue<>();
+    this.dataLinkEvents = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
     this.router = new NetRomRouter(config);
   }
@@ -77,7 +80,7 @@ public class NetworkManager {
       }
     };
 
-    DataPortManager portManager = DataPortManager.initialize(config, dataPort, inboundPackets::add, netRomNodesHandler);
+    DataPortManager portManager = DataPortManager.initialize(config, dataPort, dataLinkEvents::add, netRomNodesHandler);
     executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
     executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
     executorService.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
@@ -127,10 +130,14 @@ public class NetworkManager {
       };
 
       Util.queueProcessingLoop(
-          inboundPackets::poll,
-          inboundPacket -> circuitManager.onPacket(inboundPacket, packetRouter),
-          (failedPacket, t) -> LOG.error("Error processing packet " + failedPacket, t));
-
+          dataLinkEvents::poll,
+          dataLinkEvent -> {
+            LOG.info("Got DL event " + dataLinkEvent.getType());
+            if(dataLinkEvent.getType().equals(Type.DL_DATA) || dataLinkEvent.getType().equals(Type.DL_UNIT_DATA)) {
+              circuitManager.onPacket(((DataIndicationDataLinkEvent)dataLinkEvent).getPacket(), packetRouter);
+            }
+          },
+          (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
     });
 
     executorService.scheduleAtFixedRate(() -> {

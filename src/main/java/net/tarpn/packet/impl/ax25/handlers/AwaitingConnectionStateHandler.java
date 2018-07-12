@@ -8,6 +8,9 @@ import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
@@ -21,8 +24,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
   public State onEvent(
       AX25State state,
       AX25StateEvent event,
-      Consumer<AX25Packet> outgoingPackets,
-      Consumer<AX25Packet> L3Packets) {
+      Consumer<AX25Packet> outgoingPackets) {
     final AX25Packet packet = event.getPacket();
     final State newState;
     switch(event.getType()) {
@@ -40,7 +42,8 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           state.getT1Timer().start();
           newState = State.AWAITING_CONNECTION;
         } else {
-          // Error G, DL_DISCONNECT,
+          // Error G,
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
           state.getT1Timer().setTimeout(AX25State.T1_TIMEOUT_MS);
           newState = State.DISCONNECTED;
         }
@@ -49,7 +52,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
       case AX25_UA: {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         if (isFinalSet) {
-          // DL_CONNECT confirm
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_CONNECT));
           state.reset();
           newState = State.CONNECTED;
           state.pushIFrame(
@@ -71,7 +74,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
       case AX25_DM: {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         if (isFinalSet) {
-          // DL_DISCONNECT
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
@@ -100,7 +103,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           outgoingPackets.accept(ua);
         } else {
           // Pass UI to layer 3
-          L3Packets.accept(packet);
+          state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), Type.DL_UNIT_DATA));
         }
         newState = State.AWAITING_CONNECTION;
         break;

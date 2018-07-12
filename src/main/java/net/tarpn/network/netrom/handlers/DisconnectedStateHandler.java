@@ -1,6 +1,7 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomConnectAck;
@@ -31,7 +32,7 @@ public class DisconnectedStateHandler implements StateHandler {
             connReq.getProposedWindowSize(),
             OpType.ConnectAcknowledge.asByte(false, false,false)
         );
-        outgoing.accept(connAck); // TODO what if this fails?
+        outgoing.accept(connAck);
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
         newState = State.CONNECTED;
@@ -42,7 +43,15 @@ public class DisconnectedStateHandler implements StateHandler {
       case Information:
       case InformationAcknowledge:
       default:
-        // If we get an unexpected packet, maybe send a Disconnect Request?
+        // If we get an unexpected packet, send a Disconnect Request
+        NetRomPacket disc = BaseNetRomPacket.createDisconnectRequest(
+            packet.getDestNode(),
+            packet.getOriginNode(),
+            (byte) 0x07,
+            packet.getCircuitIndex(),
+            packet.getCircuitId()
+        );
+        outgoing.accept(disc);
         newState = State.DISCONNECTED;
         break;
     }

@@ -5,6 +5,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -19,13 +21,12 @@ public class DisconnectedStateHandler implements StateHandler {
   public State onEvent(
       AX25State state,
       AX25StateEvent event,
-      Consumer<AX25Packet> outgoingPackets,
-      Consumer<AX25Packet> L3Packets) {
+      Consumer<AX25Packet> outgoingPackets) {
     final AX25Packet packet = event.getPacket();
     final State newState;
     switch (event.getType()) {
       case AX25_UI: {
-        L3Packets.accept(packet);
+        state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_UNIT_DATA));
         if (((UIFrame) packet).isPollFinalSet()) {
           // Send DM F=1
           UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, true);

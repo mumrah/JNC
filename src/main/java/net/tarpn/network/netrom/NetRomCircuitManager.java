@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -146,11 +147,15 @@ public class NetRomCircuitManager {
           if(handler != null) {
             LOG.info("BEFORE: " + circuit + " got " + netRomPacket);
             State newState = handler.handle(circuit, netRomPacket, datagram -> {
+              LOG.info("L3: " + new String(datagram, StandardCharsets.US_ASCII));
+              /*
               DatagramSocket socket = sockets.computeIfAbsent(circuit.getCircuitId(), id -> {
                 try {
-                  return new DatagramSocket(new InetSocketAddress("127.0.0.1", 4000 + id));
+                  DatagramSocket newSocket = new DatagramSocket();
+                  newSocket.connect(new InetSocketAddress("127.0.0.1", 4000 + id));
+                  return newSocket;
                 } catch (SocketException e) {
-                  return null;
+                  throw new RuntimeException(e);
                 }
               });
               try {
@@ -158,6 +163,7 @@ public class NetRomCircuitManager {
               } catch (IOException e) {
                 LOG.warn("Could not send datagram to port " + socket.getLocalAddress(), e);
               }
+              */
             }, outgoing);
             circuit.setState(newState);
             LOG.info("AFTER : " + circuit);

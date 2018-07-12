@@ -37,7 +37,7 @@ public class ConnectedStateHandler implements StateHandler {
               connReq.getProposedWindowSize(),
               OpType.ConnectAcknowledge.asByte(false, false, false)
           );
-          outgoing.accept(connAck);
+          outgoing.accept(connAck); // Need to check the result of the router before transitioning to CONNECTED
           newState = State.CONNECTED;
         } else {
           // Reject the connection

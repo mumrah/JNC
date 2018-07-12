@@ -11,6 +11,5 @@ public interface StateHandler {
   State onEvent(
       AX25State state,
       AX25StateEvent event,
-      Consumer<AX25Packet> outgoingPackets,
-      Consumer<AX25Packet> L3Packets);
+      Consumer<AX25Packet> outgoingPackets);
 }

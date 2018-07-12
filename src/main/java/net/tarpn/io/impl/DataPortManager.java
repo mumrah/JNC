@@ -1,6 +1,5 @@
 package net.tarpn.io.impl;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,7 +37,8 @@ import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.DestinationFilteringPacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Packet;
-import net.tarpn.packet.impl.ax25.AX25PacketHandler;
+import net.tarpn.packet.impl.ax25.AX25StateMachine;
+import net.tarpn.packet.impl.ax25.DataLinkEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +55,7 @@ public class DataPortManager {
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
   private final PacketHandler externalHandler;
-  private final AX25PacketHandler ax25StateHandler;
+  private final AX25StateMachine ax25StateHandler;
   private final Object portLock = new Object();
 
   private IOException fault;
@@ -66,21 +66,21 @@ public class DataPortManager {
       DataPort dataPort,
       Queue<PacketRequest> inboundPackets,
       Queue<Packet> outboundPackets,
-      Consumer<AX25Packet> networkPacketConsumer,
+      Consumer<DataLinkEvent> dataLinkEvents,
       PacketHandler externalHandler) {
     this.config = config;
     this.dataPort = dataPort;
     this.inboundPackets = inboundPackets;
     this.outboundPackets = outboundPackets;
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-    this.ax25StateHandler = new AX25PacketHandler(config, outboundPackets::add, networkPacketConsumer);
+    this.ax25StateHandler = new AX25StateMachine(config, outboundPackets::add, dataLinkEvents);
     this.externalHandler = externalHandler;
   }
 
   public static DataPortManager initialize(
       Configuration config,
       DataPort port,
-      Consumer<AX25Packet> networkPacketConsumer,
+      Consumer<DataLinkEvent> dataLinkEvents,
       PacketHandler externalHandler) {
 
     DataPortManager manager = new DataPortManager(
@@ -88,7 +88,7 @@ public class DataPortManager {
         port,
         new ConcurrentLinkedQueue<>(),
         new ConcurrentLinkedQueue<>(),
-        networkPacketConsumer,
+        dataLinkEvents,
         externalHandler
     );
 
@@ -136,7 +136,7 @@ public class DataPortManager {
     return outboundPackets;
   }
 
-  public AX25PacketHandler getAx25StateHandler() {
+  public AX25StateMachine getAx25StateHandler() {
     return ax25StateHandler;
   }
 
@@ -200,6 +200,11 @@ public class DataPortManager {
     };
   }
 
+  /**
+   * Consuming packets to be written from our internal queue and pass them to a {@link FrameWriter}
+   * which converts the packet as a byte stream suitable to write out to the port
+   * @return
+   */
   public Runnable getWriterRunnable() {
     return () -> {
       FrameWriter frameWriter = new KISSFrameWriter();

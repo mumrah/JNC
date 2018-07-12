@@ -13,6 +13,9 @@ import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
+import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -24,8 +27,7 @@ public class ConnectedStateHandler implements StateHandler {
   public State onEvent(
       AX25State state,
       AX25StateEvent event,
-      Consumer<AX25Packet> outgoingPackets,
-      Consumer<AX25Packet> L3Packets) {
+      Consumer<AX25Packet> outgoingPackets) {
     final AX25Packet packet = event.getPacket();
     final State newState;
     switch(event.getType()) {
@@ -37,7 +39,7 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case AX25_DM: {
         // Emit DL-ERROR E
-        // Emit DL-DISCONNECT
+        state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), DataLinkEvent.Type.DL_DISCONNECT));
         state.clearIFrames();
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
@@ -45,7 +47,7 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
       case AX25_UI: {
-        L3Packets.accept(packet);
+        state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_UNIT_DATA));
         if(((UIFrame)packet).isPollFinalSet()) {
           StateHelper.enquiryResponse(state, packet, outgoingPackets);
         }
@@ -58,7 +60,7 @@ public class ConnectedStateHandler implements StateHandler {
         boolean finalFlag = ((UFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, finalFlag);
         outgoingPackets.accept(ua);
-        // Emit DL-DISCONNECT
+        state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), DataLinkEvent.Type.DL_DISCONNECT));
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
         newState = State.DISCONNECTED;
@@ -74,7 +76,7 @@ public class ConnectedStateHandler implements StateHandler {
         // Emit DL-ERROR F
         if(state.getSendState() == state.getAcknowledgeState()) {
           state.clearIFrames();
-          //   Emit DL-CONNECT
+          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), DataLinkEvent.Type.DL_CONNECT));
         }
         state.reset();
         newState = State.CONNECTED;
@@ -89,8 +91,7 @@ public class ConnectedStateHandler implements StateHandler {
             if(ByteUtil.equals(frame.getSendSequenceNumber(), state.getReceiveStateByte())) {
               state.incrementReceiveState();
               state.clearRejectException();
-              // Emit DL-DATA
-              L3Packets.accept(frame);
+              state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_DATA));
               if(frame.isPollBitSet()) {
                 // Set N(R) = V(R)
                 SFrame rr = SFrame.create(
