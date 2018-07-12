@@ -6,5 +6,18 @@ import net.tarpn.network.netrom.NetRomCircuit;
 
 public interface StateHandler {
   NetRomCircuit.State handle(
-      NetRomCircuit circuit, NetRomPacket packet, Consumer<NetRomPacket> outgoing);
+      NetRomCircuit circuit,
+      NetRomPacket packet,
+      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomPacket> outgoing);
+
+  enum StateEvent {
+    NETROM_CONNECT,
+    NETROM_CONNECT_ACK,
+    NETROM_DISCONNECT,
+    NETROM_DISCONNECT_ACK,
+    NETROM_INFO,
+    NETROM_INFO_ACK,
+    USER_DATA
+  }
 }

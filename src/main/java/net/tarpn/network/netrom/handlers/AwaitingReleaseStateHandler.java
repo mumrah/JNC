@@ -8,7 +8,11 @@ import net.tarpn.network.netrom.NetRomCircuit.State;
 public class AwaitingReleaseStateHandler implements StateHandler {
 
   @Override
-  public State handle(NetRomCircuit circuit, NetRomPacket packet, Consumer<NetRomPacket> outgoing) {
+  public State handle(
+      NetRomCircuit circuit,
+      NetRomPacket packet,
+      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch (packet.getOpType()) {
       case ConnectRequest:

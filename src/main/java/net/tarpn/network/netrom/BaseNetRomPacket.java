@@ -81,9 +81,14 @@ public class BaseNetRomPacket implements NetRomPacket {
     );
   }
 
-  public static BaseNetRomPacket createInfoAck(AX25Call originNode, AX25Call destNode, byte ttl,
-      byte circuitIndex, byte circuitId, byte rxSeqNumber) {
-    byte opByte = OpType.InformationAcknowledge.asByte(false, false, false);
+  public static BaseNetRomPacket createInfoAck(
+      AX25Call originNode,
+      AX25Call destNode,
+      byte ttl,
+      byte circuitIndex,
+      byte circuitId,
+      byte rxSeqNumber,
+      byte opByte) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
     writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, (byte)0x00, rxSeqNumber, opByte);
     byte[] packet = Util.copyFromBuffer(buffer);

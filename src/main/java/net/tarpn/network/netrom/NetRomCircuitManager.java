@@ -1,5 +1,10 @@
 package net.tarpn.network.netrom;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +35,8 @@ public class NetRomCircuitManager {
   private final Configuration config;
 
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
+
+  private final Map<Integer, DatagramSocket> sockets = new ConcurrentHashMap<>();
 
   private final Map<State, StateHandler> stateHandlers = new HashMap<>();
 
@@ -63,6 +70,10 @@ public class NetRomCircuitManager {
         byte rxSeqNum = infoBuffer.get();
         byte opcode = infoBuffer.get();
         OpType opType = OpType.fromOpCodeByte(opcode);
+        boolean choke = (opcode & 0x80) == 0x80;
+        boolean nak = (opcode & 0x40) == 0x40;
+        boolean moreFollows = (opcode & 0x20) == 0x20;
+
         final NetRomPacket netRomPacket;
         switch (opType) {
           case ConnectRequest:
@@ -79,7 +90,8 @@ public class NetRomCircuitManager {
             netRomPacket = NetRomConnectAck.create(originNode, destNode, ttl,
                 circuitIdx, circuitId,
                 txSeqNum, rxSeqNum,
-                acceptWindowSize);
+                acceptWindowSize,
+                OpType.ConnectAcknowledge.asByte(choke, nak, moreFollows));
             break;
           case Information:
             int len = infoBuffer.remaining();
@@ -98,8 +110,14 @@ public class NetRomCircuitManager {
                 circuitIdx, circuitId);
             break;
           case InformationAcknowledge:
-            netRomPacket = BaseNetRomPacket.createInfoAck(originNode, destNode, ttl,
-                circuitIdx, circuitId, rxSeqNum);
+            netRomPacket = BaseNetRomPacket.createInfoAck(
+                originNode,
+                destNode,
+                ttl,
+                circuitIdx,
+                circuitId,
+                rxSeqNum,
+                OpType.InformationAcknowledge.asByte(false, false, false));
             break;
           default:
             throw new IllegalStateException("Cannot get here");
@@ -127,7 +145,20 @@ public class NetRomCircuitManager {
           StateHandler handler = stateHandlers.get(circuit.getState());
           if(handler != null) {
             LOG.info("BEFORE: " + circuit + " got " + netRomPacket);
-            State newState = handler.handle(circuit, netRomPacket, outgoing);
+            State newState = handler.handle(circuit, netRomPacket, datagram -> {
+              DatagramSocket socket = sockets.computeIfAbsent(circuit.getCircuitId(), id -> {
+                try {
+                  return new DatagramSocket(new InetSocketAddress("127.0.0.1", 4000 + id));
+                } catch (SocketException e) {
+                  return null;
+                }
+              });
+              try {
+                socket.send(new DatagramPacket(datagram, datagram.length));
+              } catch (IOException e) {
+                LOG.warn("Could not send datagram to port " + socket.getLocalAddress(), e);
+              }
+            }, outgoing);
             circuit.setState(newState);
             LOG.info("AFTER : " + circuit);
           } else {

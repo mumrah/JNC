@@ -31,9 +31,9 @@ public class NetRomConnectAck extends BaseNetRomPacket {
       byte circuitId,
       byte myCircuitIdx,
       byte myCircuitId,
-      byte acceptWindowSize) {
+      byte acceptWindowSize,
+      byte opByte) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
-    byte opByte = OpType.ConnectAcknowledge.asByte(false, false, false);
     writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, myCircuitIdx,
         myCircuitId, opByte);
     buffer.put(acceptWindowSize);

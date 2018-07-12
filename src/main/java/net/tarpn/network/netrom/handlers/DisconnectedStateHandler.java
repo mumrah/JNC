@@ -6,11 +6,16 @@ import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
 import net.tarpn.network.netrom.NetRomPacket;
+import net.tarpn.network.netrom.NetRomPacket.OpType;
 
 public class DisconnectedStateHandler implements StateHandler {
 
   @Override
-  public State handle(NetRomCircuit circuit, NetRomPacket packet, Consumer<NetRomPacket> outgoing) {
+  public State handle(
+      NetRomCircuit circuit,
+      NetRomPacket packet,
+      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch (packet.getOpType()) {
       case ConnectRequest:
@@ -23,7 +28,8 @@ public class DisconnectedStateHandler implements StateHandler {
             connReq.getCircuitId(),
             (byte) circuit.getCircuitId(),
             (byte) circuit.getCircuitId(),
-            connReq.getProposedWindowSize()
+            connReq.getProposedWindowSize(),
+            OpType.ConnectAcknowledge.asByte(false, false,false)
         );
         outgoing.accept(connAck); // TODO what if this fails?
         circuit.setRemoteCircuitId(connReq.getCircuitId());

@@ -1,11 +1,14 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
+import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
+import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import net.tarpn.packet.impl.ax25.AX25State;
@@ -49,6 +52,16 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           // DL_CONNECT confirm
           state.reset();
           newState = State.CONNECTED;
+          state.pushIFrame(
+              IFrame.create(
+                  packet.getSourceCall(),
+                  packet.getDestCall(),
+                  Command.COMMAND,
+                  (byte)0,
+                  (byte)0,
+                  true,
+                  Protocol.NO_LAYER3,
+                  ("Welcome to David's packet node, OP is " + packet.getDestCall()).getBytes(StandardCharsets.US_ASCII)));
         } else {
           // Error D
           newState = State.AWAITING_CONNECTION;

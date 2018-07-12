@@ -1,38 +1,73 @@
 package net.tarpn.io.impl;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
-import net.tarpn.io.DataPort;
-import net.tarpn.packet.impl.ax25.AX25Packet;
+import net.tarpn.app.SysopApplication;
+import net.tarpn.network.NetworkManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-// TODO need to wire this in with the NetworkManager stuff
 public class SocketDataPortServer {
 
-  private final ExecutorService clientExecutor = Executors.newCachedThreadPool();
-  private final Consumer<AX25Packet> incomingPackets;
+  private static final Logger LOG = LoggerFactory.getLogger(SocketDataPortServer.class);
+  private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
 
-  public SocketDataPortServer(Consumer<AX25Packet> incomingPackets) {
-    this.incomingPackets = incomingPackets;
+  private final NetworkManager networkManager;
+  private final SysopApplication app;
+
+
+  public SocketDataPortServer(NetworkManager networkManager) {
+    this.networkManager = networkManager;
+    this.app = new SysopApplication();
   }
 
-  public Runnable getRunnable() {
-    return () -> {
+  public void start() {
+    EXECUTOR.submit(() -> {
       try {
         ServerSocket serverSocket = new ServerSocket(7777);
         System.err.println("Started socket server on 7777");
-        while(true) {
+        while(!Thread.currentThread().isInterrupted()) {
           Socket clientSocket = serverSocket.accept();
           System.err.println("New connection at " + clientSocket.getLocalAddress());
-          DataPort port = new SocketDataPort(clientSocket.getLocalPort(), clientSocket.getRemoteSocketAddress().toString(), clientSocket);
-          // TODO
+
+          // reader
+          EXECUTOR.submit(() -> {
+            InputStream inputStream = null;
+            try {
+              inputStream = clientSocket.getInputStream();
+            } catch (IOException e) {
+              LOG.error("Could not open client input stream", e);
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            while(!Thread.currentThread().isInterrupted()) {
+              try {
+                String line;
+                while((line = reader.readLine()) != null) {
+                  app.handle(networkManager, line, s -> {
+                    try {
+                      clientSocket.getOutputStream().write(s.getBytes(StandardCharsets.US_ASCII));
+                    } catch (IOException e) {
+                      LOG.error("Could not write to client", e);
+                    }
+                  });
+                }
+              } catch (IOException e) {
+                LOG.error("Could not read line from client", e);
+              }
+            }
+          });
         }
       } catch (IOException e) {
         throw new RuntimeException("Socket server had an error", e);
       }
-    };
+    });
   }
 }

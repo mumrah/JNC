@@ -99,8 +99,8 @@ public class NetworkManager {
     return dataPorts.get(port);
   }
 
-  public Queue<AX25Packet> getInboundPackets() {
-    return inboundPackets;
+  public Map<Integer, DataPortManager> getPorts() {
+    return dataPorts;
   }
 
   public void start() {

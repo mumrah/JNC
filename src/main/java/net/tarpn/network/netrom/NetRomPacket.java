@@ -37,7 +37,7 @@ public interface NetRomPacket extends Packet {
       this.opNibble = (byte)(opNibble & 0x0F);
     }
 
-    byte asByte(boolean choke, boolean nak, boolean moreFollows) {
+    public byte asByte(boolean choke, boolean nak, boolean moreFollows) {
       byte opcodeByte = opNibble;
       opcodeByte |= (choke ? 0x80 : 0x00);
       opcodeByte |= (nak ? 0x40 : 0x00);

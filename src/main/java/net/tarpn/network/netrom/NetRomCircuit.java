@@ -27,6 +27,10 @@ public class NetRomCircuit {
     return circuitId;
   }
 
+  public byte getCircuitIdByte() {
+    return (byte)(circuitId & 0xff);
+  }
+
   public State getState() {
     return state;
   }
