@@ -3,13 +3,13 @@ package net.tarpn;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 import java.util.Queue;
+import net.tarpn.app.SysopApplication;
 import net.tarpn.config.Configuration;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.DataLinkManager;
 import net.tarpn.io.impl.SerialDataPort;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive.Type;
 
 public class DataLinkMain {
   public static void main(String[] args) {
@@ -26,19 +26,11 @@ public class DataLinkMain {
     DataLinkManager dataLinkManager = DataLinkManager.create(config, port1, inQueue::add, packetRequest -> {});
     dataLinkManager.start();
 
+    SysopApplication app = new SysopApplication();
     while(!Thread.currentThread().isInterrupted()) {
       DataLinkPrimitive primitive = inQueue.poll();
       if(primitive != null) {
-        if(primitive.getType().equals(Type.DL_DATA)) {
-          String message = new String(primitive.getPacket().getInfo(), StandardCharsets.US_ASCII).trim();
-          if(message.equalsIgnoreCase("BYE")) {
-            dataLinkManager.acceptDataLinkPrimitive(DataLinkPrimitive.newDisconnectRequest(primitive.getRemoteCall()));
-          } else {
-            System.err.println("Got Message: " + message);
-          }
-        } else {
-          System.err.println("Got Primitive: " + primitive);
-        }
+        app.handle(primitive, dataLinkManager::acceptDataLinkPrimitive);
       } else {
         try {
           Thread.sleep(10);

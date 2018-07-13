@@ -1,13 +1,25 @@
 package net.tarpn.app;
 
+import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import net.tarpn.network.NetworkManager;
-import net.tarpn.packet.impl.ax25.AX25Call;
-import net.tarpn.packet.impl.ax25.AX25StateEvent;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive.Type;
 
 public class SysopApplication {
 
-  public void handle(NetworkManager network, String line, Consumer<String> resp) {
+  public void handle(DataLinkPrimitive request, Consumer<DataLinkPrimitive> response) {
+    if(request.getType().equals(Type.DL_DATA)) {
+      String message = new String(request.getPacket().getInfo(), StandardCharsets.US_ASCII).trim();
+      if(message.equalsIgnoreCase("BYE")) {
+        response.accept(DataLinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
+      } else {
+        System.err.println("Got Message: " + message);
+      }
+    } else {
+      System.err.println("Got Primitive: " + request);
+    }
+
+    /*
     String[] tokens = line.split(" ", 3); // Command Op1 Op2
     if(tokens[0].equalsIgnoreCase("PORTS") || line.equalsIgnoreCase("P")) {
       network.getPorts().values().forEach(dataPortManager -> {
@@ -22,6 +34,7 @@ public class SysopApplication {
           AX25StateEvent.createConnectEvent(AX25Call.fromString(tokens[2]))
       );
     }
+    */
     /*else if(line.trim().equalsIgnoreCase("D")) {
       System.err.println("Trying for DISCONNECT");
       network.getPortManager(1).getAx25StateHandler().getEventQueue().add(

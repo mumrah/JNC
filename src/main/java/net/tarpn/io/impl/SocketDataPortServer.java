@@ -51,13 +51,7 @@ public class SocketDataPortServer {
               try {
                 String line;
                 while((line = reader.readLine()) != null) {
-                  app.handle(networkManager, line, s -> {
-                    try {
-                      clientSocket.getOutputStream().write(s.getBytes(StandardCharsets.US_ASCII));
-                    } catch (IOException e) {
-                      LOG.error("Could not write to client", e);
-                    }
-                  });
+                  // TODO send to app
                 }
               } catch (IOException e) {
                 LOG.error("Could not read line from client", e);

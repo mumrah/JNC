@@ -82,10 +82,6 @@ public class NetworkManager {
     };
   }
 
-  public void acceptDataLinkPrimitive(DataLinkPrimitive event) {
-    dataLinkEvents.add(event);
-  }
-
   public void initialize(DataPort dataPort) {
     PacketHandler netRomNodesHandler = getNetromNodesHandler();
 
