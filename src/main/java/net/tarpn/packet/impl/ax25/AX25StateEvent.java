@@ -1,6 +1,7 @@
 package net.tarpn.packet.impl.ax25;
 
 import java.util.List;
+import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 
@@ -20,23 +21,16 @@ public class AX25StateEvent {
     this.type = type;
   }
 
-  /**
-   * Create an event for an incoming packet. The session ID will be the source callsign of this packet
-   */
   public static AX25StateEvent createIncomingEvent(AX25Packet packet, Type type) {
     return new AX25StateEvent(packet.getSourceCall(), packet, type);
   }
 
-
   public static AX25StateEvent createDataEvent(AX25Call destCall, Protocol protocol, byte[] data) {
-    return new AX25StateEvent(destCall, new InternalInfo(protocol, data), Type.DL_DATA);
+    return new AX25StateEvent(destCall, new InternalInfo(protocol, data, FrameType.I), Type.DL_DATA);
   }
 
-  /**
-   * Create a UI event. A static session ID of "UI" will be used.
-   */
-  public static AX25StateEvent createUIEvent(AX25Packet packet) {
-    return new AX25StateEvent(packet.getDestCall(), packet, Type.DL_UNIT_DATA);
+  public static AX25StateEvent createUnitDataEvent(AX25Call destCall, Protocol protocol, byte[] data) {
+    return new AX25StateEvent(destCall, new InternalInfo(protocol, data, FrameType.UI), Type.DL_UNIT_DATA);
   }
 
   public static AX25StateEvent createT1ExpireEvent(AX25Call retryConnectTo) {
@@ -151,10 +145,12 @@ public class AX25StateEvent {
   public static final class InternalInfo implements AX25Packet, HasInfo {
     private final Protocol protocol;
     private final byte[] data;
+    private final FrameType frameType;
 
-    public InternalInfo(Protocol protocol, byte[] data) {
+    InternalInfo(Protocol protocol, byte[] data, FrameType frameType) {
       this.protocol = protocol;
       this.data = data;
+      this.frameType = frameType;
     }
 
     @Override
@@ -179,7 +175,7 @@ public class AX25StateEvent {
 
     @Override
     public FrameType getFrameType() {
-      throw new UnsupportedOperationException();
+      return frameType;
     }
 
     @Override

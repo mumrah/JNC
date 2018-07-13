@@ -38,7 +38,7 @@ public class AX25State {
 
   private final Consumer<AX25StateEvent> internalEvents;
 
-  private final Consumer<DataLinkEvent> outgoingEvents;
+  private final Consumer<DataLinkPrimitive> outgoingEvents;
 
   /**
    * Send state variable
@@ -73,7 +73,7 @@ public class AX25State {
       AX25Call remoteNodeCall,
       AX25Call localNodeCall,
       Consumer<AX25StateEvent> stateEventConsumer,
-      Consumer<DataLinkEvent> outgoingEvents) {
+      Consumer<DataLinkPrimitive> outgoingEvents) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
@@ -105,8 +105,13 @@ public class AX25State {
     pendingInfoFrames.clear();
   }
 
-  public void sendDataLinkEvent(DataLinkEvent event) {
+  public void sendDataLinkPrimitive(DataLinkPrimitive event) {
     outgoingEvents.accept(event);
+  }
+
+  public void internalDisconnectRequest() {
+    AX25StateEvent stateEvent = AX25StateEvent.createDisconnectEvent(remoteNodeCall);
+    internalEvents.accept(stateEvent);
   }
 
   public void clearAckPending() {
@@ -230,6 +235,7 @@ public class AX25State {
   }
 
   public void reset() {
+    // TODO XXX do we always reset these counters _and_ the timers at the same time?
     vs.set(0);
     vr.set(0);
     va.set(0);

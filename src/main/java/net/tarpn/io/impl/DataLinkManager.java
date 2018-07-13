@@ -6,7 +6,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -32,7 +31,6 @@ import net.tarpn.io.DataPort;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
-import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.AX25PacketReader;
 import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
@@ -43,7 +41,7 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
-import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +55,6 @@ public class DataLinkManager {
 
   private final Configuration config;
   private final DataPort dataPort;
-  private final Queue<PacketRequest> inboundPackets;
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
   private final PacketHandler externalHandler;
@@ -71,12 +68,11 @@ public class DataLinkManager {
   private DataLinkManager(
       Configuration config,
       DataPort dataPort,
-      Consumer<DataLinkEvent> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
     this.config = config;
     this.dataPort = dataPort;
-    this.inboundPackets = new ConcurrentLinkedQueue<>();
     this.outboundPackets = new ConcurrentLinkedQueue<>();
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
     this.ax25StateHandler = new AX25StateMachine(config, outboundPackets::add, dataLinkEvents);
@@ -87,7 +83,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       Configuration config,
       DataPort port,
-      Consumer<DataLinkEvent> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler) {
     return create(config, port, dataLinkEvents, externalHandler, Executors.newScheduledThreadPool(128));
   }
@@ -95,7 +91,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       Configuration config,
       DataPort port,
-      Consumer<DataLinkEvent> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
 
@@ -117,14 +113,13 @@ public class DataLinkManager {
     // Start automated ID broadcast
     executorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic ID message on " + port);
-      AX25Packet idPacket = UIFrame.create(
-          AX25Call.create("ID"),
-          config.getNodeCall(),
-          Protocol.NO_LAYER3,
-          String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r", config.getAlias(), config.getNodeCall().toString())
-              .getBytes(StandardCharsets.US_ASCII));
+      String idMessage = String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r",
+          config.getAlias(), config.getNodeCall());
       manager.getAx25StateHandler().getEventQueue().add(
-          AX25StateEvent.createUIEvent(idPacket));
+          AX25StateEvent.createUnitDataEvent(
+              AX25Call.create("ID"),
+              Protocol.NO_LAYER3,
+              idMessage.getBytes(StandardCharsets.US_ASCII)));
     }, 5, 300, TimeUnit.SECONDS);
 
     return manager;
@@ -173,19 +168,40 @@ public class DataLinkManager {
     return dataPort;
   }
 
-  public Queue<PacketRequest> getInboundPackets() {
-    return inboundPackets;
-  }
+  public void acceptDataLinkPrimitive(DataLinkPrimitive event) {
+    switch (event.getType()) {
 
-  public Queue<Packet> getOutboundPackets() {
-    return outboundPackets;
+      case DL_CONNECT:
+        ax25StateHandler.getEventQueue().add(AX25StateEvent.createConnectEvent(event.getRemoteCall()));
+        break;
+      case DL_DISCONNECT:
+        ax25StateHandler.getEventQueue().add(AX25StateEvent.createDisconnectEvent(event.getRemoteCall()));
+        break;
+      case DL_DATA:
+        ax25StateHandler.getEventQueue().add(
+            AX25StateEvent.createDataEvent(
+                event.getRemoteCall(),
+                event.getPacket().getProtocol(),
+                event.getPacket().getInfo()));
+        break;
+      case DL_UNIT_DATA:
+        ax25StateHandler.getEventQueue().add(
+            AX25StateEvent.createUnitDataEvent(
+                event.getRemoteCall(),
+                event.getPacket().getProtocol(),
+                event.getPacket().getInfo()));
+        break;
+      case DL_ERROR:
+      default:
+        break;
+    }
   }
 
   public AX25StateMachine getAx25StateHandler() {
     return ax25StateHandler;
   }
 
-  public Runnable getReaderRunnable() {
+  private Runnable getReaderRunnable() {
     return () -> {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
@@ -197,7 +213,7 @@ public class DataLinkManager {
       );
 
       Consumer<Packet> packetConsumer = packet -> packetHandler.onPacket(
-          new DefaultPacketRequest(getDataPort().getPortNumber(), packet, getOutboundPackets()::add));
+          new DefaultPacketRequest(getDataPort().getPortNumber(), packet, outboundPackets::add));
 
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(
@@ -249,7 +265,7 @@ public class DataLinkManager {
    * which converts the packet as a byte stream suitable to write out to the port
    * @return
    */
-  public Runnable getWriterRunnable() {
+  private Runnable getWriterRunnable() {
     return () -> {
       FrameWriter frameWriter = new KISSFrameWriter();
 

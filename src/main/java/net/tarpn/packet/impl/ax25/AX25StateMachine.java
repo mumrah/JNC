@@ -52,7 +52,7 @@ public class AX25StateMachine implements PacketHandler {
   /**
    * Inbound level 3 packets (NET/ROM only for now)
    */
-  private final Consumer<DataLinkEvent> dataLinkEvents;
+  private final Consumer<DataLinkPrimitive> dataLinkEvents;
 
 
   private final Configuration config;
@@ -62,7 +62,7 @@ public class AX25StateMachine implements PacketHandler {
   public AX25StateMachine(
       Configuration config,
       Consumer<AX25Packet> outgoingPackets,
-      Consumer<DataLinkEvent> dataLinkEvents) {
+      Consumer<DataLinkPrimitive> dataLinkEvents) {
     this.config = config;
     this.outgoingPackets = outgoingPackets;
     this.dataLinkEvents = dataLinkEvents;

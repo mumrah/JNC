@@ -7,10 +7,9 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.ErrorIndicationDataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.ErrorIndicationDataLinkEvent.ErrorType;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
@@ -47,7 +46,10 @@ public class AwaitingReleaseStateHandler implements StateHandler {
         break;
       }
       case DL_UNIT_DATA: {
-        outgoingPackets.accept(packet);
+        InternalInfo internalInfo = (InternalInfo)packet;
+        UIFrame uiFrame = UIFrame.create(state.getRemoteNodeCall(), state.getLocalNodeCall(),
+            internalInfo.getProtocol(), internalInfo.getInfo());
+        outgoingPackets.accept(uiFrame);
         newState = State.AWAITING_RELEASE;
         break;
       }
@@ -79,11 +81,11 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_UA: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
-          state.sendDataLinkEvent(new ErrorIndicationDataLinkEvent(ErrorType.D, state.getSessionId()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
           newState = State.AWAITING_RELEASE;
         }
         break;
@@ -91,7 +93,7 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_DM: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
@@ -108,14 +110,23 @@ public class AwaitingReleaseStateHandler implements StateHandler {
           state.getT1Timer().start();
           newState = State.AWAITING_RELEASE;
         } else {
-          state.sendDataLinkEvent(new ErrorIndicationDataLinkEvent(ErrorType.H, state.getSessionId()));
-          state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_DISCONNECT));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.H));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           newState = State.DISCONNECTED;
         }
         break;
       }
+      // Other primitives, do nothing, other commands are not specified in the spec
+      case AX25_SABME:
+      case AX25_UNKNOWN:
+      case AX25_FRMR:
+      case T3_EXPIRE:
+      case DL_CONNECT:
+      case DL_DATA:
+      case IFRAME_READY:
       default:
         newState = State.DISCONNECTED;
+        break;
     }
     return newState;
   }

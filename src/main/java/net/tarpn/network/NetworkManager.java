@@ -2,7 +2,6 @@ package net.tarpn.network;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,9 +27,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive.Type;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +47,7 @@ public class NetworkManager {
   private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);
 
   private final Configuration config;
-  private final Queue<DataLinkEvent> dataLinkEvents;
+  private final Queue<DataLinkPrimitive> dataLinkEvents;
   private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRouter router;
 
@@ -84,7 +82,7 @@ public class NetworkManager {
     };
   }
 
-  public void acceptDataLinkEvent(DataLinkEvent event) {
+  public void acceptDataLinkPrimitive(DataLinkPrimitive event) {
     dataLinkEvents.add(event);
   }
 
@@ -135,10 +133,10 @@ public class NetworkManager {
       // Start event processing
       Util.queueProcessingLoop(
           dataLinkEvents::poll,
-          dataLinkEvent -> {
-            LOG.info("Got DL event " + dataLinkEvent.getType());
-            if(dataLinkEvent.getType().equals(Type.DL_DATA) || dataLinkEvent.getType().equals(Type.DL_UNIT_DATA)) {
-              circuitManager.onPacket(((DataIndicationDataLinkEvent)dataLinkEvent).getPacket(), packetRouter);
+          dataLinkPrimitive -> {
+            LOG.info("Got DL event " + dataLinkPrimitive);
+            if(dataLinkPrimitive.getType().equals(Type.DL_DATA) || dataLinkPrimitive.getType().equals(Type.DL_UNIT_DATA)) {
+              circuitManager.onPacket(dataLinkPrimitive.getPacket(), packetRouter);
             }
           },
           (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
@@ -147,17 +145,11 @@ public class NetworkManager {
     // Send automatic NODES packets
     executorService.scheduleAtFixedRate(() -> {
       NetRomNodes nodes = router.getNodes();
-      AX25Packet nodesPacket = UIFrame.create(
-          AX25Call.create("NODES"),
-          config.getNodeCall(),
-          Protocol.NETROM,
-          NetRomNodes.write(nodes)
-      );
-
+      byte[] nodesData = NetRomNodes.write(nodes);
       for(DataLinkManager portManager : dataPorts.values()) {
         LOG.info("Sending automatic NODES message on " + portManager.getDataPort());
         portManager.getAx25StateHandler().getEventQueue().add(
-            AX25StateEvent.createUIEvent(nodesPacket));
+            AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
         //Thread.sleep(2000); // Slight delay between broadcasts
       }
     }, 15, 300, TimeUnit.SECONDS);

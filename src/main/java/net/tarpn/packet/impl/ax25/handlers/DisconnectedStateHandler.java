@@ -5,10 +5,9 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
-import net.tarpn.packet.impl.ax25.DataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
-import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
+import net.tarpn.packet.impl.ax25.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -27,14 +26,54 @@ public class DisconnectedStateHandler implements StateHandler {
     final AX25Packet packet = event.getPacket();
     final State newState;
     switch (event.getType()) {
+      case AX25_UA: {
+        state.sendDataLinkPrimitive(
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+        state.sendDataLinkPrimitive(
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case AX25_DM: {
+        newState = State.DISCONNECTED;
+        break;
+      }
       case AX25_UI: {
         StateHelper.UICheck(state, (UIFrame)packet);
         if (((UIFrame) packet).isPollFinalSet()) {
-          // Send DM F=1
           UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, true);
           outgoingPackets.accept(ua);
         }
         newState = State.DISCONNECTED;
+        break;
+      }
+      case DL_DISCONNECT: {
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case AX25_DISC: {
+        boolean finalFlag = ((UFrame) packet).isPollFinalSet();
+        UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, finalFlag);
+        outgoingPackets.accept(dm);
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case DL_UNIT_DATA: {
+        InternalInfo internalInfo = (InternalInfo)packet;
+        UIFrame uiFrame = UIFrame.create(state.getRemoteNodeCall(), state.getLocalNodeCall(),
+            internalInfo.getProtocol(), internalInfo.getInfo());
+        outgoingPackets.accept(uiFrame);
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case DL_DATA: {
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case DL_CONNECT: {
+        StateHelper.establishDataLink(state, outgoingPackets);
+        newState = State.AWAITING_CONNECTION;
         break;
       }
       case AX25_SABM: {
@@ -45,25 +84,22 @@ public class DisconnectedStateHandler implements StateHandler {
         // Reset exceptions, state values, and timers
         StateHelper.clearExceptionConditions(state);
         state.reset();
-        state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_CONNECT));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
         newState = State.CONNECTED;
         break;
       }
-      case AX25_UA:
-        // print error N
-      case AX25_DM:
-      case AX25_SABME: // not going to support this yet
-      case AX25_FRMR:
-      case AX25_DISC: {
-        // Send DM F=P
-        boolean finalFlag = ((UFrame) packet).isPollFinalSet();
-        UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, finalFlag);
-        outgoingPackets.accept(dm);
+      case AX25_SABME: {
+        // AX25 2.2 not supported
+        UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, false);
+        outgoingPackets.accept(ua);
         newState = State.DISCONNECTED;
         break;
       }
+
+      // Respond to all other commands with DM
+      case AX25_FRMR:
       case AX25_RR:
       case AX25_RNR:
       case AX25_SREJ:
@@ -81,31 +117,14 @@ public class DisconnectedStateHandler implements StateHandler {
         newState = State.DISCONNECTED;
         break;
       }
-      case DL_UNIT_DATA: {
-        if(packet.getFrameType().equals(FrameType.UI)) {
-          outgoingPackets.accept(packet);
-        } else {
-          // warning
-        }
-        newState = State.DISCONNECTED;
-        break;
-      }
-      case DL_DATA: {
-        // error
-        newState = State.DISCONNECTED;
-        break;
-      }
-      case DL_CONNECT: {
-        StateHelper.establishDataLink(state, outgoingPackets);
-        newState = State.AWAITING_CONNECTION;
-        break;
-      }
+
+      // Ignore other primitives
+      case IFRAME_READY:
       case T1_EXPIRE:
-        System.err.println("T1 Expired!!");
       case T3_EXPIRE:
       case AX25_UNKNOWN:
       default: {
-        // Log error
+        // Log error?
         newState = State.DISCONNECTED;
         break;
       }

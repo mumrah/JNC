@@ -110,7 +110,7 @@ public interface AX25Packet extends Packet {
     byte getSendSequenceNumber();
   }
 
-  interface HasInfo {
+  interface HasInfo extends AX25Packet {
     byte[] getInfo();
     byte getProtocolByte();
     Protocol getProtocol();
