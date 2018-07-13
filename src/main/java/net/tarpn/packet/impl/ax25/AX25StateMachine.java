@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.Configuration;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25State.State;

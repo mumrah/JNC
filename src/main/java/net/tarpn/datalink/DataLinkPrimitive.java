@@ -1,7 +1,10 @@
-package net.tarpn.packet.impl.ax25;
+package net.tarpn.datalink;
 
 
+import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import net.tarpn.packet.impl.ax25.IFrame;
+import net.tarpn.packet.impl.ax25.UIFrame;
 
 public class DataLinkPrimitive {
 

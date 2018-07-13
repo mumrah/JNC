@@ -1,4 +1,4 @@
-package net.tarpn.io.impl;
+package net.tarpn.datalink;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +41,6 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

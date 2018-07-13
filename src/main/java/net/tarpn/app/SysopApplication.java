@@ -2,8 +2,8 @@ package net.tarpn.app;
 
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive.Type;
+import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive.Type;
 
 public class SysopApplication {
 

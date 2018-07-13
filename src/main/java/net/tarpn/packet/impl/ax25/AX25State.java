@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

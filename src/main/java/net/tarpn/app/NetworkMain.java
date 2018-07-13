@@ -1,4 +1,4 @@
-package net.tarpn;
+package net.tarpn.app;
 
 import net.tarpn.config.Configuration;
 import net.tarpn.io.DataPort;

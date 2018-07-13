@@ -8,8 +8,8 @@ import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive;
-import net.tarpn.packet.impl.ax25.DataLinkPrimitive.ErrorType;
+import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
