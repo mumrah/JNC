@@ -25,7 +25,7 @@ public class Main {
     DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
     //DataPort port2 = SerialDataPort.openPort(2, "/tmp/vmodem0", 9600);
 
-    network.addPort(port1);
+    network.initialize(port1);
     //network.addPort(port2);
     network.start();
 

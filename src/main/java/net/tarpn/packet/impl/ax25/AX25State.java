@@ -193,6 +193,10 @@ public class AX25State {
     return va.get();
   }
 
+  public byte getAcknowledgeStateByte() {
+    return (byte)(va.get() & 0xff);
+  }
+
   public void setAcknowledgeState(byte va) {
     this.va.set(va & 0xff);
   }
@@ -313,6 +317,7 @@ public class AX25State {
     DISCONNECTED,
     AWAITING_CONNECTION,
     CONNECTED,
-    TIMER_RECOVERY;
+    TIMER_RECOVERY,
+    AWAITING_RELEASE;
   }
 }

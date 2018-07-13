@@ -18,7 +18,7 @@ public class Main2 {
 
       // Level 3: The network layer
       NetworkManager network = NetworkManager.create(config);
-      network.addPort(ports[0]);
+      network.initialize(ports[0]);
       network.start();
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         System.err.println("Shutting down");
@@ -34,7 +34,7 @@ public class Main2 {
 
       // Level 3: The network layer
       NetworkManager network = NetworkManager.create(config);
-      network.addPort(ports[1]);
+      network.initialize(ports[1]);
       network.start();
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         System.err.println("Shutting down");

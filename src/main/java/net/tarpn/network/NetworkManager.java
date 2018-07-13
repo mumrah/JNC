@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.Configuration;
 import net.tarpn.io.DataPort;
-import net.tarpn.io.impl.DataPortManager;
+import net.tarpn.io.impl.DataLinkManager;
 import net.tarpn.network.netrom.NetRomCircuitManager;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomPacket;
@@ -50,9 +50,8 @@ public class NetworkManager {
 
   private final Configuration config;
   private final Queue<DataLinkEvent> dataLinkEvents;
-  private final Map<Integer, DataPortManager> dataPorts;
+  private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRouter router;
-
 
   private NetworkManager(Configuration config) {
     this.config = config;
@@ -65,48 +64,52 @@ public class NetworkManager {
     return new NetworkManager(config);
   }
 
-  public void addPort(DataPort dataPort) {
-    PacketHandler netRomNodesHandler = packetRequest -> {
+  /**
+   * A special {@link PacketHandler} which handles routing table packets sent to the NODES destination
+   * @return
+   */
+  public PacketHandler getNetromNodesHandler() {
+    return packetRequest -> {
       if(packetRequest.getPacket() instanceof AX25Packet) {
         AX25Packet ax25Packet = (AX25Packet)packetRequest.getPacket();
         if(ax25Packet.getFrameType().equals(FrameType.UI)) {
           UIFrame uiFrame = (UIFrame)ax25Packet;
           if(uiFrame.getDestCall().equals(AX25Call.create("NODES", 0))) {
             NetRomNodes nodes = NetRomNodes.read(uiFrame.getInfo());
-            router.updateNodes(uiFrame.getSourceCall(), dataPort.getPortNumber(), nodes);
+            router.updateNodes(uiFrame.getSourceCall(), packetRequest.getPort(), nodes);
             packetRequest.abort();
           }
         }
       }
     };
+  }
 
-    DataPortManager portManager = DataPortManager.initialize(config, dataPort, dataLinkEvents::add, netRomNodesHandler);
-    executorService.submit(portManager.getReaderRunnable()); // read data off the incoming port
-    executorService.submit(portManager.getWriterRunnable()); // write outbound packets to the port
-    executorService.submit(portManager.getAx25StateHandler().getRunnable()); // process ax.25 packets on this port
-    executorService.scheduleWithFixedDelay(() -> {
-      LOG.info("Sending automatic ID message on " + portManager.getDataPort());
-      AX25Packet idPacket = UIFrame.create(
-          AX25Call.create("ID"),
-          config.getNodeCall(),
-          Protocol.NO_LAYER3,
-          String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r", config.getAlias(), config.getNodeCall().toString())
-              .getBytes(StandardCharsets.US_ASCII));
-      portManager.getAx25StateHandler().getEventQueue().add(
-          AX25StateEvent.createUIEvent(idPacket));
-    }, 5, 300, TimeUnit.SECONDS);
+  public void acceptDataLinkEvent(DataLinkEvent event) {
+    dataLinkEvents.add(event);
+  }
+
+  public void initialize(DataPort dataPort) {
+    PacketHandler netRomNodesHandler = getNetromNodesHandler();
+
+    DataLinkManager portManager = DataLinkManager.create(
+        config, dataPort, dataLinkEvents::add, netRomNodesHandler, executorService);
+
     dataPorts.put(dataPort.getPortNumber(), portManager);
   }
 
-  public DataPortManager getPortManager(int port) {
+  public DataLinkManager getPortManager(int port) {
     return dataPorts.get(port);
   }
 
-  public Map<Integer, DataPortManager> getPorts() {
+  public Map<Integer, DataLinkManager> getPorts() {
     return dataPorts;
   }
 
   public void start() {
+    // Start up ports
+    dataPorts.values().forEach(DataLinkManager::start);
+
+    // Start up router and event processor
     executorService.submit(() -> {
       NetRomCircuitManager circuitManager = new NetRomCircuitManager(config);
       Consumer<NetRomPacket> packetRouter = netRomPacket -> {
@@ -114,7 +117,7 @@ public class NetworkManager {
         boolean routed = false;
         for(AX25Call route : potentialRoutes) {
           int routePort = router.getNeighbors().get(route).getPort();
-          DataPortManager portManager = dataPorts.get(routePort);
+          DataLinkManager portManager = dataPorts.get(routePort);
           // Check if we have a connection
           AX25State state = portManager.getAx25StateHandler().getState(route);
           if(state.getState().equals(State.CONNECTED)) {
@@ -129,6 +132,7 @@ public class NetworkManager {
         }
       };
 
+      // Start event processing
       Util.queueProcessingLoop(
           dataLinkEvents::poll,
           dataLinkEvent -> {
@@ -140,6 +144,7 @@ public class NetworkManager {
           (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
     });
 
+    // Send automatic NODES packets
     executorService.scheduleAtFixedRate(() -> {
       NetRomNodes nodes = router.getNodes();
       AX25Packet nodesPacket = UIFrame.create(
@@ -149,7 +154,7 @@ public class NetworkManager {
           NetRomNodes.write(nodes)
       );
 
-      for(DataPortManager portManager : dataPorts.values()) {
+      for(DataLinkManager portManager : dataPorts.values()) {
         LOG.info("Sending automatic NODES message on " + portManager.getDataPort());
         portManager.getAx25StateHandler().getEventQueue().add(
             AX25StateEvent.createUIEvent(nodesPacket));

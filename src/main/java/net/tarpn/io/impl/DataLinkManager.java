@@ -3,8 +3,10 @@ package net.tarpn.io.impl;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -36,18 +38,22 @@ import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.DestinationFilteringPacketHandler;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
+import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
 import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DataPortManager {
+public class DataLinkManager {
 
   private static final ScheduledExecutorService PORT_RECOVERY_EXECUTOR = Executors
       .newSingleThreadScheduledExecutor();
 
-  private static final Logger LOG = LoggerFactory.getLogger(DataPortManager.class);
+  private static final Logger LOG = LoggerFactory.getLogger(DataLinkManager.class);
 
   private final Configuration config;
   private final DataPort dataPort;
@@ -57,39 +63,48 @@ public class DataPortManager {
   private final PacketHandler externalHandler;
   private final AX25StateMachine ax25StateHandler;
   private final Object portLock = new Object();
+  private final ScheduledExecutorService executorService;
 
   private IOException fault;
   private ScheduledFuture<?> recoveryThread;
 
-  private DataPortManager(
+  private DataLinkManager(
       Configuration config,
       DataPort dataPort,
-      Queue<PacketRequest> inboundPackets,
-      Queue<Packet> outboundPackets,
       Consumer<DataLinkEvent> dataLinkEvents,
-      PacketHandler externalHandler) {
+      PacketHandler externalHandler,
+      ScheduledExecutorService executorService) {
     this.config = config;
     this.dataPort = dataPort;
-    this.inboundPackets = inboundPackets;
-    this.outboundPackets = outboundPackets;
+    this.inboundPackets = new ConcurrentLinkedQueue<>();
+    this.outboundPackets = new ConcurrentLinkedQueue<>();
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
     this.ax25StateHandler = new AX25StateMachine(config, outboundPackets::add, dataLinkEvents);
     this.externalHandler = externalHandler;
+    this.executorService = executorService;
   }
 
-  public static DataPortManager initialize(
+  public static DataLinkManager create(
       Configuration config,
       DataPort port,
       Consumer<DataLinkEvent> dataLinkEvents,
       PacketHandler externalHandler) {
+    return create(config, port, dataLinkEvents, externalHandler, Executors.newScheduledThreadPool(128));
+  }
 
-    DataPortManager manager = new DataPortManager(
+  public static DataLinkManager create(
+      Configuration config,
+      DataPort port,
+      Consumer<DataLinkEvent> dataLinkEvents,
+      PacketHandler externalHandler,
+      ScheduledExecutorService executorService) {
+
+    DataLinkManager manager = new DataLinkManager(
         config,
         port,
-        new ConcurrentLinkedQueue<>(),
-        new ConcurrentLinkedQueue<>(),
         dataLinkEvents,
-        externalHandler
+        externalHandler,
+        executorService
     );
 
     try {
@@ -99,7 +114,30 @@ public class DataPortManager {
       LOG.warn("Could not open port " + port + ". Continuing anyways", e);
     }
 
+    // Start automated ID broadcast
+    executorService.scheduleWithFixedDelay(() -> {
+      LOG.info("Sending automatic ID message on " + port);
+      AX25Packet idPacket = UIFrame.create(
+          AX25Call.create("ID"),
+          config.getNodeCall(),
+          Protocol.NO_LAYER3,
+          String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r", config.getAlias(), config.getNodeCall().toString())
+              .getBytes(StandardCharsets.US_ASCII));
+      manager.getAx25StateHandler().getEventQueue().add(
+          AX25StateEvent.createUIEvent(idPacket));
+    }, 5, 300, TimeUnit.SECONDS);
+
     return manager;
+  }
+
+  public void start() {
+    executorService.submit(getReaderRunnable());
+    executorService.submit(getWriterRunnable());
+    executorService.submit(getAx25StateHandler().getRunnable());
+  }
+
+  public void stop() {
+    executorService.shutdownNow();
   }
 
   public boolean hasFault() {
@@ -112,7 +150,14 @@ public class DataPortManager {
 
   private void setFault(IOException e) {
     this.fault = e;
-    this.recoveryThread = PORT_RECOVERY_EXECUTOR.scheduleWithFixedDelay(() -> {
+    // Use provided Executor, if it's scheduled
+    final ScheduledExecutorService scheduledExecutorService;
+    if(executorService instanceof ScheduledExecutorService) {
+      scheduledExecutorService = (ScheduledExecutorService)executorService;
+    } else {
+      scheduledExecutorService = PORT_RECOVERY_EXECUTOR;
+    }
+    this.recoveryThread = scheduledExecutorService.scheduleWithFixedDelay(() -> {
       if(dataPort.reopen()) {
         LOG.info("Recovered connection to " + dataPort);
         this.fault = null;
@@ -153,7 +198,6 @@ public class DataPortManager {
 
       Consumer<Packet> packetConsumer = packet -> packetHandler.onPacket(
           new DefaultPacketRequest(getDataPort().getPortNumber(), packet, getOutboundPackets()::add));
-
 
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(

@@ -6,7 +6,9 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.DataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.BaseDataLinkEvent;
 import net.tarpn.packet.impl.ax25.DataLinkEvent.DataIndicationDataLinkEvent;
+import net.tarpn.packet.impl.ax25.DataLinkEvent.Type;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -26,7 +28,7 @@ public class DisconnectedStateHandler implements StateHandler {
     final State newState;
     switch (event.getType()) {
       case AX25_UI: {
-        state.sendDataLinkEvent(new DataIndicationDataLinkEvent(packet, state.getSessionId(), DataLinkEvent.Type.DL_UNIT_DATA));
+        StateHelper.UICheck(state, (UIFrame)packet);
         if (((UIFrame) packet).isPollFinalSet()) {
           // Send DM F=1
           UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, true);
@@ -41,8 +43,9 @@ public class DisconnectedStateHandler implements StateHandler {
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, true);
         outgoingPackets.accept(ua);
         // Reset exceptions, state values, and timers
+        StateHelper.clearExceptionConditions(state);
         state.reset();
-        // DL-CONNECT indication
+        state.sendDataLinkEvent(new BaseDataLinkEvent(state.getSessionId(), Type.DL_CONNECT));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
         newState = State.CONNECTED;
@@ -93,14 +96,7 @@ public class DisconnectedStateHandler implements StateHandler {
         break;
       }
       case DL_CONNECT: {
-        state.resetRC();
-        UFrame sabm = UFrame.create(
-            state.getRemoteNodeCall(),
-            state.getLocalNodeCall(),
-            Command.COMMAND, ControlType.SABM, true);
-        outgoingPackets.accept(sabm);
-        state.getT3Timer().cancel();
-        state.getT1Timer().start();
+        StateHelper.establishDataLink(state, outgoingPackets);
         newState = State.AWAITING_CONNECTION;
         break;
       }

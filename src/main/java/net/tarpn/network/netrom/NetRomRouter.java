@@ -47,20 +47,22 @@ public class NetRomRouter {
     // Add direct route to whoever send the NODES
     destination.getNeighbors().add(new DestinationRoute(heardFrom, 255));
 
-    nodes.getDestinationList().forEach(nodeDestination -> {
-      final int routeQuality;
-      if(nodeDestination.getBestNeighborNode().equals(config.getNodeCall())) {
-        // Best neighbor is us, this is a "trivial loop", quality is zero
-        routeQuality = 0;
-      } else {
-        int qualityProduct = nodeDestination.getQuality() * neighbor.getQuality();
-        routeQuality = (qualityProduct + 128) / 256;
-      }
-      Destination neighborDest = destinations.computeIfAbsent(nodeDestination.getDestNode(),
-          call -> new Destination(call, nodeDestination.getDestAlias())
-      );
-      neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
-    });
+    nodes.getDestinationList().stream()
+        .filter(nodeDestination -> !nodeDestination.getDestNode().equals(config.getNodeCall()))
+        .forEach(nodeDestination -> {
+          final int routeQuality;
+          if(nodeDestination.getBestNeighborNode().equals(config.getNodeCall())) {
+            // Best neighbor is us, this is a "trivial loop", quality is zero
+            routeQuality = 0;
+          } else {
+            int qualityProduct = nodeDestination.getQuality() * neighbor.getQuality();
+            routeQuality = (qualityProduct + 128) / 256;
+          }
+          Destination neighborDest = destinations.computeIfAbsent(nodeDestination.getDestNode(),
+              call -> new Destination(call, nodeDestination.getDestAlias())
+          );
+          neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
+        });
     LOG.info("New Routing table: " + this);
   }
 

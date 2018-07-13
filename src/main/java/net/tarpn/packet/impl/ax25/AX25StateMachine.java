@@ -14,6 +14,7 @@ import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.Type;
 import net.tarpn.packet.impl.ax25.handlers.AwaitingConnectionStateHandler;
+import net.tarpn.packet.impl.ax25.handlers.AwaitingReleaseStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.ConnectedStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.DisconnectedStateHandler;
 import net.tarpn.packet.impl.ax25.handlers.StateHandler;
@@ -69,6 +70,7 @@ public class AX25StateMachine implements PacketHandler {
     handlers.put(State.CONNECTED, new ConnectedStateHandler());
     handlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
     handlers.put(State.TIMER_RECOVERY, new TimerRecoveryStateHandler());
+    handlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
   }
 
   /**
