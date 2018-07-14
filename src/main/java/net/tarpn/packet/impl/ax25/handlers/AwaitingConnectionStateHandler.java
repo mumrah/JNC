@@ -141,7 +141,8 @@ public class AwaitingConnectionStateHandler implements StateHandler {
       }
       case T1_EXPIRE: {
         // RC == N2? (retry count == max retries?)
-        if(state.checkAndIncrementRC()) {
+        if(state.getRC() < 4) { // TODO N2 config
+          state.incrementRC();
           UFrame sabm = UFrame.create(
               state.getRemoteNodeCall(),
               state.getLocalNodeCall(),

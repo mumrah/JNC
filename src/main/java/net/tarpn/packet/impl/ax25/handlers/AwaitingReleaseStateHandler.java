@@ -103,7 +103,8 @@ public class AwaitingReleaseStateHandler implements StateHandler {
         break;
       }
       case T1_EXPIRE: {
-        if(state.checkAndIncrementRC()) {
+        if(state.getRC() < 4) { // TODO configure N2
+          state.incrementRC();
           UFrame disc = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND,
               ControlType.DISC, true);
           outgoingPackets.accept(disc);

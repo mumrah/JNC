@@ -89,11 +89,12 @@ public class ConnectedStateHandler implements StateHandler {
         newState = State.CONNECTED;
         break;
       }
-      case T3_EXPIRE:
-      case T1_EXPIRE: {
+      case T1_EXPIRE:
+      case T3_EXPIRE: {
+        state.resetRC();
         state.resetRC();
         if(event.getType().equals(Type.T1_EXPIRE)) {
-          state.checkAndIncrementRC();
+          state.incrementRC();
         }
         StateHelper.transmitEnquiry(state, outgoingPackets);
         newState = State.TIMER_RECOVERY;

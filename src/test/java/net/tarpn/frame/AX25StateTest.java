@@ -56,11 +56,11 @@ public class AX25StateTest {
         linkPrimitive -> {});
 
     state.resetRC();
-    state.checkAndIncrementRC();
-    state.checkAndIncrementRC();
-    state.checkAndIncrementRC();
-    state.checkAndIncrementRC();
-    state.checkAndIncrementRC();
+    state.incrementRC();
+    state.incrementRC();
+    state.incrementRC();
+    state.incrementRC();
+    state.incrementRC();
 
 
     System.err.println(state.getT1Timer().getTimeout());

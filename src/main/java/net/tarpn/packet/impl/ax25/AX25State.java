@@ -152,8 +152,8 @@ public class AX25State {
     RC = 0;
   }
 
-  public boolean checkAndIncrementRC() {
-    return RC++ < 4;
+  public void incrementRC() {
+    RC++;
   }
 
   public int getRC() {
