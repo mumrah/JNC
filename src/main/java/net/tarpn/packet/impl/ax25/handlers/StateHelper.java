@@ -6,8 +6,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State;
-import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
@@ -15,7 +15,7 @@ import net.tarpn.packet.impl.ax25.UIFrame;
 public class StateHelper {
 
   public static void nrErrorRecovery(AX25State state, Consumer<AX25Packet> packetConsumer) {
-    state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.J));
+    state.sendDataLinkPrimitive(LinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.J));
     establishDataLink(state, packetConsumer);
     // clear layer 3 init
   }
@@ -84,7 +84,8 @@ public class StateHelper {
       enquiryResponse(state, sFrame, packetConsumer);
     } else {
       if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.A));
+        state.sendDataLinkPrimitive(LinkPrimitive
+            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.A));
 
       }
     }
@@ -93,9 +94,10 @@ public class StateHelper {
   public static void UICheck(AX25State state, UIFrame uiFrame) {
     if(uiFrame.getCommand().equals(Command.COMMAND)) {
       // TODO check length, error K
-      state.sendDataLinkPrimitive(DataLinkPrimitive.newUnitDataResponse(uiFrame));
+      state.sendDataLinkPrimitive(LinkPrimitive.newUnitDataIndication(uiFrame));
     } else {
-      state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.Q));
+      state.sendDataLinkPrimitive(LinkPrimitive
+          .newErrorResponse(state.getRemoteNodeCall(), ErrorType.Q));
 
     }
   }
@@ -103,9 +105,14 @@ public class StateHelper {
 
   public static void selectT1Value(AX25State state) {
     if(state.getRC() == 0) {
-
+      int newSRT = (int)((7./8. * state.getSRT())
+          + (1./8. * state.getT1Timer().getTimeout())
+          - (1./8. * state.getT1Timer().timeRemaining()));
+      state.setSRT(newSRT);
+      state.getT1Timer().setTimeout(newSRT * 2);
     } else {
-
+      int newT1 = (int)(Math.pow(2., (state.getRC() + 1)) * state.getSRT());
+      state.getT1Timer().setTimeout(newT1);
     }
   }
 

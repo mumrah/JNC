@@ -13,8 +13,8 @@ import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
-import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -95,9 +95,11 @@ public class TimerRecoveryStateHandler implements StateHandler {
           newState = State.TIMER_RECOVERY;
         } else {
           if(state.getAcknowledgeState() == state.getSendState()) {
-            state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.U));
+            state.sendDataLinkPrimitive(LinkPrimitive
+                .newErrorResponse(state.getRemoteNodeCall(), ErrorType.U));
           } else {
-            state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.I));
+            state.sendDataLinkPrimitive(LinkPrimitive
+                .newErrorResponse(state.getRemoteNodeCall(), ErrorType.I));
           }
           state.internalDisconnectRequest();
           UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND, ControlType.DM, true);
@@ -111,10 +113,11 @@ public class TimerRecoveryStateHandler implements StateHandler {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, isFinalSet);
         outgoingPackets.accept(ua);
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.F));
+        state.sendDataLinkPrimitive(LinkPrimitive
+            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.F));
         if(!ByteUtil.equals(state.getSendStateByte(), state.getAcknowledgeStateByte())) {
           state.clearIFrames();
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(LinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
         }
         state.reset();
         state.getT3Timer().start();
@@ -160,14 +163,15 @@ public class TimerRecoveryStateHandler implements StateHandler {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, isFinalSet);
         outgoingPackets.accept(ua);
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
         newState = State.DISCONNECTED;
         break;
       }
       case AX25_UA: {
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+        state.sendDataLinkPrimitive(LinkPrimitive
+            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
         StateHelper.establishDataLink(state, outgoingPackets);
         // clear layer 3
         newState = State.AWAITING_CONNECTION;
@@ -190,8 +194,9 @@ public class TimerRecoveryStateHandler implements StateHandler {
         break;
       }
       case AX25_DM: {
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.E));
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(LinkPrimitive
+            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.E));
+        state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
         state.clearIFrames();
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
@@ -207,7 +212,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
             if(ByteUtil.equals(iFrame.getSendSequenceNumber(), state.getReceiveStateByte())) {
               state.incrementReceiveState();
               state.clearRejectException();
-              state.sendDataLinkPrimitive(DataLinkPrimitive.newDataResponse(iFrame));
+              state.sendDataLinkPrimitive(LinkPrimitive.newDataIndication(iFrame));
               if(iFrame.isPollBitSet()) {
                 // Set N(R) = V(R)
                 SFrame rr = SFrame.create(
@@ -254,7 +259,8 @@ public class TimerRecoveryStateHandler implements StateHandler {
             newState = State.AWAITING_CONNECTION;
           }
         } else {
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.S));
+          state.sendDataLinkPrimitive(LinkPrimitive
+              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.S));
           // Discard this frame
           newState = State.TIMER_RECOVERY;
         }

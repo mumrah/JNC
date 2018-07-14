@@ -66,7 +66,7 @@ public class DataLinkManager {
   private DataLinkManager(
       Configuration config,
       DataPort dataPort,
-      Consumer<DataLinkPrimitive> dataLinkEvents,
+      Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
     this.config = config;
@@ -81,7 +81,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       Configuration config,
       DataPort port,
-      Consumer<DataLinkPrimitive> dataLinkEvents,
+      Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler) {
     return create(config, port, dataLinkEvents, externalHandler, Executors.newScheduledThreadPool(128));
   }
@@ -89,7 +89,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       Configuration config,
       DataPort port,
-      Consumer<DataLinkPrimitive> dataLinkEvents,
+      Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
 
@@ -166,7 +166,7 @@ public class DataLinkManager {
     return dataPort;
   }
 
-  public void acceptDataLinkPrimitive(DataLinkPrimitive event) {
+  public void acceptDataLinkPrimitive(LinkPrimitive event) {
     switch (event.getType()) {
 
       case DL_CONNECT:

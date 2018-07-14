@@ -2,16 +2,16 @@ package net.tarpn.app;
 
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.datalink.DataLinkPrimitive.Type;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.Type;
 
 public class SysopApplication {
 
-  public void handle(DataLinkPrimitive request, Consumer<DataLinkPrimitive> response) {
+  public void handle(LinkPrimitive request, Consumer<LinkPrimitive> response) {
     if(request.getType().equals(Type.DL_DATA)) {
       String message = new String(request.getPacket().getInfo(), StandardCharsets.US_ASCII).trim();
       if(message.equalsIgnoreCase("BYE")) {
-        response.accept(DataLinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
+        response.accept(LinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
       } else {
         System.err.println("Got Message: " + message);
       }

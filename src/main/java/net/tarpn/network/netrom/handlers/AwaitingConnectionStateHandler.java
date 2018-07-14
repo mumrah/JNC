@@ -2,6 +2,7 @@ package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
 import net.tarpn.network.netrom.NetRomCircuit;
+import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 
@@ -10,27 +11,36 @@ public class AwaitingConnectionStateHandler implements StateHandler {
   @Override
   public State handle(
       NetRomCircuit circuit,
-      NetRomPacket packet,
+      NetRomCircuitEvent event,
       Consumer<byte[]> datagramConsumer,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
-    switch (packet.getOpType()) {
-      case ConnectRequest:
+    switch(event.getType()) {
+      case NETROM_CONNECT:
         newState = State.AWAITING_CONNECTION;
         break;
-      case ConnectAcknowledge:
+      case NETROM_CONNECT_ACK:
+        newState = State.CONNECTED;
+        break;
+      case NETROM_DISCONNECT:
         newState = State.AWAITING_CONNECTION;
         break;
-      case DisconnectRequest:
+      case NETROM_DISCONNECT_ACK:
         newState = State.AWAITING_CONNECTION;
         break;
-      case DisconnectAcknowledge:
+      case NETROM_INFO:
         newState = State.AWAITING_CONNECTION;
         break;
-      case Information:
+      case NETROM_INFO_ACK:
         newState = State.AWAITING_CONNECTION;
         break;
-      case InformationAcknowledge:
+      case NL_CONNECT:
+        newState = State.AWAITING_CONNECTION;
+        break;
+      case NL_DISCONNECT:
+        newState = State.AWAITING_CONNECTION;
+        break;
+      case NL_DATA:
         newState = State.AWAITING_CONNECTION;
         break;
       default:

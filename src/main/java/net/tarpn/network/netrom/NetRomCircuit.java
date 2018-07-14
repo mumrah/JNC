@@ -1,8 +1,13 @@
 package net.tarpn.network.netrom;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomCircuit {
+
+  private final AX25Call localNodeCall;
+
+  private final AX25Call remoteNodeCall;
 
   private final int circuitId;
 
@@ -18,8 +23,13 @@ public class NetRomCircuit {
 
   private final AtomicInteger vr = new AtomicInteger(0);
 
-  public NetRomCircuit(int circuitId) {
+  public NetRomCircuit(
+      int circuitId,
+      AX25Call remoteNodeCall,
+      AX25Call localNodeCall) {
     this.circuitId = circuitId;
+    this.remoteNodeCall = remoteNodeCall;
+    this.localNodeCall = localNodeCall;
     this.state = State.DISCONNECTED;
   }
 
@@ -99,6 +109,14 @@ public class NetRomCircuit {
         ", cIdx=" + (remoteCircuitIdx & 0xff) +
         ", k=" + windowSize +
         '}';
+  }
+
+  public AX25Call getLocalNodeCall() {
+    return localNodeCall;
+  }
+
+  public AX25Call getRemoteNodeCall() {
+    return remoteNodeCall;
   }
 
   public enum State {

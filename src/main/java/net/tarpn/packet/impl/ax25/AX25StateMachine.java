@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.Configuration;
-import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25State.State;
@@ -53,7 +53,7 @@ public class AX25StateMachine implements PacketHandler {
   /**
    * Inbound level 3 packets (NET/ROM only for now)
    */
-  private final Consumer<DataLinkPrimitive> dataLinkEvents;
+  private final Consumer<LinkPrimitive> dataLinkEvents;
 
 
   private final Configuration config;
@@ -63,7 +63,7 @@ public class AX25StateMachine implements PacketHandler {
   public AX25StateMachine(
       Configuration config,
       Consumer<AX25Packet> outgoingPackets,
-      Consumer<DataLinkPrimitive> dataLinkEvents) {
+      Consumer<LinkPrimitive> dataLinkEvents) {
     this.config = config;
     this.outgoingPackets = outgoingPackets;
     this.dataLinkEvents = dataLinkEvents;

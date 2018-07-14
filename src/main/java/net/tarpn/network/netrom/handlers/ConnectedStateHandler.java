@@ -4,6 +4,9 @@ import java.util.function.Consumer;
 import net.tarpn.ByteUtil;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
+import net.tarpn.network.netrom.NetRomCircuitEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.UserDataEvent;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
 import net.tarpn.network.netrom.NetRomInfo;
@@ -16,15 +19,16 @@ public class ConnectedStateHandler implements StateHandler {
   @Override
   public State handle(
       NetRomCircuit circuit,
-      NetRomPacket packet,
+      NetRomCircuitEvent event,
       Consumer<byte[]> datagramConsumer,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
-    switch(packet.getOpType()) {
-      case ConnectRequest:
-        NetRomConnectRequest connReq = (NetRomConnectRequest) packet;
+    switch(event.getType()) {
+
+      case NETROM_CONNECT: {
+        NetRomConnectRequest connReq = (NetRomConnectRequest) ((DataLinkEvent)event).getNetRomPacket();
         if(ByteUtil.equals(connReq.getCircuitIndex(), circuit.getRemoteCircuitIdx()) &&
-              ByteUtil.equals(connReq.getCircuitId(), circuit.getRemoteCircuitId())) {
+            ByteUtil.equals(connReq.getCircuitId(), circuit.getRemoteCircuitId())) {
           // Treat as a reconnect and ack it
           NetRomConnectAck connAck = NetRomConnectAck.create(
               connReq.getDestNode(),
@@ -56,8 +60,9 @@ public class ConnectedStateHandler implements StateHandler {
           newState = State.DISCONNECTED;
         }
         break;
-      case ConnectAcknowledge:
-        NetRomConnectAck connAck = (NetRomConnectAck) packet;
+      }
+      case NETROM_CONNECT_ACK: {
+        NetRomConnectAck connAck = (NetRomConnectAck) ((DataLinkEvent)event).getNetRomPacket();
         // Unexpected - maybe they resent their ack? If it matches current circuit, ignore it
         if(ByteUtil.equals(connAck.getTxSeqNumber(), circuit.getRemoteCircuitIdx()) &&
             ByteUtil.equals(connAck.getRxSeqNumber(), circuit.getRemoteCircuitId()) &&
@@ -69,9 +74,10 @@ public class ConnectedStateHandler implements StateHandler {
           newState = State.CONNECTED;
         }
         break;
-      case DisconnectRequest:
+      }
+      case NETROM_DISCONNECT: {
         // Ack and transition
-        BaseNetRomPacket discReq = (BaseNetRomPacket) packet;
+        NetRomPacket discReq = ((DataLinkEvent)event).getNetRomPacket();
         BaseNetRomPacket discAck = BaseNetRomPacket.createDisconnectAck(
             discReq.getDestNode(),
             discReq.getOriginNode(),
@@ -80,19 +86,17 @@ public class ConnectedStateHandler implements StateHandler {
             discReq.getCircuitId()
         );
         outgoing.accept(discAck);
-        newState = State.DISCONNECTED;
+        newState = State.AWAITING_RELEASE;
         break;
-      case DisconnectAcknowledge:
-        // Unexpected.. what to do?
-        newState = State.CONNECTED;
-        break;
-      case Information:
-        if(packet.getTxSeqNumber() == circuit.getRecvStateSeqByte()) {
+      }
+      case NETROM_INFO: {
+        NetRomPacket info = ((DataLinkEvent)event).getNetRomPacket();
+        if(ByteUtil.equals(info.getTxSeqNumber(), circuit.getRecvStateSeqByte())) {
           circuit.incrementRecvState();
-          datagramConsumer.accept(((NetRomInfo)packet).getInfo());
+          datagramConsumer.accept(((NetRomInfo)info).getInfo());
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
-              packet.getDestNode(),
-              packet.getOriginNode(),
+              info.getDestNode(),
+              info.getOriginNode(),
               (byte)0x07,
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),
@@ -102,8 +106,8 @@ public class ConnectedStateHandler implements StateHandler {
           outgoing.accept(infoAck);
         } else {
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
-              packet.getDestNode(),
-              packet.getOriginNode(),
+              info.getDestNode(),
+              info.getOriginNode(),
               (byte)0x07,
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),
@@ -114,15 +118,37 @@ public class ConnectedStateHandler implements StateHandler {
         }
         newState = State.CONNECTED;
         break;
-      case InformationAcknowledge:
+      }
+      case NETROM_INFO_ACK: {
         // Check RX seq against circuit N(S)
         // Check NAK and Choke flags
         newState = State.CONNECTED;
         break;
-      default:
+      }
+      case NL_DATA: {
+        NetRomPacket info = NetRomInfo.create(
+            circuit.getLocalNodeCall(),
+            circuit.getRemoteNodeCall(),
+            (byte)0x07,
+            circuit.getRemoteCircuitIdx(),
+            circuit.getRemoteCircuitId(),
+            circuit.getSendStateSeqByte(),
+            circuit.getRecvStateSeqByte(),
+            ((UserDataEvent)event).getData()
+        );
+        outgoing.accept(info);
         newState = State.CONNECTED;
         break;
+      }
+      case NL_CONNECT:
+      case NL_DISCONNECT:
+      case NETROM_DISCONNECT_ACK:
+      default: {
+        newState = State.CONNECTED;
+        break;
+      }
     }
+
     return newState;
   }
 }

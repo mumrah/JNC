@@ -4,6 +4,9 @@ import java.util.function.Consumer;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.network.netrom.NetRomCircuitEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
 import net.tarpn.network.netrom.NetRomPacket;
@@ -14,13 +17,14 @@ public class DisconnectedStateHandler implements StateHandler {
   @Override
   public State handle(
       NetRomCircuit circuit,
-      NetRomPacket packet,
+      NetRomCircuitEvent event,
       Consumer<byte[]> datagramConsumer,
       Consumer<NetRomPacket> outgoing) {
+
     final State newState;
-    switch (packet.getOpType()) {
-      case ConnectRequest:
-        NetRomConnectRequest connReq = (NetRomConnectRequest) packet;
+    switch (event.getType()) {
+      case NETROM_CONNECT: {
+        NetRomConnectRequest connReq = (NetRomConnectRequest) ((DataLinkEvent)event).getNetRomPacket();
         NetRomConnectAck connAck = NetRomConnectAck.create(
             connReq.getDestNode(),
             connReq.getOriginNode(),
@@ -37,13 +41,31 @@ public class DisconnectedStateHandler implements StateHandler {
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
         newState = State.CONNECTED;
         break;
-      case ConnectAcknowledge:
-      case DisconnectRequest:
-      case DisconnectAcknowledge:
-      case Information:
-      case InformationAcknowledge:
-      default:
+      }
+      case NL_CONNECT: {
+        NetRomConnectRequest connReq = NetRomConnectRequest.create(
+            circuit.getLocalNodeCall(),
+            circuit.getRemoteNodeCall(),
+            (byte) 0x07,
+            (byte) circuit.getCircuitId(),
+            (byte) circuit.getCircuitId(),
+            (byte) 0,
+            (byte) 0,
+            (byte) 0x02, // TODO make window size configurable
+            circuit.getLocalNodeCall(),  // TODO make user configurable
+            circuit.getLocalNodeCall()
+        );
+        outgoing.accept(connReq);
+        newState = State.AWAITING_CONNECTION;
+        break;
+      }
+      case NETROM_CONNECT_ACK:
+      case NETROM_DISCONNECT:
+      case NETROM_DISCONNECT_ACK:
+      case NETROM_INFO:
+      case NETROM_INFO_ACK: {
         // If we get an unexpected packet, send a Disconnect Request
+        NetRomPacket packet = ((DataLinkEvent)event).getNetRomPacket();
         NetRomPacket disc = BaseNetRomPacket.createDisconnectRequest(
             packet.getDestNode(),
             packet.getOriginNode(),
@@ -54,7 +76,24 @@ public class DisconnectedStateHandler implements StateHandler {
         outgoing.accept(disc);
         newState = State.DISCONNECTED;
         break;
+      }
+      case NL_DISCONNECT: {
+        // no-op
+        newState = State.DISCONNECTED;
+        break;
+      }
+      case NL_DATA: {
+        // error
+        newState = State.DISCONNECTED;
+        break;
+      }
+      default: {
+        newState = State.DISCONNECTED;
+        break;
+      }
+
     }
+
     return newState;
   }
 }

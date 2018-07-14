@@ -1,10 +1,5 @@
 package net.tarpn.network.netrom;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -15,7 +10,10 @@ import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 import net.tarpn.config.Configuration;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
 import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.network.netrom.handlers.AwaitingConnectionStateHandler;
 import net.tarpn.network.netrom.handlers.AwaitingReleaseStateHandler;
@@ -37,12 +35,13 @@ public class NetRomCircuitManager {
 
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
 
-  private final Map<Integer, DatagramSocket> sockets = new ConcurrentHashMap<>();
-
   private final Map<State, StateHandler> stateHandlers = new HashMap<>();
 
-  public NetRomCircuitManager(Configuration config) {
+  private final Consumer<NetRomPacket> outgoingNetRomPackets;
+
+  public NetRomCircuitManager(Configuration config, Consumer<NetRomPacket> outgoingNetRomPackets) {
     this.config = config;
+    this.outgoingNetRomPackets = outgoingNetRomPackets;
     this.stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
     this.stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
     this.stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
@@ -56,7 +55,11 @@ public class NetRomCircuitManager {
     return nextFreeId.orElse(-1);
   }
 
-  public void onPacket(AX25Packet packet, Consumer<NetRomPacket> outgoing) {
+  /**
+   * Handle a AX.25 packet with PID=NETROM, convert it to a {@link NetRomCircuitEvent} and
+   * pass it to the {@link NetRomCircuit}.
+   */
+  public void onPacket(AX25Packet packet) {
     if(packet instanceof IFrame) {
       IFrame infoFrame = (IFrame) packet;
       if (infoFrame.getProtocol().equals(Protocol.NETROM)) {
@@ -75,43 +78,42 @@ public class NetRomCircuitManager {
         boolean nak = (opcode & 0x40) == 0x40;
         boolean moreFollows = (opcode & 0x20) == 0x20;
 
-        final NetRomPacket netRomPacket;
+        final DataLinkEvent event;
         switch (opType) {
-          case ConnectRequest:
+          case ConnectRequest: {
             byte proposeWindowSize = infoBuffer.get();
             AX25Call originatingUser = AX25Call.read(infoBuffer);
             AX25Call originatingNode = AX25Call.read(infoBuffer);
-            netRomPacket = NetRomConnectRequest.create(originNode, destNode, ttl,
+            NetRomPacket netRomPacket = NetRomConnectRequest.create(originNode, destNode, ttl,
                 circuitIdx, circuitId,
                 txSeqNum, rxSeqNum,
                 proposeWindowSize, originatingUser, originatingNode);
+            int newCircuitId = getNextCircuitId();
+            event = new DataLinkEvent(newCircuitId, originNode, netRomPacket, Type.NETROM_CONNECT);
             break;
-          case ConnectAcknowledge:
+          }
+          case ConnectAcknowledge: {
             byte acceptWindowSize = infoBuffer.get();
-            netRomPacket = NetRomConnectAck.create(originNode, destNode, ttl,
+            NetRomPacket netRomPacket = NetRomConnectAck.create(originNode, destNode, ttl,
                 circuitIdx, circuitId,
                 txSeqNum, rxSeqNum,
                 acceptWindowSize,
                 OpType.ConnectAcknowledge.asByte(choke, nak, moreFollows));
+            event = new DataLinkEvent(circuitId, originNode, netRomPacket, Type.NETROM_CONNECT_ACK);
             break;
-          case Information:
+          }
+          case Information: {
             int len = infoBuffer.remaining();
             byte[] info = new byte[len];
             infoBuffer.get(info);
-            netRomPacket = NetRomInfo.create(originNode, destNode, ttl,
+            NetRomPacket netRomPacket = NetRomInfo.create(originNode, destNode, ttl,
                 circuitIdx, circuitId,
                 txSeqNum, rxSeqNum, info);
+            event = new DataLinkEvent(circuitId, originNode, netRomPacket, Type.NETROM_INFO);
             break;
-          case DisconnectRequest:
-            netRomPacket = BaseNetRomPacket.createDisconnectRequest(originNode, destNode, ttl,
-                circuitIdx, circuitId);
-            break;
-          case DisconnectAcknowledge:
-            netRomPacket = BaseNetRomPacket.createDisconnectAck(originNode, destNode, ttl,
-                circuitIdx, circuitId);
-            break;
-          case InformationAcknowledge:
-            netRomPacket = BaseNetRomPacket.createInfoAck(
+          }
+          case InformationAcknowledge: {
+            NetRomPacket netRomPacket = BaseNetRomPacket.createInfoAck(
                 originNode,
                 destNode,
                 ttl,
@@ -119,59 +121,71 @@ public class NetRomCircuitManager {
                 circuitId,
                 rxSeqNum,
                 OpType.InformationAcknowledge.asByte(false, false, false));
+            event = new DataLinkEvent(circuitId, originNode ,netRomPacket, Type.NETROM_INFO_ACK);
             break;
+          }
+          case DisconnectRequest: {
+            NetRomPacket netRomPacket = BaseNetRomPacket.createDisconnectRequest(originNode, destNode, ttl,
+                circuitIdx, circuitId);
+            event = new DataLinkEvent(circuitId, originNode, netRomPacket, Type.NETROM_DISCONNECT);
+
+            break;
+          }
+          case DisconnectAcknowledge: {
+            NetRomPacket netRomPacket = BaseNetRomPacket.createDisconnectAck(originNode, destNode, ttl,
+                circuitIdx, circuitId);
+            event = new DataLinkEvent(circuitId, originNode, netRomPacket, Type.NETROM_DISCONNECT_ACK);
+            break;
+          }
           default:
             throw new IllegalStateException("Cannot get here");
         }
 
-        LOG.info("Got NET/ROM packet: " + netRomPacket);
+        LOG.info("Got NET/ROM packet: " + event);
 
         // Ignore KEEPLI-0, some INP3 thing
 
-        if(!netRomPacket.getDestNode().equals(config.getNodeCall())) {
+        if(!event.getNetRomPacket().getDestNode().equals(config.getNodeCall())) {
           // forward it
-          outgoing.accept(netRomPacket);
-          return;
+          // TODO change this to accept events?
+          outgoingNetRomPackets.accept(event.getNetRomPacket());
         } else {
           // handle it
-          int theCircuitId;
-          if(netRomPacket.getOpType().equals(OpType.ConnectRequest)) {
-            // generate new circuit id
-            theCircuitId = getNextCircuitId();
-            // TODO handle -1
-          } else {
-            theCircuitId = circuitId;
-          }
-          NetRomCircuit circuit = circuits.computeIfAbsent(theCircuitId, NetRomCircuit::new);
-          StateHandler handler = stateHandlers.get(circuit.getState());
-          if(handler != null) {
-            LOG.info("BEFORE: " + circuit + " got " + netRomPacket);
-            State newState = handler.handle(circuit, netRomPacket, datagram -> {
-              LOG.info("L3: " + new String(datagram, StandardCharsets.US_ASCII));
-              /*
-              DatagramSocket socket = sockets.computeIfAbsent(circuit.getCircuitId(), id -> {
-                try {
-                  DatagramSocket newSocket = new DatagramSocket();
-                  newSocket.connect(new InetSocketAddress("127.0.0.1", 4000 + id));
-                  return newSocket;
-                } catch (SocketException e) {
-                  throw new RuntimeException(e);
-                }
-              });
-              try {
-                socket.send(new DatagramPacket(datagram, datagram.length));
-              } catch (IOException e) {
-                LOG.warn("Could not send datagram to port " + socket.getLocalAddress(), e);
-              }
-              */
-            }, outgoing);
-            circuit.setState(newState);
-            LOG.info("AFTER : " + circuit);
-          } else {
-            LOG.error("No handler found for state " + circuit.getState());
-          }
+          onCircuitEvent(event);
         }
       }
+    }
+  }
+
+  public int open(AX25Call remoteNode) {
+    int circuitId = getNextCircuitId();
+    if(circuits.containsKey(circuitId)) {
+      // All circuits busy
+      return -1;
+    } else {
+      circuits.put(circuitId, new NetRomCircuit(circuitId, remoteNode, config.getNodeCall()));
+      return circuitId;
+    }
+  }
+
+  /**
+   * Dispatch a {@link NetRomCircuitEvent} to the appropriate {@link NetRomCircuit}
+   * @param event
+   */
+  public void onCircuitEvent(NetRomCircuitEvent event) {
+    NetRomCircuit circuit = circuits.computeIfAbsent(event.getCircuitId(), newCircuitId ->
+        new NetRomCircuit(newCircuitId, event.getRemoteCall(), config.getNodeCall())
+    );
+    StateHandler handler = stateHandlers.get(circuit.getState());
+    if(handler != null) {
+      LOG.info("BEFORE: " + circuit + " got " + event);
+      State newState = handler.handle(circuit, event, datagram ->
+          LOG.info("L3: " + new String(datagram, StandardCharsets.US_ASCII)),
+          outgoingNetRomPackets);
+      circuit.setState(newState);
+      LOG.info("AFTER : " + circuit);
+    } else {
+      LOG.error("No handler found for state " + circuit.getState());
     }
   }
 }

@@ -147,7 +147,7 @@ public class AX25StateEvent {
     private final byte[] data;
     private final FrameType frameType;
 
-    InternalInfo(Protocol protocol, byte[] data, FrameType frameType) {
+    public InternalInfo(Protocol protocol, byte[] data, FrameType frameType) {
       this.protocol = protocol;
       this.data = data;
       this.frameType = frameType;

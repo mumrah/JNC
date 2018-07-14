@@ -44,6 +44,8 @@ public class TarpnSniffer {
         .setNodeCall(AX25Call.create("TEST", 1))
         .setAlias("TEST")
         .build();
+
+    /*
     NetRomCircuitManager netRomHandler = new NetRomCircuitManager(config);
     for(Frame frame : frames) {
       if(((KISSFrame)frame).getKissCommand().equals(Command.Data)) {
@@ -57,5 +59,6 @@ public class TarpnSniffer {
         }
       }
     }
+    */
   }
 }

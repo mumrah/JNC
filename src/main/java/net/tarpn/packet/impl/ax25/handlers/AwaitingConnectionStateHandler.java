@@ -11,8 +11,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State.Timer;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
-import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
@@ -90,7 +90,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         if (isFinalSet) {
           state.clearIFrames();
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
@@ -103,11 +103,11 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         if (isFinalSet) {
           if(true) {
             // TODO if layer 3
-            state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectConfirmation(state.getRemoteNodeCall()));
+            state.sendDataLinkPrimitive(LinkPrimitive.newConnectConfirmation(state.getRemoteNodeCall()));
             } else {
             if(!ByteUtil.equals(state.getSendStateByte(), state.getAcknowledgeStateByte())) {
               state.clearIFrames();
-              state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+              state.sendDataLinkPrimitive(LinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
             }
           }
           state.reset();
@@ -125,7 +125,8 @@ public class AwaitingConnectionStateHandler implements StateHandler {
                   Protocol.NO_LAYER3,
                   ("Welcome to David's packet node, OP is " + packet.getDestCall()).getBytes(StandardCharsets.US_ASCII)));
         } else {
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
+          state.sendDataLinkPrimitive(LinkPrimitive
+              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
           newState = State.AWAITING_CONNECTION;
         }
         break;
@@ -134,7 +135,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.DM, true);
         outgoingPackets.accept(ua);
         // I guess we should disconnect here since we don't support 2.2
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
         newState = State.DISCONNECTED;
         break;
       }
@@ -153,8 +154,9 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           state.getT1Timer().start();
           newState = State.AWAITING_CONNECTION;
         } else {
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.G));
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(LinkPrimitive
+              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.G));
+          state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
           // TODO don't change timeout here
           state.getT1Timer().setTimeout(AX25State.T1_TIMEOUT_MS);
           newState = State.DISCONNECTED;

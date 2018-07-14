@@ -2,20 +2,26 @@ package net.tarpn.datalink;
 
 
 import net.tarpn.packet.impl.ax25.AX25Call;
+import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
+import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
-public class DataLinkPrimitive {
+/**
+ * Used for interfacing with a {@link DataLinkManager} or {@link net.tarpn.network.NetworkManager}
+ */
+public class LinkPrimitive {
 
-  private final String dataLinkId;
+  private final String dataLinkId; // TODO remove this?
   private final AX25Call remoteCall;
   private final Type type;
   private final boolean isConfirmation;
   private final HasInfo infoPacket;
   private final ErrorType error;
 
-  private DataLinkPrimitive(String dataLinkId, AX25Call remoteCall,
+  private LinkPrimitive(String dataLinkId, AX25Call remoteCall,
       Type type, boolean isConfirmation, HasInfo infoPacket, ErrorType error) {
     this.dataLinkId = dataLinkId;
     this.remoteCall = remoteCall;
@@ -25,58 +31,64 @@ public class DataLinkPrimitive {
     this.error = error;
   }
 
-  public static DataLinkPrimitive newConnectRequest(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
+  public LinkPrimitive copyOf(AX25Call newCall) {
+    return new LinkPrimitive(this.dataLinkId, newCall, this.type, this.isConfirmation, this.infoPacket, this.error);
+  }
+
+  public static LinkPrimitive newConnectRequest(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
         null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectRequest(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
+  public static LinkPrimitive newDisconnectRequest(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
        null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDataRequest(IFrame iFrame) {
-    return new DataLinkPrimitive(iFrame.getDestCall().toString(), iFrame.getDestCall(), Type.DL_DATA,
+  public static LinkPrimitive newDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
+    InternalInfo iFrame = new InternalInfo(protocol, data, FrameType.I);
+    return new LinkPrimitive(destCall.toString(), destCall, Type.DL_DATA,
         false, iFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newUnitDataRequest(UIFrame uiFrame) {
-    return new DataLinkPrimitive(uiFrame.getDestCall().toString(), uiFrame.getDestCall(), Type.DL_UNIT_DATA,
+  public static LinkPrimitive newUnitDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
+    InternalInfo uiFrame = new InternalInfo(protocol, data, FrameType.UI);
+    return new LinkPrimitive(destCall.toString(), destCall, Type.DL_UNIT_DATA,
         false, uiFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newConnectIndication(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
+  public static LinkPrimitive newConnectIndication(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
         null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectIndication(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
+  public static LinkPrimitive newDisconnectIndication(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
         null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newConnectConfirmation(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, true,
+  public static LinkPrimitive newConnectConfirmation(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, true,
         null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectConfirmation(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, true,
+  public static LinkPrimitive newDisconnectConfirmation(AX25Call remoteCall) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, true,
         null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDataResponse(IFrame iFrame) {
-    return new DataLinkPrimitive(iFrame.getSourceCall().toString(), iFrame.getSourceCall(), Type.DL_DATA,
+  public static LinkPrimitive newDataIndication(IFrame iFrame) {
+    return new LinkPrimitive(iFrame.getSourceCall().toString(), iFrame.getSourceCall(), Type.DL_DATA,
         false, iFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newUnitDataResponse(UIFrame uiFrame) {
-    return new DataLinkPrimitive(uiFrame.getSourceCall().toString(), uiFrame.getSourceCall(), Type.DL_UNIT_DATA,
+  public static LinkPrimitive newUnitDataIndication(UIFrame uiFrame) {
+    return new LinkPrimitive(uiFrame.getSourceCall().toString(), uiFrame.getSourceCall(), Type.DL_UNIT_DATA,
         false, uiFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newErrorResponse(AX25Call remoteCall, ErrorType error) {
-    return new DataLinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_ERROR, false,
+  public static LinkPrimitive newErrorResponse(AX25Call remoteCall, ErrorType error) {
+    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_ERROR, false,
         null, error);
   }
 

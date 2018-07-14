@@ -8,7 +8,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,10 @@ public class AX25State {
       event -> {});
 
   public static final int T1_TIMEOUT_MS = 4000;
+
   public static final int T3_TIMEOUT_MS = 180000; // 3 minutes
+
+  public static final int SRT_MS = 1000;
 
   private final String sessionId;
 
@@ -39,7 +42,7 @@ public class AX25State {
 
   private final Consumer<AX25StateEvent> internalEvents;
 
-  private final Consumer<DataLinkPrimitive> outgoingEvents;
+  private final Consumer<LinkPrimitive> outgoingEvents;
 
   /**
    * Send state variable
@@ -65,6 +68,11 @@ public class AX25State {
    */
   private int RC = 0;
 
+  /**
+   * Smoothed round trip time
+   */
+  private int SRT = SRT_MS;
+
   private boolean ackPending = false;
 
   private boolean rejectException = false;
@@ -74,7 +82,7 @@ public class AX25State {
       AX25Call remoteNodeCall,
       AX25Call localNodeCall,
       Consumer<AX25StateEvent> stateEventConsumer,
-      Consumer<DataLinkPrimitive> outgoingEvents) {
+      Consumer<LinkPrimitive> outgoingEvents) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
@@ -106,7 +114,7 @@ public class AX25State {
     pendingInfoFrames.clear();
   }
 
-  public void sendDataLinkPrimitive(DataLinkPrimitive event) {
+  public void sendDataLinkPrimitive(LinkPrimitive event) {
     outgoingEvents.accept(event);
   }
 
@@ -152,6 +160,13 @@ public class AX25State {
     return RC;
   }
 
+  public int getSRT() {
+    return SRT;
+  }
+
+  public void setSRT(int srt) {
+    this.SRT = srt;
+  }
 
   public String getSessionId() {
     return sessionId;
@@ -255,6 +270,9 @@ public class AX25State {
         ", V(r)=" + getReceiveState() +
         ", N(r)=" + (getReceiveStateByte() & 0xff) +
         ", V(a)=" + getAcknowledgeState() +
+        ", SRT=" + getSRT() +
+        ", T1=" + getT1Timer().timeRemaining() + "/" + getT1Timer().getTimeout() +
+        ", T3=" + getT3Timer().timeRemaining() + "/" + getT3Timer().getTimeout() +
         '}';
   }
 
