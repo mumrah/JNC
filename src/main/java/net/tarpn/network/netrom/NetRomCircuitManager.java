@@ -9,8 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
-import net.tarpn.config.Configuration;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.config.NetRomConfig;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
@@ -31,7 +30,7 @@ public class NetRomCircuitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(NetRomCircuitManager.class);
 
-  private final Configuration config;
+  private final NetRomConfig config;
 
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
 
@@ -39,7 +38,7 @@ public class NetRomCircuitManager {
 
   private final Consumer<NetRomPacket> outgoingNetRomPackets;
 
-  public NetRomCircuitManager(Configuration config, Consumer<NetRomPacket> outgoingNetRomPackets) {
+  public NetRomCircuitManager(NetRomConfig config, Consumer<NetRomPacket> outgoingNetRomPackets) {
     this.config = config;
     this.outgoingNetRomPackets = outgoingNetRomPackets;
     this.stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
@@ -141,7 +140,7 @@ public class NetRomCircuitManager {
             throw new IllegalStateException("Cannot get here");
         }
 
-        LOG.info("Got NET/ROM packet: " + event);
+        LOG.info(event.toString());
 
         // Ignore KEEPLI-0, some INP3 thing
 

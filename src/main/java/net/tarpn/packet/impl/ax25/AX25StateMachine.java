@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import net.tarpn.Util;
-import net.tarpn.config.Configuration;
+import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
@@ -56,15 +56,15 @@ public class AX25StateMachine implements PacketHandler {
   private final Consumer<LinkPrimitive> dataLinkEvents;
 
 
-  private final Configuration config;
+  private final PortConfig portConfig;
 
 
 
   public AX25StateMachine(
-      Configuration config,
+      PortConfig portConfig,
       Consumer<AX25Packet> outgoingPackets,
       Consumer<LinkPrimitive> dataLinkEvents) {
-    this.config = config;
+    this.portConfig = portConfig;
     this.outgoingPackets = outgoingPackets;
     this.dataLinkEvents = dataLinkEvents;
     handlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
@@ -154,7 +154,8 @@ public class AX25StateMachine implements PacketHandler {
             ax25Call -> new AX25State(
                 sessionId,
                 event.getRemoteCall(),
-                config.getNodeCall(),
+                portConfig.getNodeCall(),
+                portConfig,
                 eventQueue::add,
                 dataLinkEvents
             )

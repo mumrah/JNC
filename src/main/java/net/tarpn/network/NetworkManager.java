@@ -12,7 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.tarpn.Util;
-import net.tarpn.config.Configuration;
+import net.tarpn.config.NetRomConfig;
 import net.tarpn.io.DataPort;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.network.netrom.NetRomCircuitManager;
@@ -48,13 +48,13 @@ public class NetworkManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);
 
-  private final Configuration config;
+  private final NetRomConfig config;
   private final Queue<LinkPrimitive> level2Events;
   private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRouter router;
   private final NetRomCircuitManager circuitManager;
 
-  private NetworkManager(Configuration config) {
+  private NetworkManager(NetRomConfig config) {
     this.config = config;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
@@ -66,7 +66,7 @@ public class NetworkManager {
     this.circuitManager = new NetRomCircuitManager(config, packetRouter);
   }
 
-  public static NetworkManager create(Configuration config) {
+  public static NetworkManager create(NetRomConfig config) {
     return new NetworkManager(config);
   }
 
@@ -94,7 +94,7 @@ public class NetworkManager {
     PacketHandler netRomNodesHandler = getNetromNodesHandler();
 
     DataLinkManager portManager = DataLinkManager.create(
-        config, dataPort, level2Events::add, netRomNodesHandler, executorService);
+        null, dataPort, level2Events::add, netRomNodesHandler, executorService);
 
     dataPorts.put(dataPort.getPortNumber(), portManager);
   }

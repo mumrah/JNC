@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import net.tarpn.config.Configuration;
+import net.tarpn.config.NetRomConfig;
 import net.tarpn.network.netrom.NetRomNodes.NodeDestination;
 import net.tarpn.network.netrom.NetRomRouter.Destination.DestinationRoute;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -21,11 +21,11 @@ public class NetRomRouter {
 
   private static final Logger LOG = LoggerFactory.getLogger(NetRomRouter.class);
 
-  private final Configuration config;
+  private final NetRomConfig config;
   private final Map<AX25Call, Neighbor> neighbors;
   private final Map<AX25Call, Destination> destinations;
 
-  public NetRomRouter(Configuration config) {
+  public NetRomRouter(NetRomConfig config) {
     this.config = config;
     this.neighbors = new HashMap<>();
     this.destinations = new HashMap<>();
@@ -77,7 +77,7 @@ public class NetRomRouter {
         }
       }
     });
-    return new NetRomNodes(config.getAlias(), destinations);
+    return new NetRomNodes(config.getNodeAlias(), destinations);
   }
 
   /**

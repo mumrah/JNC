@@ -1,8 +1,10 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
+import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
 import net.tarpn.datalink.LinkPrimitive;
@@ -86,6 +88,20 @@ public class DisconnectedStateHandler implements StateHandler {
         state.sendDataLinkPrimitive(LinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
+        if(!state.getWelcomeMessage().isEmpty()) {
+          state.pushIFrame(
+              IFrame.create(
+                  packet.getSourceCall(),
+                  packet.getDestCall(),
+                  Command.COMMAND,
+                  (byte) 0,
+                  (byte) 0,
+                  true,
+                  Protocol.NO_LAYER3,
+                  (state.getWelcomeMessage() + '\r').getBytes(StandardCharsets.US_ASCII)));
+        } else {
+          // TODO warn, no welcome message defined
+        }
         newState = State.CONNECTED;
         break;
       }

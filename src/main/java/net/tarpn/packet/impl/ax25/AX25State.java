@@ -8,8 +8,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,20 +23,23 @@ public class AX25State {
       "N0CALL-0",
       AX25Call.create("N0CALL", 0),
       AX25Call.create("N0CALL", 0),
+      new PortConfig(-1, new PropertiesConfiguration()),
       event -> {},
       event -> {});
 
-  public static final int T1_TIMEOUT_MS = 4000;
+  public static final int DEFAULT_T1_TIMEOUT_MS = 4000;
 
-  public static final int T3_TIMEOUT_MS = 180000; // 3 minutes
+  public static final int DEFAULT_T3_TIMEOUT_MS = 180000; // 3 minutes
 
-  public static final int SRT_MS = 1000;
+  public static final int DEFAULT_RTT_MS = 1000;
 
   private final String sessionId;
 
   private final AX25Call remoteNodeCall;
 
   private final AX25Call localNodeCall;
+
+  private final PortConfig portConfig;
 
   private State currentState;
 
@@ -64,14 +69,14 @@ public class AX25State {
   private final Timer t3Timer;
 
   /**
-   * Retry count
+   * Retry counter
    */
   private int RC = 0;
 
   /**
    * Smoothed round trip time
    */
-  private int SRT = SRT_MS;
+  private int SRT;
 
   private boolean ackPending = false;
 
@@ -81,25 +86,32 @@ public class AX25State {
       String sessionId,
       AX25Call remoteNodeCall,
       AX25Call localNodeCall,
+      PortConfig portConfig,
       Consumer<AX25StateEvent> stateEventConsumer,
       Consumer<LinkPrimitive> outgoingEvents) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
+    this.portConfig = portConfig;
     this.internalEvents = stateEventConsumer;
     this.outgoingEvents = outgoingEvents;
     this.currentState = State.DISCONNECTED;
     this.pendingInfoFrames = new LinkedList<>();
-    this.t1Timer = Timer.create(T1_TIMEOUT_MS, () -> {
+
+    this.t1Timer = Timer.create(portConfig.getInt("l2.retry.timeout", DEFAULT_T1_TIMEOUT_MS), () -> {
       LOG.debug("T1 expired for " + this);
       this.internalEvents.accept(AX25StateEvent.createT1ExpireEvent(remoteNodeCall));
     });
 
-    this.t3Timer = Timer.create(T3_TIMEOUT_MS, () -> {
+    this.t3Timer = Timer.create(portConfig.getInt("l2.idle.timeout", DEFAULT_T3_TIMEOUT_MS), () -> {
       LOG.debug("T3 expired for " + this);
       this.internalEvents.accept(AX25StateEvent.createT3ExpireEvent(remoteNodeCall));
     });
+
+    this.SRT = portConfig.getInt("l2.rtt", DEFAULT_RTT_MS);
   }
+
+  // I-Frames
 
   public void pushIFrame(HasInfo iFrameData) {
     pendingInfoFrames.add(iFrameData);
@@ -148,6 +160,10 @@ public class AX25State {
   }
 
 
+  public int getRC() {
+    return RC;
+  }
+
   public void resetRC() {
     RC = 0;
   }
@@ -156,8 +172,18 @@ public class AX25State {
     RC++;
   }
 
-  public int getRC() {
-    return RC;
+  // Config read-throughs
+
+  public int getMaxRetryCount() {
+    return portConfig.getInt("l2.retries.max", 4);
+  }
+
+  public String getWelcomeMessage() {
+    return portConfig.getString("l2.connect.message", "");
+  }
+
+  public boolean checkRC() {
+    return RC < portConfig.getInt("l2.retries.max", 4);
   }
 
   public int getSRT() {

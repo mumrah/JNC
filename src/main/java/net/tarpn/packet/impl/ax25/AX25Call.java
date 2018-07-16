@@ -31,7 +31,11 @@ public class AX25Call {
 
   public static AX25Call fromString(String callWithSSID) {
     String[] tokens = callWithSSID.split("-");
-    return create(tokens[0].trim(), Integer.parseInt(tokens[1]));
+    try {
+      return create(tokens[0].trim(), Integer.parseInt(tokens[1]));
+    } catch (Throwable t) {
+      throw new IllegalArgumentException("Could not parse '" + callWithSSID + "' as a callsign with ssid");
+    }
   }
 
   public static AX25Call create(String call, int ssid) {

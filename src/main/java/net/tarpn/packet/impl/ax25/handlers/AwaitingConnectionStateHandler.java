@@ -113,17 +113,6 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           state.reset();
           StateHelper.selectT1Value(state);
           newState = State.CONNECTED;
-          // TODO move this welcome message elsewhere
-          state.pushIFrame(
-              IFrame.create(
-                  packet.getSourceCall(),
-                  packet.getDestCall(),
-                  Command.COMMAND,
-                  (byte)0,
-                  (byte)0,
-                  true,
-                  Protocol.NO_LAYER3,
-                  ("Welcome to David's packet node, OP is " + packet.getDestCall()).getBytes(StandardCharsets.US_ASCII)));
         } else {
           state.sendDataLinkPrimitive(LinkPrimitive
               .newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
@@ -140,8 +129,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         break;
       }
       case T1_EXPIRE: {
-        // RC == N2? (retry count == max retries?)
-        if(state.getRC() < 4) { // TODO N2 config
+        if(state.checkRC()) {
           state.incrementRC();
           UFrame sabm = UFrame.create(
               state.getRemoteNodeCall(),
@@ -149,17 +137,12 @@ public class AwaitingConnectionStateHandler implements StateHandler {
               Command.COMMAND, ControlType.SABM, true);
           outgoingPackets.accept(sabm);
           StateHelper.selectT1Value(state);
-          // Increase T1 and restart it
-          // TODO move timeout selection to selectT1Value
-          state.getT1Timer().setTimeout(state.getT1Timer().getTimeout() * 2);
           state.getT1Timer().start();
           newState = State.AWAITING_CONNECTION;
         } else {
           state.sendDataLinkPrimitive(LinkPrimitive
               .newErrorResponse(state.getRemoteNodeCall(), ErrorType.G));
           state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
-          // TODO don't change timeout here
-          state.getT1Timer().setTimeout(AX25State.T1_TIMEOUT_MS);
           newState = State.DISCONNECTED;
         }
         break;

@@ -90,7 +90,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         break;
       }
       case T1_EXPIRE: {
-        if(state.getRC() < 4) { // TODO configure N2
+        if(state.checkRC()) {
           state.incrementRC();
           StateHelper.transmitEnquiry(state, outgoingPackets);
           newState = State.TIMER_RECOVERY;

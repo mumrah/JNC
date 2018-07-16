@@ -12,7 +12,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.tarpn.Util;
-import net.tarpn.config.Configuration;
+import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameHandler;
 import net.tarpn.frame.FrameReader;
@@ -51,7 +51,7 @@ public class DataLinkManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DataLinkManager.class);
 
-  private final Configuration config;
+  private final PortConfig portConfig;
   private final DataPort dataPort;
   private final Queue<Packet> outboundPackets;
   private final PCapDumpFrameHandler pCapDumpFrameHandler;
@@ -64,22 +64,22 @@ public class DataLinkManager {
   private ScheduledFuture<?> recoveryThread;
 
   private DataLinkManager(
-      Configuration config,
+      PortConfig portConfig,
       DataPort dataPort,
       Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
-    this.config = config;
+    this.portConfig = portConfig;
     this.dataPort = dataPort;
     this.outboundPackets = new ConcurrentLinkedQueue<>();
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-    this.ax25StateHandler = new AX25StateMachine(config, outboundPackets::add, dataLinkEvents);
+    this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, dataLinkEvents);
     this.externalHandler = externalHandler;
     this.executorService = executorService;
   }
 
   public static DataLinkManager create(
-      Configuration config,
+      PortConfig config,
       DataPort port,
       Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler) {
@@ -87,7 +87,7 @@ public class DataLinkManager {
   }
 
   public static DataLinkManager create(
-      Configuration config,
+      PortConfig config,
       DataPort port,
       Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
@@ -112,13 +112,13 @@ public class DataLinkManager {
     executorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic ID message on " + port);
       String idMessage = String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r",
-          config.getAlias(), config.getNodeCall());
+          config.getNodeAlias(), config.getNodeCall());
       manager.getAx25StateHandler().getEventQueue().add(
           AX25StateEvent.createUnitDataEvent(
               AX25Call.create("ID"),
               Protocol.NO_LAYER3,
               idMessage.getBytes(StandardCharsets.US_ASCII)));
-    }, 5, 300, TimeUnit.SECONDS);
+    }, 5, 300, TimeUnit.SECONDS); // TODO configure this timer
 
     return manager;
   }
@@ -127,6 +127,7 @@ public class DataLinkManager {
     executorService.submit(getReaderRunnable());
     executorService.submit(getWriterRunnable());
     executorService.submit(getAx25StateHandler().getRunnable());
+    // TODO submit recurring thread to send KISS params to TNC (Persist, SlotTime, etc)
   }
 
   public void stop() {
@@ -159,7 +160,7 @@ public class DataLinkManager {
       } else {
         LOG.info("Still no connection to " + dataPort + ". Trying again later");
       }
-    }, 100, 5000, TimeUnit.MILLISECONDS);
+    }, 100, 5000, TimeUnit.MILLISECONDS); // TODO configure this timer
   }
 
   public DataPort getDataPort() {
@@ -206,7 +207,7 @@ public class DataLinkManager {
       PacketHandler packetHandler = CompositePacketHandler.wrap(
           new ConsolePacketHandler(),
           externalHandler,
-          new DestinationFilteringPacketHandler(config.getNodeCall()),
+          new DestinationFilteringPacketHandler(portConfig.getNodeCall()),
           ax25StateHandler
       );
 

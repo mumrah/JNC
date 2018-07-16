@@ -79,7 +79,7 @@ public class SerialDataPort implements DataPort {
     return "serial";
   }
 
-  public static DataPort openPort(int number, String tty, int baud) {
+  public static DataPort createPort(int number, String tty, int baud) {
     SerialPort port = SerialPort.getCommPort(tty);
     port.setBaudRate(baud);
     return new SerialDataPort(number, tty, port);

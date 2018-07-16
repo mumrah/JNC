@@ -1,27 +1,26 @@
 package net.tarpn.app;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
-import net.tarpn.config.Configuration;
-import net.tarpn.io.DataPort;
+import net.tarpn.config.Config;
+import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
-import net.tarpn.io.impl.SerialDataPort;
-import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.io.DataPort;
+import net.tarpn.io.impl.PortFactory;
 
 public class DataLinkMain {
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
+    Config config = Config.read("conf/sample.ini");
 
-    Configuration config = Configuration.newBuilder()
-        .setAlias("DAVID2")
-        .setNodeCall(AX25Call.create("K4DBZ", 2))
-        .build();
+    PortConfig portConfig = config.getPortConfigs().get(1);
 
-    DataPort port1 = SerialDataPort.openPort(1, "/dev/tty.wchusbserial1410", 9600);
+    DataPort port1 = PortFactory.createPortFromConfig(portConfig);
 
     Queue<LinkPrimitive> inQueue = new LinkedList<>();
 
-    DataLinkManager dataLinkManager = DataLinkManager.create(config, port1, inQueue::add, packetRequest -> {});
+    DataLinkManager dataLinkManager = DataLinkManager.create(portConfig, port1, inQueue::add, packetRequest -> {});
     dataLinkManager.start();
 
     SysopApplication app = new SysopApplication();

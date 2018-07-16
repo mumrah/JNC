@@ -1,5 +1,6 @@
 package net.tarpn.network.netrom;
 
+import net.tarpn.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomCircuitEvent {
@@ -26,6 +27,15 @@ public class NetRomCircuitEvent {
     return circuitId;
   }
 
+  @Override
+  public String toString() {
+    return "NetRomCircuitEvent{" +
+        "circuitId=" + getCircuitId() +
+        ", remoteCall=" + getRemoteCall() +
+        ", type=" + getType() +
+        '}';
+  }
+
   public static class DataLinkEvent extends NetRomCircuitEvent {
 
     private final NetRomPacket netRomPacket;
@@ -37,6 +47,16 @@ public class NetRomCircuitEvent {
 
     public NetRomPacket getNetRomPacket() {
       return netRomPacket;
+    }
+
+    @Override
+    public String toString() {
+      return "DataLinkEvent{" +
+          "circuitId=" + getCircuitId() +
+          ", remoteCall=" + getRemoteCall() +
+          ", type=" + getType() +
+          ", packet=" + getNetRomPacket() +
+          '}';
     }
   }
 
@@ -51,6 +71,16 @@ public class NetRomCircuitEvent {
 
     public byte[] getData() {
       return data;
+    }
+
+    @Override
+    public String toString() {
+      return "UserDataEvent{" +
+          "circuitId=" + getCircuitId() +
+          ", remoteCall=" + getRemoteCall() +
+          ", type=" + getType() +
+          ", data=" + Util.toEscapedASCII(data) +
+          '}';
     }
   }
 

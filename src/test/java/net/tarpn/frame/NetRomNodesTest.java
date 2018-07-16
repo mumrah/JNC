@@ -33,7 +33,7 @@ public class NetRomNodesTest {
       AX25Packet packet = AX25PacketReader.parse(packetBytes);
       byte[] info = ((UIFrame)packet).getInfo();
       NetRomNodes nodes = NetRomNodes.read(info);
-
+      router.updateNodes(AX25Call.create("KA2DEW", 9), 1, nodes);
     }
 
     router.getDestinations().forEach((call, dest) -> {
