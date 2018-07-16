@@ -1,7 +1,6 @@
 package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -38,9 +37,15 @@ public class NetRomCircuitManager {
 
   private final Consumer<NetRomPacket> outgoingNetRomPackets;
 
-  public NetRomCircuitManager(NetRomConfig config, Consumer<NetRomPacket> outgoingNetRomPackets) {
+  private final Consumer<NetRomCircuitEvent> networkEvents;
+
+  public NetRomCircuitManager(
+      NetRomConfig config,
+      Consumer<NetRomPacket> outgoingNetRomPackets,
+      Consumer<NetRomCircuitEvent> networkEvents) {
     this.config = config;
     this.outgoingNetRomPackets = outgoingNetRomPackets;
+    this.networkEvents = networkEvents;
     this.stateHandlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
     this.stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
     this.stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
@@ -162,7 +167,7 @@ public class NetRomCircuitManager {
       // All circuits busy
       return -1;
     } else {
-      circuits.put(circuitId, new NetRomCircuit(circuitId, remoteNode, config.getNodeCall()));
+      circuits.put(circuitId, new NetRomCircuit(circuitId, remoteNode, config.getNodeCall(), config));
       return circuitId;
     }
   }
@@ -173,14 +178,12 @@ public class NetRomCircuitManager {
    */
   public void onCircuitEvent(NetRomCircuitEvent event) {
     NetRomCircuit circuit = circuits.computeIfAbsent(event.getCircuitId(), newCircuitId ->
-        new NetRomCircuit(newCircuitId, event.getRemoteCall(), config.getNodeCall())
+        new NetRomCircuit(newCircuitId, event.getRemoteCall(), config.getNodeCall(), config)
     );
     StateHandler handler = stateHandlers.get(circuit.getState());
     if(handler != null) {
       LOG.info("BEFORE: " + circuit + " got " + event);
-      State newState = handler.handle(circuit, event, datagram ->
-          LOG.info("L3: " + new String(datagram, StandardCharsets.US_ASCII)),
-          outgoingNetRomPackets);
+      State newState = handler.handle(circuit, event, networkEvents, outgoingNetRomPackets);
       circuit.setState(newState);
       LOG.info("AFTER : " + circuit);
     } else {

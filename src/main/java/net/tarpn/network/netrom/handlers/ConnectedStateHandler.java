@@ -2,6 +2,7 @@ package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
 import net.tarpn.ByteUtil;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
@@ -20,7 +21,7 @@ public class ConnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomCircuitEvent> networkEvents,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch(event.getType()) {
@@ -33,7 +34,7 @@ public class ConnectedStateHandler implements StateHandler {
           NetRomConnectAck connAck = NetRomConnectAck.create(
               connReq.getDestNode(),
               connReq.getOriginNode(),
-              (byte) 0x07,
+              circuit.getConfig().getTTL(),
               connReq.getCircuitIndex(),
               connReq.getCircuitId(),
               (byte) circuit.getCircuitId(),
@@ -48,7 +49,7 @@ public class ConnectedStateHandler implements StateHandler {
           NetRomConnectAck connRej = NetRomConnectAck.create(
               connReq.getDestNode(),
               connReq.getOriginNode(),
-              (byte) 0x07,
+              circuit.getConfig().getTTL(),
               connReq.getCircuitIndex(),
               connReq.getCircuitId(),
               (byte) circuit.getCircuitId(),
@@ -81,7 +82,7 @@ public class ConnectedStateHandler implements StateHandler {
         BaseNetRomPacket discAck = BaseNetRomPacket.createDisconnectAck(
             discReq.getDestNode(),
             discReq.getOriginNode(),
-            (byte) 0x07,
+            circuit.getConfig().getTTL(),
             discReq.getCircuitIndex(),
             discReq.getCircuitId()
         );
@@ -93,11 +94,15 @@ public class ConnectedStateHandler implements StateHandler {
         NetRomPacket info = ((DataLinkEvent)event).getNetRomPacket();
         if(ByteUtil.equals(info.getTxSeqNumber(), circuit.getRecvStateSeqByte())) {
           circuit.incrementRecvState();
-          datagramConsumer.accept(((NetRomInfo)info).getInfo());
+          networkEvents.accept(new UserDataEvent(
+              circuit.getCircuitId(),
+              circuit.getRemoteNodeCall(),
+              ((NetRomInfo)info).getInfo()
+          ));
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
               info.getDestNode(),
               info.getOriginNode(),
-              (byte)0x07,
+              circuit.getConfig().getTTL(),
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),
               circuit.getRecvStateSeqByte(),
@@ -108,7 +113,7 @@ public class ConnectedStateHandler implements StateHandler {
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
               info.getDestNode(),
               info.getOriginNode(),
-              (byte)0x07,
+              circuit.getConfig().getTTL(),
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),
               circuit.getRecvStateSeqByte(),
@@ -129,7 +134,7 @@ public class ConnectedStateHandler implements StateHandler {
         NetRomPacket info = NetRomInfo.create(
             circuit.getLocalNodeCall(),
             circuit.getRemoteNodeCall(),
-            (byte)0x07,
+            circuit.getConfig().getTTL(),
             circuit.getRemoteCircuitIdx(),
             circuit.getRemoteCircuitId(),
             circuit.getSendStateSeqByte(),

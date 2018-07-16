@@ -9,7 +9,8 @@ public class NetworkMain {
   public static void main(String[] args) throws Exception {
     Configs config = Configs.read("conf/sample.ini");
 
-    NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig());
+    NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig(),
+        event -> System.err.println("L3 event: " + event));
     //config.getPortConfigs().forEach(
     //    (portNumber, portConfig) -> networkManager.initialize(portConfig));
     networkManager.initialize(config.getPortConfigs().get(1));
@@ -22,12 +23,13 @@ public class NetworkMain {
      */
 
 
+    /*
     Thread.sleep(300000);
     NetRomSession session = networkManager.open(AX25Call.create("K4DBZ", 9));
     session.connect();
     while(!Thread.currentThread().isInterrupted()) {
-
       Thread.sleep(50);
     }
+    */
   }
 }

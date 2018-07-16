@@ -1,6 +1,7 @@
 package net.tarpn.network.netrom;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import net.tarpn.config.NetRomConfig;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomCircuit {
@@ -10,6 +11,8 @@ public class NetRomCircuit {
   private final AX25Call remoteNodeCall;
 
   private final int circuitId;
+
+  private final NetRomConfig config;
 
   private State state;
 
@@ -26,11 +29,17 @@ public class NetRomCircuit {
   public NetRomCircuit(
       int circuitId,
       AX25Call remoteNodeCall,
-      AX25Call localNodeCall) {
+      AX25Call localNodeCall,
+      NetRomConfig config) {
     this.circuitId = circuitId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
+    this.config = config;
     this.state = State.DISCONNECTED;
+  }
+
+  public NetRomConfig getConfig() {
+    return config;
   }
 
   public int getCircuitId() {

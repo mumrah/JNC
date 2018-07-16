@@ -27,4 +27,12 @@ public class NetRomConfig extends NodeConfig {
   public int getNodesInterval() {
     return getInt("netrom.nodes.interval", 300);
   }
+
+  public byte getTTL() {
+    return (byte)(getInt("netrom.ttl", 7) & 0xff);
+  }
+
+  public byte getWindowSize() {
+    return (byte)(getInt("netrom.circuit.window", 2) & 0xff);
+  }
 }

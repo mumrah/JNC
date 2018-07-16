@@ -111,15 +111,12 @@ public class DataLinkManager {
     // Start automated ID broadcast
     executorService.scheduleWithFixedDelay(() -> {
       LOG.info("Sending automatic ID message on " + port);
-      String idMessage = String.format("Terrestrial Amateur Radio Packet Network node %s op is %s\r",
-          config.getNodeAlias(), config.getNodeCall());
-      manager.getAx25StateHandler().getEventQueue().add(
+     manager.getAx25StateHandler().getEventQueue().add(
           AX25StateEvent.createUnitDataEvent(
               AX25Call.create("ID"),
               Protocol.NO_LAYER3,
-              idMessage.getBytes(StandardCharsets.US_ASCII)));
-    }, 5, 300, TimeUnit.SECONDS); // TODO configure this timer
-
+              config.getIdMessage().getBytes(StandardCharsets.US_ASCII)));
+    }, 5, config.getIdInterval(), TimeUnit.SECONDS);
     return manager;
   }
 
@@ -144,14 +141,7 @@ public class DataLinkManager {
 
   private void setFault(IOException e) {
     this.fault = e;
-    // Use provided Executor, if it's scheduled
-    final ScheduledExecutorService scheduledExecutorService;
-    if(executorService instanceof ScheduledExecutorService) {
-      scheduledExecutorService = (ScheduledExecutorService)executorService;
-    } else {
-      scheduledExecutorService = PORT_RECOVERY_EXECUTOR;
-    }
-    this.recoveryThread = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+    this.recoveryThread = executorService.scheduleWithFixedDelay(() -> {
       if(dataPort.reopen()) {
         LOG.info("Recovered connection to " + dataPort);
         this.fault = null;
@@ -160,7 +150,7 @@ public class DataLinkManager {
       } else {
         LOG.info("Still no connection to " + dataPort + ". Trying again later");
       }
-    }, 100, 5000, TimeUnit.MILLISECONDS); // TODO configure this timer
+    }, 100, 5000, TimeUnit.MILLISECONDS); // TODO configure this timer?
   }
 
   public DataPort getDataPort() {

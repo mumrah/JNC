@@ -14,9 +14,12 @@ import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
-import net.tarpn.io.DataPort;
 import net.tarpn.datalink.DataLinkManager;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.Type;
+import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
+import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitManager;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomPacket;
@@ -31,8 +34,6 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.Type;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public class NetworkManager {
   private final NetRomRouter router;
   private final NetRomCircuitManager circuitManager;
 
-  private NetworkManager(NetRomConfig netromConfig) {
+  private NetworkManager(NetRomConfig netromConfig, Consumer<NetRomCircuitEvent> networkEvents) {
     this.netromConfig = netromConfig;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
@@ -65,11 +66,11 @@ public class NetworkManager {
     Consumer<NetRomPacket> packetRouter = netRomPacket ->
         route(LinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
 
-    this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter);
+    this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, networkEvents);
   }
 
-  public static NetworkManager create(NetRomConfig config) {
-    return new NetworkManager(config);
+  public static NetworkManager create(NetRomConfig config, Consumer<NetRomCircuitEvent> networkEvents) {
+    return new NetworkManager(config, networkEvents);
   }
 
   /**

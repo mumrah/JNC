@@ -1,6 +1,7 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomPacket;
@@ -12,7 +13,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomCircuitEvent> networkEvents,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch(event.getType()) {

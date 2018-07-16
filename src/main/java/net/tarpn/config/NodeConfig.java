@@ -16,4 +16,13 @@ public class NodeConfig extends BaseConfig {
   public String getNodeAlias() {
     return getString("node.alias");
   }
+
+  public String getIdMessage() {
+    String defaultMessage = "Packet node " + getNodeAlias() + ", op is " + getNodeCall();
+    return getString("id.message", defaultMessage);
+  }
+
+  public int getIdInterval() {
+    return getInt("id.interval", 600);
+  }
 }

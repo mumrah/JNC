@@ -1,6 +1,7 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuit.State;
@@ -18,7 +19,7 @@ public class DisconnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<byte[]> datagramConsumer,
+      Consumer<NetRomCircuitEvent> networkEvents,
       Consumer<NetRomPacket> outgoing) {
 
     final State newState;
@@ -28,7 +29,7 @@ public class DisconnectedStateHandler implements StateHandler {
         NetRomConnectAck connAck = NetRomConnectAck.create(
             connReq.getDestNode(),
             connReq.getOriginNode(),
-            (byte) 0x07,
+            circuit.getConfig().getTTL(),
             connReq.getCircuitIndex(),
             connReq.getCircuitId(),
             (byte) circuit.getCircuitId(),
@@ -46,12 +47,12 @@ public class DisconnectedStateHandler implements StateHandler {
         NetRomConnectRequest connReq = NetRomConnectRequest.create(
             circuit.getLocalNodeCall(),
             circuit.getRemoteNodeCall(),
-            (byte) 0x07,
+            circuit.getConfig().getTTL(),
             (byte) circuit.getCircuitId(),
             (byte) circuit.getCircuitId(),
             (byte) 0,
             (byte) 0,
-            (byte) 0x02, // TODO make window size configurable
+            circuit.getConfig().getWindowSize(),
             circuit.getLocalNodeCall(),  // TODO make user configurable
             circuit.getLocalNodeCall()
         );
@@ -69,7 +70,7 @@ public class DisconnectedStateHandler implements StateHandler {
         NetRomPacket disc = BaseNetRomPacket.createDisconnectRequest(
             packet.getDestNode(),
             packet.getOriginNode(),
-            (byte) 0x07,
+            circuit.getConfig().getTTL(),
             packet.getCircuitIndex(),
             packet.getCircuitId()
         );

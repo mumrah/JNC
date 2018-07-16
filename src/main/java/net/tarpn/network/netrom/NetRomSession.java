@@ -2,6 +2,7 @@ package net.tarpn.network.netrom;
 
 import java.util.function.Consumer;
 import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
+import net.tarpn.network.netrom.NetRomCircuitEvent.UserDataEvent;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomSession {
@@ -20,5 +21,7 @@ public class NetRomSession {
     eventConsumer.accept(new NetRomCircuitEvent(circuitId, address, Type.NL_CONNECT));
   }
 
-
+  public void write(byte[] data) {
+    eventConsumer.accept(new UserDataEvent(circuitId, address, data));
+  }
 }
