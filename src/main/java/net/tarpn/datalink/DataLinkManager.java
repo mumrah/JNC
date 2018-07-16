@@ -167,6 +167,10 @@ public class DataLinkManager {
     return dataPort;
   }
 
+  public PortConfig getPortConfig() {
+    return portConfig;
+  }
+
   public void acceptDataLinkPrimitive(LinkPrimitive event) {
     switch (event.getType()) {
 

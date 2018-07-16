@@ -13,6 +13,7 @@ public class AX25StateTest {
         "test",
         AX25Call.create("TEST", 0),
         AX25Call.create("TEST", 1),
+        null,
         event -> {},
         linkPrimitive -> {});
     state.setAcknowledgeState((byte)0);
@@ -52,6 +53,7 @@ public class AX25StateTest {
         "test",
         AX25Call.create("TEST", 0),
         AX25Call.create("TEST", 1),
+        null,
         event -> {},
         linkPrimitive -> {});
 

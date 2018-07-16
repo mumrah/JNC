@@ -2,7 +2,7 @@ package net.tarpn.config;
 
 import java.util.Set;
 
-public interface C {
+public interface Configuration {
   String getString(String key);
   String getString(String key, String def);
   int getInt(String key);

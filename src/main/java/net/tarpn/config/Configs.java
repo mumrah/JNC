@@ -24,8 +24,9 @@ import org.apache.commons.configuration2.ex.ConfigurationException;
 import org.apache.commons.configuration2.tree.DefaultExpressionEngine;
 import org.apache.commons.configuration2.tree.DefaultExpressionEngineSymbols;
 import org.apache.commons.configuration2.tree.ExpressionEngine;
+import org.apache.commons.configuration2.tree.OverrideCombiner;
 
-public class Config extends BaseConfig {
+public class Configs extends BaseConfig {
 
   private static final ExpressionEngine EXPRESSION_ENGINE =
       new DefaultExpressionEngine(createDefaultSymbols());
@@ -40,17 +41,25 @@ public class Config extends BaseConfig {
         .setAttributeEnd(DEFAULT_ATTRIBUTE_END).create();
   }
 
+  private final NodeConfig nodeConfig;
+
   private final NetRomConfig netromConfig;
 
   private final Map<Integer, PortConfig> portConfigs;
 
-  Config(
+  Configs(
       Configuration delegate,
+      NodeConfig nodeConfig,
       NetRomConfig netromConfig,
       Map<Integer, PortConfig> portConfigs) {
     super(delegate);
+    this.nodeConfig = nodeConfig;
     this.netromConfig = netromConfig;
     this.portConfigs = portConfigs;
+  }
+
+  public NodeConfig getNodeConfig() {
+    return nodeConfig;
   }
 
   public NetRomConfig getNetRomConfig() {
@@ -61,12 +70,12 @@ public class Config extends BaseConfig {
     return portConfigs;
   }
 
-  public static Config read(String fileName) throws IOException {
+  public static Configs read(String fileName) throws IOException {
     InputStream is = Files.newInputStream(Paths.get(fileName), StandardOpenOption.READ);
     return read(is);
   }
 
-  public static Config read(InputStream is) {
+  public static Configs read(InputStream is) {
     INIConfiguration configuration = new INIConfiguration();
     configuration.setExpressionEngine(EXPRESSION_ENGINE);
 
@@ -90,22 +99,22 @@ public class Config extends BaseConfig {
         .filter(section -> section.startsWith("port:") && !section.equalsIgnoreCase("port:defaults"))
         .map(section -> {
           int portNum = Integer.parseInt(section.substring("port:".length()));
-          CombinedConfiguration portConfig = new CombinedConfiguration();
+          CombinedConfiguration portConfig = new CombinedConfiguration(new OverrideCombiner());
           portConfig.setExpressionEngine(EXPRESSION_ENGINE);
-          portConfig.addConfiguration(nodeConfig, "node");
-          portConfig.addConfiguration(portDefaults, "defaults");
           portConfig.addConfiguration(configuration.getSection(section), section);
+          portConfig.addConfiguration(portDefaults, "defaults");
+          portConfig.addConfiguration(nodeConfig, "node");
           return new PortConfig(portNum, portConfig);
         })
         .collect(Collectors.toMap(PortConfig::getPortNumber, Function.identity()));
 
     // NET/ROM config
-    CombinedConfiguration netromCombinedConfig = new CombinedConfiguration();
+    CombinedConfiguration netromCombinedConfig = new CombinedConfiguration(new OverrideCombiner());
     netromCombinedConfig.setExpressionEngine(EXPRESSION_ENGINE);
-    netromCombinedConfig.addConfiguration(nodeConfig, "node");
     netromCombinedConfig.addConfiguration(configuration.getSection("netrom"), "netrom");
+    netromCombinedConfig.addConfiguration(nodeConfig, "node");
 
     NetRomConfig netromConfig = new NetRomConfig(netromCombinedConfig);
-    return new Config(configuration, netromConfig, portConfigs);
+    return new Configs(configuration, new NodeConfig(nodeConfig), netromConfig, portConfigs);
   }
 }

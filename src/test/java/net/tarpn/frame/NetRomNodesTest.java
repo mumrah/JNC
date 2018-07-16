@@ -3,6 +3,7 @@ package net.tarpn.frame;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import net.tarpn.config.Configs;
 import net.tarpn.config.Configuration;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomRouter;
@@ -18,30 +19,28 @@ public class NetRomNodesTest {
   public void testTarpnData() throws IOException {
     String[] nodesFiles = new String[] {
         "data/tadd-nodes-part-1.bin",
-        "data/tadd-nodes-part-2.bin",
-        "data/doug-nodes.bin"
+        "data/tadd-nodes-part-1.bin",
+        //"data/doug-nodes.bin"
     };
 
-    Configuration config = Configuration.newBuilder()
-        .setNodeCall(AX25Call.create("TEST", 1))
-        .setAlias("TEST")
-        .build();
-    NetRomRouter router = new NetRomRouter(config);
+    Configs configs = Configs.read("conf/sample.ini");
+    NetRomRouter router = new NetRomRouter(configs.getNetRomConfig(), portNum -> configs.getPortConfigs().get(portNum));
 
     for(String nodeFile : nodesFiles) {
       byte[] packetBytes = Files.readAllBytes(Paths.get(nodeFile));
       AX25Packet packet = AX25PacketReader.parse(packetBytes);
       byte[] info = ((UIFrame)packet).getInfo();
       NetRomNodes nodes = NetRomNodes.read(info);
-      router.updateNodes(AX25Call.create("KA2DEW", 9), 1, nodes);
+      router.updateNodes(packet.getSourceCall(), 1, nodes);
     }
 
-    router.getDestinations().forEach((call, dest) -> {
-      System.err.println(dest.getNodeCall() + ":" + dest.getNodeAlias());
-      dest.getNeighbors().forEach(System.err::println);
-    });
+    router.pruneRoutes();
+    router.pruneRoutes();
+    router.pruneRoutes();
+
 
     // find route for call
+    /*
     AX25Call targetCall = AX25Call.fromString("N3LTV-2");
     Destination destination = router.getDestinations().get(targetCall);
     if(destination != null) {
@@ -52,7 +51,9 @@ public class NetRomNodesTest {
       // if not, open a link and send the frame
     } else {
       System.err.println("No route to " + targetCall);
-    }
+    }*/
+
+    System.err.println(router.toPrettyString());
 
   }
 }

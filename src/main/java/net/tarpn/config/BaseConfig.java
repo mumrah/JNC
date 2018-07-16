@@ -5,13 +5,12 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.apache.commons.configuration2.Configuration;
 
-public class BaseConfig implements C {
+public class BaseConfig implements Configuration {
 
-  private final Configuration delegate;
+  private final org.apache.commons.configuration2.Configuration delegate;
 
-  BaseConfig(Configuration delegate) {
+  BaseConfig(org.apache.commons.configuration2.Configuration delegate) {
     this.delegate = delegate;
   }
 

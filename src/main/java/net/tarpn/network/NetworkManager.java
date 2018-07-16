@@ -13,8 +13,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.tarpn.Util;
 import net.tarpn.config.NetRomConfig;
+import net.tarpn.config.PortConfig;
 import net.tarpn.io.DataPort;
 import net.tarpn.datalink.DataLinkManager;
+import net.tarpn.io.impl.PortFactory;
 import net.tarpn.network.netrom.NetRomCircuitManager;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomPacket;
@@ -48,22 +50,22 @@ public class NetworkManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);
 
-  private final NetRomConfig config;
+  private final NetRomConfig netromConfig;
   private final Queue<LinkPrimitive> level2Events;
   private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRouter router;
   private final NetRomCircuitManager circuitManager;
 
-  private NetworkManager(NetRomConfig config) {
-    this.config = config;
+  private NetworkManager(NetRomConfig netromConfig) {
+    this.netromConfig = netromConfig;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
-    this.router = new NetRomRouter(config);
+    this.router = new NetRomRouter(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig());
 
     Consumer<NetRomPacket> packetRouter = netRomPacket ->
         route(LinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
 
-    this.circuitManager = new NetRomCircuitManager(config, packetRouter);
+    this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter);
   }
 
   public static NetworkManager create(NetRomConfig config) {
@@ -74,7 +76,7 @@ public class NetworkManager {
    * A special {@link PacketHandler} which handles routing table packets sent to the NODES destination
    * @return
    */
-  public PacketHandler getNetromNodesHandler() {
+  public PacketHandler getNetRomNodesHandler() {
     return packetRequest -> {
       if(packetRequest.getPacket() instanceof AX25Packet) {
         AX25Packet ax25Packet = (AX25Packet)packetRequest.getPacket();
@@ -90,11 +92,12 @@ public class NetworkManager {
     };
   }
 
-  public void initialize(DataPort dataPort) {
-    PacketHandler netRomNodesHandler = getNetromNodesHandler();
+  public void initialize(PortConfig portConfig) {
+    PacketHandler netRomNodesHandler = getNetRomNodesHandler();
 
+    DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
     DataLinkManager portManager = DataLinkManager.create(
-        null, dataPort, level2Events::add, netRomNodesHandler, executorService);
+        portConfig, dataPort, level2Events::add, netRomNodesHandler, executorService);
 
     dataPorts.put(dataPort.getPortNumber(), portManager);
   }
@@ -138,12 +141,8 @@ public class NetworkManager {
     // Start up ports
     dataPorts.values().forEach(DataLinkManager::start);
 
-
-
     // Start up router and event processor
     executorService.submit(() -> {
-      // Wrap the router with a NetRomPacket consumer
-
 
       // Start event processing
       Util.queueProcessingLoop(
@@ -168,7 +167,11 @@ public class NetworkManager {
             AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
         //Thread.sleep(2000); // Slight delay between broadcasts
       }
-    }, 15, 300, TimeUnit.SECONDS);
+    }, 15, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
+
+    // Prune routing table
+    executorService.scheduleAtFixedRate(router::pruneRoutes,
+        30, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
   }
 
   public void stop() {

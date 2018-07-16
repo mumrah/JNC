@@ -1,17 +1,21 @@
 package net.tarpn.frame;
 
-import net.tarpn.config.Config;
+import net.tarpn.config.Configs;
 import net.tarpn.config.PortConfig;
 import org.junit.Test;
 
 public class ConfigTest {
   @Test
   public void testReadConfig() throws Exception {
-    Config config = Config.read(ClassLoader.getSystemResourceAsStream("sample.ini"));
+    Configs config = Configs.read("conf/sample.ini");
     System.err.println(config.getNetRomConfig().getTimeToLive());
+    System.err.println(config.getNodeConfig().getString("id.message"));
 
-    for (PortConfig portConfig : config.getPortConfigs()) {
-      System.err.println(portConfig.getPortNumber() + " " + portConfig.isEnabled());
+    for(PortConfig portConfig : config.getPortConfigs().values()) {
+      System.err.println(portConfig.getNodeCall());
+
+      System.err.println(portConfig.getString("id.message"));
+
     }
 
   }

@@ -1,22 +1,18 @@
 package net.tarpn.app;
 
-import net.tarpn.config.Config;
-import net.tarpn.io.DataPort;
-import net.tarpn.io.impl.SerialDataPort;
+import net.tarpn.config.Configs;
 import net.tarpn.network.NetworkManager;
 import net.tarpn.network.netrom.NetRomSession;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetworkMain {
   public static void main(String[] args) throws Exception {
-
-    Config config = Config.read("conf/sample.ini");
+    Configs config = Configs.read("conf/sample.ini");
 
     NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig());
-
-    DataPort port1 = SerialDataPort.createPort(1, "/dev/tty.wchusbserial1410", 9600);
-
-    networkManager.initialize(port1);
+    //config.getPortConfigs().forEach(
+    //    (portNumber, portConfig) -> networkManager.initialize(portConfig));
+    networkManager.initialize(config.getPortConfigs().get(1));
     networkManager.start();
 
     /*

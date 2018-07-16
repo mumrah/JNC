@@ -5,12 +5,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NavigableSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.tarpn.config.NetRomConfig;
+import net.tarpn.config.PortConfig;
 import net.tarpn.network.netrom.NetRomNodes.NodeDestination;
 import net.tarpn.network.netrom.NetRomRouter.Destination.DestinationRoute;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -24,11 +27,13 @@ public class NetRomRouter {
   private final NetRomConfig config;
   private final Map<AX25Call, Neighbor> neighbors;
   private final Map<AX25Call, Destination> destinations;
+  private final Function<Integer, PortConfig> portConfigGetter;
 
-  public NetRomRouter(NetRomConfig config) {
+  public NetRomRouter(NetRomConfig config, Function<Integer, PortConfig> portConfigGetter) {
     this.config = config;
     this.neighbors = new HashMap<>();
     this.destinations = new HashMap<>();
+    this.portConfigGetter = portConfigGetter;
   }
 
   public void updateNodes(AX25Call heardFrom, int heardOnPort, NetRomNodes nodes) {
@@ -37,16 +42,21 @@ public class NetRomRouter {
       LOG.debug(dest.getDestNode() + "\t" + dest.getDestAlias() + "\t" + dest.getBestNeighborNode() + "\t" + Integer.toString((int)dest.getQuality() & 0xff));
     }
 
+    PortConfig portConfig = portConfigGetter.apply(heardOnPort);
+    int defaultQuality = portConfig.getInt("port.quality", 255);
+    int defaultObs = config.getInitialObs();
+
     Neighbor neighbor = neighbors.computeIfAbsent(heardFrom,
-        call -> new Neighbor(call, heardOnPort, 255));
+        call -> new Neighbor(call, heardOnPort, defaultQuality));
 
     Destination destination = destinations.computeIfAbsent(heardFrom,
         call -> new Destination(call, nodes.getSendingAlias())
     );
 
     // Add direct route to whoever send the NODES
-    destination.getNeighbors().add(new DestinationRoute(heardFrom, 255));
+    destination.getNeighbors().add(new DestinationRoute(heardFrom, defaultQuality, defaultObs));
 
+    // Add destinations for every node we learned about
     nodes.getDestinationList().stream()
         .filter(nodeDestination -> !nodeDestination.getDestNode().equals(config.getNodeCall()))
         .forEach(nodeDestination -> {
@@ -58,12 +68,35 @@ public class NetRomRouter {
             int qualityProduct = nodeDestination.getQuality() * neighbor.getQuality();
             routeQuality = (qualityProduct + 128) / 256;
           }
-          Destination neighborDest = destinations.computeIfAbsent(nodeDestination.getDestNode(),
-              call -> new Destination(call, nodeDestination.getDestAlias())
-          );
-          neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality));
+          if(routeQuality > config.getInt("netrom.nodes.quality.min", 0)) {
+            Destination neighborDest = destinations.computeIfAbsent(nodeDestination.getDestNode(),
+                call -> new Destination(call, nodeDestination.getDestAlias())
+            );
+            neighborDest.getNeighbors().add(new DestinationRoute(neighbor.getNodeCall(), routeQuality, defaultObs));
+          } else {
+            LOG.warn("Learned about " + neighbor.getNodeCall() + ", but quality was too low to add "
+                   + "to our routing table (" + routeQuality +")");
+          }
         });
     LOG.info("New Routing table: " + this);
+  }
+
+  public void pruneRoutes() {
+    destinations.forEach(((ax25Call, destination) -> {
+      destination.getNeighbors().forEach(DestinationRoute::decrementObsolescence);
+      destination.getNeighbors().removeIf(neighbor -> neighbor.getObsolescence() <= 0);
+    }));
+
+    Set<AX25Call> noNeighbors = destinations.entrySet().stream()
+        .filter(entry -> entry.getValue().getNeighbors().isEmpty())
+        .map(Entry::getKey)
+        .collect(Collectors.toSet());
+
+    noNeighbors.forEach(ax25Call -> {
+      LOG.info(ax25Call + " went away");
+      destinations.remove(ax25Call);
+      neighbors.remove(ax25Call);
+    });
   }
 
   public NetRomNodes getNodes() {
@@ -71,9 +104,9 @@ public class NetRomRouter {
     getDestinations().forEach((destCall, dest) -> {
       Optional<DestinationRoute> bestNeighbor = dest.getNeighbors().stream().findFirst();
       if(bestNeighbor.isPresent()) {
-        // TODO configure thresholds
-        if(bestNeighbor.get().getObsolescence() > 4 && bestNeighbor.get().getQuality() > 60) {
-          new NodeDestination(dest.getNodeCall(), dest.getNodeAlias(), bestNeighbor.get().getNeighbor(), bestNeighbor.get().getQuality());
+        if(bestNeighbor.get().getObsolescence() >= config.getMinObs()) {
+          new NodeDestination(dest.getNodeCall(), dest.getNodeAlias(),
+              bestNeighbor.get().getNeighbor(), bestNeighbor.get().getQuality());
         }
       }
     });
@@ -116,12 +149,20 @@ public class NetRomRouter {
         '}';
   }
 
+  public String toPrettyString() {
+    StringBuilder builder = new StringBuilder("NET/ROM routing table:\n");
+    destinations.forEach((ax25Call, destination) -> {
+      builder.append(destination).append("\n");
+    });
+    return builder.toString();
+  }
+
   /**
    * A neighboring node directly linked to this node
    */
   public static class Neighbor {
     private final AX25Call nodeCall;
-    // TODO 2 Digitpeaters
+    // TODO 2 Digipeaters
     private final int port;
     private final int quality; // 0-255
 
@@ -179,19 +220,6 @@ public class NetRomRouter {
       return neighbors.descendingSet();
     }
 
-    /**
-     * Remove all but the best routes for this destination
-     * @param keep how many routes to keep
-     */
-    public void prune(int keep) {
-      Set<DestinationRoute> keepers = neighbors.descendingSet()
-          .stream()
-          .limit(keep)
-          .collect(Collectors.toSet());
-      neighbors.clear();
-      neighbors.addAll(keepers);
-    }
-
     @Override
     public String toString() {
       return "Destination{" +
@@ -204,12 +232,12 @@ public class NetRomRouter {
     public static class DestinationRoute implements Comparable<DestinationRoute> {
       private final AX25Call neighbor;
       private final int quality; // 0-255, 255 best, 0 worst (never used)
-      private int obsolescence; // 6
+      private int obsolescence;
 
-      public DestinationRoute(AX25Call neighbor, int quality) {
+      public DestinationRoute(AX25Call neighbor, int quality, int obsolescence) {
         this.neighbor = neighbor;
         this.quality = quality;
-        this.obsolescence = 6;
+        this.obsolescence = obsolescence;
       }
 
       public void decrementObsolescence() {

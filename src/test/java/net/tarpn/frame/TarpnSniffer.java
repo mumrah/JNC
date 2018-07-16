@@ -40,11 +40,6 @@ public class TarpnSniffer {
       reader.accept(val, frames::add);
     }
 
-    Configuration config = Configuration.newBuilder()
-        .setNodeCall(AX25Call.create("TEST", 1))
-        .setAlias("TEST")
-        .build();
-
     /*
     NetRomCircuitManager netRomHandler = new NetRomCircuitManager(config);
     for(Frame frame : frames) {

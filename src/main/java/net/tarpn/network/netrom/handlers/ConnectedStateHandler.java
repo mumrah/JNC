@@ -86,7 +86,7 @@ public class ConnectedStateHandler implements StateHandler {
             discReq.getCircuitId()
         );
         outgoing.accept(discAck);
-        newState = State.AWAITING_RELEASE;
+        newState = State.DISCONNECTED;
         break;
       }
       case NETROM_INFO: {

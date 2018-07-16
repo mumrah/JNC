@@ -15,4 +15,16 @@ public class NetRomConfig extends NodeConfig {
   public int getRetryCount() {
     return getInt("netrom.retry.count", 1);
   }
+
+  public int getMinObs() {
+    return getInt("netrom.obs.min", 4);
+  }
+
+  public int getInitialObs() {
+    return getInt("netrom.obs.init", 6);
+  }
+
+  public int getNodesInterval() {
+    return getInt("netrom.nodes.interval", 300);
+  }
 }
