@@ -1,5 +1,6 @@
 package net.tarpn.network.netrom.handlers;
 
+import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.BaseNetRomPacket;
@@ -8,8 +9,10 @@ import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
+import net.tarpn.network.netrom.NetRomCircuitEvent.UserDataEvent;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
+import net.tarpn.network.netrom.NetRomInfo;
 import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomPacket.OpType;
 
@@ -40,6 +43,18 @@ public class DisconnectedStateHandler implements StateHandler {
         outgoing.accept(connAck);
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
+        // TODO move this out
+        NetRomPacket welcome = NetRomInfo.create(
+            circuit.getLocalNodeCall(),
+            circuit.getRemoteNodeCall(),
+            circuit.getConfig().getTTL(),
+            circuit.getRemoteCircuitIdx(),
+            circuit.getRemoteCircuitId(),
+            circuit.getSendStateSeqByte(),
+            circuit.getRecvStateSeqByte(),
+            "Welcome to David's packet node! L3!".getBytes(StandardCharsets.US_ASCII)
+        );
+        outgoing.accept(welcome);
         newState = State.CONNECTED;
         break;
       }

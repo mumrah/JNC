@@ -11,7 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
@@ -95,12 +95,13 @@ public class NetworkManager {
 
   public void initialize(PortConfig portConfig) {
     PacketHandler netRomNodesHandler = getNetRomNodesHandler();
+    if(portConfig.isEnabled()) {
+      DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
+      DataLinkManager portManager = DataLinkManager.create(
+          portConfig, dataPort, level2Events::add, netRomNodesHandler, executorService);
 
-    DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
-    DataLinkManager portManager = DataLinkManager.create(
-        portConfig, dataPort, level2Events::add, netRomNodesHandler, executorService);
-
-    dataPorts.put(dataPort.getPortNumber(), portManager);
+      dataPorts.put(dataPort.getPortNumber(), portManager);
+    }
   }
 
   /**
@@ -163,7 +164,7 @@ public class NetworkManager {
       NetRomNodes nodes = router.getNodes();
       byte[] nodesData = NetRomNodes.write(nodes);
       for(DataLinkManager portManager : dataPorts.values()) {
-        LOG.info("Sending automatic NODES message on " + portManager.getDataPort());
+        LOG.info("Sending automatic NODES message on " + portManager.getDataPort() + ": " + nodes);
         portManager.getAx25StateHandler().getEventQueue().add(
             AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
         //Thread.sleep(2000); // Slight delay between broadcasts

@@ -1,7 +1,7 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.ByteUtil;
+import net.tarpn.util.ByteUtil;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
@@ -10,7 +10,7 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
-import net.tarpn.packet.impl.ax25.AX25State.Timer;
+import net.tarpn.util.Timer;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
 import net.tarpn.datalink.LinkPrimitive;
@@ -216,15 +216,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
               state.sendDataLinkPrimitive(LinkPrimitive.newDataIndication(iFrame));
               if(iFrame.isPollBitSet()) {
                 // Set N(R) = V(R)
-                SFrame rr = SFrame.create(
-                    iFrame.getSourceCall(),
-                    iFrame.getDestCall(),
-                    Command.RESPONSE,
-                    SupervisoryFrame.ControlType.RR,
-                    state.getReceiveState(),
-                    true);
-                outgoingPackets.accept(rr);
-                state.clearAckPending();
+                state.enqueueInfoAck(outgoingPackets);
               }
             } else {
               if(state.isRejectException()) {

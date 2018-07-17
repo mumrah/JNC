@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomNodes {

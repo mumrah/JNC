@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.PacketHandler;

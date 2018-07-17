@@ -1,4 +1,4 @@
-package net.tarpn;
+package net.tarpn.util;
 
 /**
  * Collection of type safe functions for comparing bytes. Avoids issues with auto-boxing and

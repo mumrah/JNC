@@ -11,9 +11,9 @@ public class NetworkMain {
 
     NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig(),
         event -> System.err.println("L3 event: " + event));
-    //config.getPortConfigs().forEach(
-    //    (portNumber, portConfig) -> networkManager.initialize(portConfig));
-    networkManager.initialize(config.getPortConfigs().get(1));
+    config.getPortConfigs().forEach(
+        (portNumber, portConfig) -> networkManager.initialize(portConfig));
+    //networkManager.initialize(config.getPortConfigs().get(1));
     networkManager.start();
 
     /*

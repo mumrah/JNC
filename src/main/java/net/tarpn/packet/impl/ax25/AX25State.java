@@ -2,19 +2,19 @@ package net.tarpn.packet.impl.ax25;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
+import net.tarpn.util.Timer;
 import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// TODO document the hell out of this...
 public class AX25State {
 
   private static final Logger LOG = LoggerFactory.getLogger(AX25State.class);
@@ -111,8 +111,6 @@ public class AX25State {
     this.SRT = portConfig.getInt("l2.rtt", DEFAULT_RTT_MS);
   }
 
-  // I-Frames
-
   public void pushIFrame(HasInfo iFrameData) {
     pendingInfoFrames.add(iFrameData);
     internalEvents.accept(AX25StateEvent.createIFrameQueueEvent(remoteNodeCall));
@@ -139,10 +137,6 @@ public class AX25State {
     ackPending = false;
   }
 
-  public boolean isAckPending() {
-    return ackPending;
-  }
-
   public AX25Call getRemoteNodeCall() {
     return remoteNodeCall;
   }
@@ -159,6 +153,27 @@ public class AX25State {
     return t3Timer;
   }
 
+  private Timer ackTimer = null;
+
+  public void enqueueInfoAck(Consumer<AX25Packet> outgoingPackets) {
+    if(ackTimer == null) {
+      ackTimer = Timer.create(portConfig.getInt("l2.ack.delay", 30), () -> {
+        if(ackPending) {
+          SFrame rr = SFrame.create(
+              getRemoteNodeCall(),
+              getLocalNodeCall(),
+              Command.RESPONSE,
+              SupervisoryFrame.ControlType.RR,
+              getReceiveState(),
+              true);
+          outgoingPackets.accept(rr);
+          clearAckPending();
+        }
+      });
+    }
+    ackTimer.start();
+    ackPending = true;
+  }
 
   public int getRC() {
     return RC;
@@ -206,8 +221,6 @@ public class AX25State {
     return currentState;
   }
 
-
-
   public int getSendState() {
     return vs.get();
   }
@@ -220,8 +233,6 @@ public class AX25State {
     vs.getAndIncrement();
   }
 
-
-
   public int getReceiveState() {
     return vr.get();
   }
@@ -233,8 +244,6 @@ public class AX25State {
   public void incrementReceiveState() {
     this.vr.incrementAndGet();
   }
-
-
 
   public int getAcknowledgeState() {
     return va.get();
@@ -256,7 +265,6 @@ public class AX25State {
     return (vs.get() % 8) == va.get();
   }
 
-
   public boolean isRejectException() {
     return rejectException;
   }
@@ -268,8 +276,6 @@ public class AX25State {
   public void clearRejectException() {
     rejectException = false;
   }
-
-
 
   public void clearExceptions() {
     rejectException = false;
@@ -300,68 +306,6 @@ public class AX25State {
         ", T1=" + getT1Timer().timeRemaining() + "/" + getT1Timer().getTimeout() +
         ", T3=" + getT3Timer().timeRemaining() + "/" + getT3Timer().getTimeout() +
         '}';
-  }
-
-  public static class Timer {
-    private static final ScheduledExecutorService TIMER_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
-
-    private final Runnable callback;
-    private long timeout;
-    private ScheduledFuture<?> future;
-    private long startedAt;
-
-    private Timer(long timeout, Runnable callback) {
-      this.timeout = timeout;
-      this.callback = callback;
-    }
-
-    public static Timer create(long timeout, Runnable callback) {
-      return new Timer(timeout, callback);
-    }
-
-    public void start() {
-      if(future != null) {
-        future.cancel(false);
-      }
-      future = TIMER_EXECUTOR.schedule(callback, timeout, TimeUnit.MILLISECONDS);
-      startedAt = System.currentTimeMillis();
-    }
-
-    public long getTimeout() {
-      return timeout;
-    }
-
-    public void setTimeout(long newTimeout) {
-      this.timeout = newTimeout;
-    }
-
-    public void cancel() {
-      if(future != null) {
-        future.cancel(false);
-      }
-    }
-
-    public boolean isRunning() {
-      return future != null && !(future.isDone() || future.isCancelled());
-    }
-
-    public long timeRemaining() {
-      if(isRunning()) {
-        return timeout - (System.currentTimeMillis() - startedAt);
-      } else {
-        return -1;
-      }
-    }
-
-    @Override
-    public String toString() {
-      return "Timer{" +
-          "timeout=" + timeout +
-          ", running=" + isRunning() +
-          ", started=" + startedAt +
-          ", remaining=" + timeRemaining() +
-          '}';
-    }
   }
 
   public enum State {

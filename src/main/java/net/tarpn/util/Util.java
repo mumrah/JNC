@@ -1,4 +1,4 @@
-package net.tarpn;
+package net.tarpn.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -76,6 +76,14 @@ public class Util {
         .replace("\t", "\\t")
         .replace("\b", "\\b")
         .replace("\f", "\\f");
+  }
+
+  public static byte[] ascii(String s) {
+    return s.getBytes(StandardCharsets.US_ASCII);
+  }
+
+  public static String ascii(byte[] b) {
+    return new String(b, StandardCharsets.US_ASCII);
   }
 
   public static byte[] copyFromBuffer(ByteBuffer buffer) {

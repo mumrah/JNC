@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.frame.Frame;
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.PacketReader;

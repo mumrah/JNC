@@ -2,7 +2,7 @@ package net.tarpn.frame.impl;
 
 import java.nio.ByteBuffer;
 import java.util.function.Consumer;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.frame.Frame;
 import net.tarpn.frame.FrameReader;
 import net.tarpn.frame.impl.KISS.Protocol;

@@ -1,8 +1,7 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.ByteUtil;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.util.ByteUtil;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;

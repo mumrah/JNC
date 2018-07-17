@@ -1,7 +1,7 @@
 package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
-import net.tarpn.Util;
+import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
 public class NetRomConnectAck extends BaseNetRomPacket {

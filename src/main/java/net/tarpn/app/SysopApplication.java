@@ -1,17 +1,22 @@
 package net.tarpn.app;
 
+import static net.tarpn.util.Util.ascii;
+
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.datalink.LinkPrimitive.Type;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 
 public class SysopApplication {
 
   public void handle(LinkPrimitive request, Consumer<LinkPrimitive> response) {
     if(request.getType().equals(Type.DL_DATA)) {
-      String message = new String(request.getPacket().getInfo(), StandardCharsets.US_ASCII).trim();
+      String message = ascii(request.getPacket().getInfo()).trim();
       if(message.equalsIgnoreCase("BYE")) {
         response.accept(LinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
+      } else if(message.equalsIgnoreCase("PING")) {
+        response.accept(LinkPrimitive.newDataRequest(request.getRemoteCall(), Protocol.NO_LAYER3, ascii("PONG\r")));
       } else {
         System.err.println("Got Message: " + message);
       }
