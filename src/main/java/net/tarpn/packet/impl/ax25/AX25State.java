@@ -225,6 +225,18 @@ public class AX25State {
     return vs.get();
   }
 
+
+  IFrame[] oldFrames = new IFrame[8];
+
+  public void storeSentIFrame(IFrame iFrame) {
+    // Guard against array index?
+    oldFrames[iFrame.getSendSequenceNumber()] = iFrame;
+  }
+
+  public IFrame getSentIFrame(int ns) {
+    return oldFrames[ns];
+  }
+
   public Byte getSendStateByte() {
     return (byte)(vs.get() % 8);
   }

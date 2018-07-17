@@ -98,27 +98,18 @@ public class ConnectedStateHandler implements StateHandler {
               circuit.getRemoteNodeCall(),
               ((NetRomInfo)info).getInfo()
           ));
-          NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
-              info.getDestNode(),
-              info.getOriginNode(),
-              circuit.getConfig().getTTL(),
-              circuit.getRemoteCircuitIdx(),
-              circuit.getRemoteCircuitId(),
-              circuit.getRecvStateSeqByte(),
-              OpType.InformationAcknowledge.asByte(false, false, false)
-          );
-          outgoing.accept(infoAck);
+          circuit.enqueueInfoAck(outgoing);
         } else {
-          NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
-              info.getDestNode(),
-              info.getOriginNode(),
+          NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(
+              circuit.getRemoteNodeCall(),
+              circuit.getLocalNodeCall(),
               circuit.getConfig().getTTL(),
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),
               circuit.getRecvStateSeqByte(),
               OpType.InformationAcknowledge.asByte(false, true, false)
           );
-          outgoing.accept(infoAck);
+          outgoing.accept(infoNak);
         }
         newState = State.CONNECTED;
         break;
@@ -145,8 +136,11 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
       case NL_CONNECT:
+        // TODO ??? send connect request, transition to awaiting connection
       case NL_DISCONNECT:
+        // TODO send disconnect request, transition to awaiting release
       case NETROM_DISCONNECT_ACK:
+        // TODO error!!
       default: {
         newState = State.CONNECTED;
         break;

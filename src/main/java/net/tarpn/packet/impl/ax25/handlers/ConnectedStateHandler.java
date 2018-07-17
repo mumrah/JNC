@@ -79,6 +79,7 @@ public class ConnectedStateHandler implements StateHandler {
               pendingIFrame.getProtocol(),
               pendingIFrame.getInfo());
           outgoingPackets.accept(iFrame);
+          state.storeSentIFrame(iFrame);
           state.incrementSendState();
           state.clearAckPending();
           if(!state.getT1Timer().isRunning()) {

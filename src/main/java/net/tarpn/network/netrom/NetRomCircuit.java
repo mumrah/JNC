@@ -1,8 +1,11 @@
 package net.tarpn.network.netrom;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import net.tarpn.config.NetRomConfig;
+import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.packet.impl.ax25.AX25Call;
+import net.tarpn.util.Timer;
 
 public class NetRomCircuit {
 
@@ -14,6 +17,10 @@ public class NetRomCircuit {
 
   private final NetRomConfig config;
 
+  private final AtomicInteger vs = new AtomicInteger(0);
+
+  private final AtomicInteger vr = new AtomicInteger(0);
+
   private State state;
 
   private byte remoteCircuitId;
@@ -22,9 +29,11 @@ public class NetRomCircuit {
 
   private int windowSize;
 
-  private final AtomicInteger vs = new AtomicInteger(0);
+  private Timer ackTimer;
 
-  private final AtomicInteger vr = new AtomicInteger(0);
+  private Timer t1Timer;
+
+  private boolean ackPending;
 
   public NetRomCircuit(
       int circuitId,
@@ -106,6 +115,28 @@ public class NetRomCircuit {
 
   public void setWindowSize(int windowSize) {
     this.windowSize = windowSize;
+  }
+
+  public void enqueueInfoAck(Consumer<NetRomPacket> outgoing) {
+    if(ackTimer == null) {
+      ackTimer = Timer.create(100, () -> {
+        if(ackPending) {
+          NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
+              getRemoteNodeCall(),
+              getLocalNodeCall(),
+              getConfig().getTTL(),
+              getRemoteCircuitIdx(),
+              getRemoteCircuitId(),
+              getRecvStateSeqByte(),
+              OpType.InformationAcknowledge.asByte(false, true, false)
+          );
+          outgoing.accept(infoAck);
+          ackPending = false;
+        }
+      });
+    }
+    ackTimer.start();
+    ackPending = true;
   }
 
   @Override

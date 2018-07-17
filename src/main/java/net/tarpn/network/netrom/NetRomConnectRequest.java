@@ -35,23 +35,18 @@ public class NetRomConnectRequest extends BaseNetRomPacket {
       byte ttl,
       byte circuitIndex,
       byte circuitId,
-      byte txSeqNumber,
-      byte rxSeqNumber,
       byte proposedWindowSize,
       AX25Call originatingUser,
       AX25Call originatingNode) {
     ByteBuffer buffer = ByteBuffer.allocate(1024);
     byte opByte = OpType.ConnectRequest.asByte(false, false, false);
-    writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, txSeqNumber,
-        rxSeqNumber, opByte);
+    writeHeaders(buffer::put, originNode, destNode, ttl, circuitIndex, circuitId, (byte)0, (byte)0, opByte);
     buffer.put(proposedWindowSize);
     originatingUser.write(buffer::put);
     originatingNode.write(buffer::put);
     byte[] packet = Util.copyFromBuffer(buffer);
     return new NetRomConnectRequest(packet, originNode, destNode, ttl, circuitIndex, circuitId,
-        txSeqNumber, rxSeqNumber, opByte,
-        proposedWindowSize, originatingUser, originatingNode
-    );
+        (byte)0, (byte)0, opByte, proposedWindowSize, originatingUser, originatingNode);
   }
 
   public byte getProposedWindowSize() {

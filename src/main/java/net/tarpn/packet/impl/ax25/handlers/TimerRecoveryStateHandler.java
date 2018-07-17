@@ -79,6 +79,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
               pendingIFrame.getProtocol(),
               pendingIFrame.getInfo());
           outgoingPackets.accept(iFrame);
+          state.storeSentIFrame(iFrame);
           state.incrementSendState();
           state.clearAckPending();
           if(!state.getT1Timer().isRunning()) {
@@ -103,7 +104,8 @@ public class TimerRecoveryStateHandler implements StateHandler {
                 .newErrorResponse(state.getRemoteNodeCall(), ErrorType.I));
           }
           state.internalDisconnectRequest();
-          UFrame dm = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.COMMAND, ControlType.DM, true);
+          UFrame dm = UFrame.create(state.getRemoteNodeCall(), state.getLocalNodeCall(),
+              Command.COMMAND, ControlType.DM, true);
           outgoingPackets.accept(dm);
           newState = State.DISCONNECTED;
         }
@@ -138,7 +140,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
               state.getT3Timer().start();
               newState = State.CONNECTED;
             } else {
-              StateHelper.invokeRetransmission(state, outgoingPackets);
+              StateHelper.invokeRetransmission(sFrame.getReceiveSequenceNumber(), state);
               newState = State.TIMER_RECOVERY;
             }
           } else {

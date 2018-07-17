@@ -89,9 +89,7 @@ public class NetRomCircuitManager {
             AX25Call originatingUser = AX25Call.read(infoBuffer);
             AX25Call originatingNode = AX25Call.read(infoBuffer);
             NetRomPacket netRomPacket = NetRomConnectRequest.create(originNode, destNode, ttl,
-                circuitIdx, circuitId,
-                txSeqNum, rxSeqNum,
-                proposeWindowSize, originatingUser, originatingNode);
+                circuitIdx, circuitId, proposeWindowSize, originatingUser, originatingNode);
             int newCircuitId = getNextCircuitId();
             event = new DataLinkEvent(newCircuitId, originNode, netRomPacket, Type.NETROM_CONNECT);
             break;

@@ -65,8 +65,6 @@ public class DisconnectedStateHandler implements StateHandler {
             circuit.getConfig().getTTL(),
             (byte) circuit.getCircuitId(),
             (byte) circuit.getCircuitId(),
-            (byte) 0,
-            (byte) 0,
             circuit.getConfig().getWindowSize(),
             circuit.getLocalNodeCall(),  // TODO make user configurable
             circuit.getLocalNodeCall()

@@ -8,6 +8,7 @@ import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.datalink.LinkPrimitive.ErrorType;
+import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
@@ -116,11 +117,14 @@ public class StateHelper {
     }
   }
 
-  public static void invokeRetransmission(AX25State state, Consumer<AX25Packet> packetConsumer) {
-    // TODO!!
+  public static void invokeRetransmission(byte nr, AX25State state) {
+    // Current send seq
+    byte x = state.getSendStateByte();
+    byte vs = nr;
+    while(vs != x) {
+      IFrame oldFrame = state.getSentIFrame(state.getSendStateByte());
+      state.pushIFrame(oldFrame);
+      vs += 1;
+    }
   }
-
-
-
-
 }
