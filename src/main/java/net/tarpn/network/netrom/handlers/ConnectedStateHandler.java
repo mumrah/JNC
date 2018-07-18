@@ -1,6 +1,11 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.LinkPrimitive.ErrorType;
+import net.tarpn.datalink.LinkPrimitive.LinkInfo;
+import net.tarpn.datalink.LinkPrimitive.Type;
+import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.util.ByteUtil;
 import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
@@ -20,7 +25,7 @@ public class ConnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<NetRomCircuitEvent> networkEvents,
+      Consumer<LinkPrimitive> networkEvents,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch(event.getType()) {
@@ -41,7 +46,9 @@ public class ConnectedStateHandler implements StateHandler {
               connReq.getProposedWindowSize(),
               OpType.ConnectAcknowledge.asByte(false, false, false)
           );
-          outgoing.accept(connAck); // Need to check the result of the router before transitioning to CONNECTED
+          // TODO Need to check the result of the router before transitioning to CONNECTED
+          outgoing.accept(connAck);
+          networkEvents.accept(LinkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
           newState = State.CONNECTED;
         } else {
           // Reject the connection
@@ -57,6 +64,7 @@ public class ConnectedStateHandler implements StateHandler {
               OpType.ConnectAcknowledge.asByte(true, false, false)
           );
           outgoing.accept(connRej);
+          networkEvents.accept(LinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
           newState = State.DISCONNECTED;
         }
         break;
@@ -86,6 +94,7 @@ public class ConnectedStateHandler implements StateHandler {
             discReq.getCircuitId()
         );
         outgoing.accept(discAck);
+        LinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall());
         newState = State.DISCONNECTED;
         break;
       }
@@ -93,12 +102,15 @@ public class ConnectedStateHandler implements StateHandler {
         NetRomPacket info = ((DataLinkEvent)event).getNetRomPacket();
         if(ByteUtil.equals(info.getTxSeqNumber(), circuit.getRecvStateSeqByte())) {
           circuit.incrementRecvState();
-          networkEvents.accept(new UserDataEvent(
+
+          /*networkEvents.accept(new UserDataEvent(
               circuit.getCircuitId(),
               circuit.getRemoteNodeCall(),
               ((NetRomInfo)info).getInfo()
-          ));
+          ));*/
           circuit.enqueueInfoAck(outgoing);
+          networkEvents.accept(LinkPrimitive.newDataIndication(
+              circuit.getRemoteNodeCall(), Protocol.NETROM, ((NetRomInfo)info).getInfo()));
         } else {
           NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(
               circuit.getRemoteNodeCall(),
@@ -135,10 +147,20 @@ public class ConnectedStateHandler implements StateHandler {
         newState = State.CONNECTED;
         break;
       }
+      case NL_DISCONNECT: {
+        NetRomPacket disc = BaseNetRomPacket.createDisconnectRequest(
+            circuit.getLocalNodeCall(),
+            circuit.getRemoteNodeCall(),
+            circuit.getConfig().getTTL(),
+            circuit.getRemoteCircuitIdx(),
+            circuit.getRemoteCircuitId()
+        );
+        outgoing.accept(disc);
+        newState = State.AWAITING_RELEASE;
+        break;
+      }
       case NL_CONNECT:
         // TODO ??? send connect request, transition to awaiting connection
-      case NL_DISCONNECT:
-        // TODO send disconnect request, transition to awaiting release
       case NETROM_DISCONNECT_ACK:
         // TODO error!!
       default: {

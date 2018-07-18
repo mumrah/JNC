@@ -55,9 +55,10 @@ public class NetworkManager {
   private final Queue<LinkPrimitive> level2Events;
   private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRouter router;
+  private final Map<AX25Call, NetRomSession> sessions;
   private final NetRomCircuitManager circuitManager;
 
-  private NetworkManager(NetRomConfig netromConfig, Consumer<NetRomCircuitEvent> networkEvents) {
+  private NetworkManager(NetRomConfig netromConfig) {
     this.netromConfig = netromConfig;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
@@ -65,12 +66,19 @@ public class NetworkManager {
 
     Consumer<NetRomPacket> packetRouter = netRomPacket ->
         route(LinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
-
-    this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, networkEvents);
+    this.sessions = new HashMap<>();
+    this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, event -> {
+      NetRomSession session = sessions.get(event.getRemoteCall());
+      if(session != null) {
+        session.accept(event);
+      } else {
+        LOG.debug("Got NET/ROM event: " + event);
+      }
+    });
   }
 
-  public static NetworkManager create(NetRomConfig config, Consumer<NetRomCircuitEvent> networkEvents) {
-    return new NetworkManager(config, networkEvents);
+  public static NetworkManager create(NetRomConfig config) {
+    return new NetworkManager(config);
   }
 
   /**
@@ -153,7 +161,7 @@ public class NetworkManager {
             LOG.info("Got DL event " + dataLinkPrimitive);
             // Only pass data and unit data up to L3, everything else is ignored
             if(dataLinkPrimitive.getType().equals(Type.DL_DATA) || dataLinkPrimitive.getType().equals(Type.DL_UNIT_DATA)) {
-              circuitManager.onPacket(dataLinkPrimitive.getPacket());
+              circuitManager.handleInfo(dataLinkPrimitive.getLinkInfo());
             }
           },
           (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
@@ -193,11 +201,13 @@ public class NetworkManager {
   }
 
   public NetRomSession open(AX25Call address) {
-    int circuitId = circuitManager.open(address);
-    if(circuitId == -1) {
-      throw new RuntimeException("All circuits busy.");
-    } else {
-      return new NetRomSession(circuitId, address, circuitManager::onCircuitEvent);
-    }
+    return sessions.computeIfAbsent(address, newAddress -> {
+      int circuitId = circuitManager.open(address);
+      if(circuitId == -1) {
+        throw new RuntimeException("All circuits busy.");
+      } else {
+        return new NetRomSession(circuitId, address, circuitManager);
+      }
+    });
   }
 }

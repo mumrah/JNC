@@ -4,8 +4,11 @@ import java.util.function.Consumer;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
+import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
+import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.util.ByteUtil;
 
 public class AwaitingReleaseStateHandler implements StateHandler {
 
@@ -13,7 +16,7 @@ public class AwaitingReleaseStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<NetRomCircuitEvent> networkEvents,
+      Consumer<LinkPrimitive> networkEvents,
       Consumer<NetRomPacket> outgoing) {
     final State newState;
     switch(event.getType()) {
@@ -26,9 +29,18 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case NETROM_DISCONNECT:
         newState = State.AWAITING_RELEASE;
         break;
-      case NETROM_DISCONNECT_ACK:
-        newState = State.DISCONNECTED;
+      case NETROM_DISCONNECT_ACK: {
+        NetRomPacket discAck = ((DataLinkEvent) event).getNetRomPacket();
+        if (ByteUtil.equals(discAck.getCircuitIndex(), circuit.getCircuitIdByte()) &&
+            ByteUtil.equals(discAck.getCircuitId(), circuit.getCircuitIdByte())) {
+          networkEvents.accept(LinkPrimitive.newDisconnectConfirmation(circuit.getRemoteNodeCall()));
+          newState = State.DISCONNECTED;
+        } else {
+          // Error!
+          newState = State.DISCONNECTED;
+        }
         break;
+      }
       case NETROM_INFO:
         newState = State.AWAITING_RELEASE;
         break;

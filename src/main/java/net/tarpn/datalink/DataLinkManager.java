@@ -32,7 +32,6 @@ import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketReader;
 import net.tarpn.packet.impl.AX25PacketReader;
 import net.tarpn.packet.impl.CompositePacketHandler;
-import net.tarpn.packet.impl.ConsolePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.DestinationFilteringPacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -166,6 +165,11 @@ public class DataLinkManager {
     return portConfig;
   }
 
+  /**
+   * Accept a {@link LinkPrimitive}, translate it into a AX25StateEvent, and send it into the AX.25
+   * state machine
+   * @param event
+   */
   public void acceptDataLinkPrimitive(LinkPrimitive event) {
     switch (event.getType()) {
 
@@ -179,15 +183,15 @@ public class DataLinkManager {
         ax25StateHandler.getEventQueue().add(
             AX25StateEvent.createDataEvent(
                 event.getRemoteCall(),
-                event.getPacket().getProtocol(),
-                event.getPacket().getInfo()));
+                event.getLinkInfo().getProtocol(),
+                event.getLinkInfo().getInfo()));
         break;
       case DL_UNIT_DATA:
         ax25StateHandler.getEventQueue().add(
             AX25StateEvent.createUnitDataEvent(
                 event.getRemoteCall(),
-                event.getPacket().getProtocol(),
-                event.getPacket().getInfo()));
+                event.getLinkInfo().getProtocol(),
+                event.getLinkInfo().getInfo()));
         break;
       case DL_ERROR:
       default:

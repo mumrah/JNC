@@ -5,6 +5,7 @@ import net.tarpn.config.Configs;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
+import net.tarpn.io.impl.SocketDataPortServer;
 import net.tarpn.network.NetworkManager;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -19,8 +20,7 @@ public class Main {
     Configurator.setRootLevel(rootLevel);
 
     if(config.getNodeConfig().getBoolean("network.enabled", true)) {
-      NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig(),
-          event -> System.err.println("L3 event: " + event));
+      NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig());
       config.getPortConfigs().forEach(
           (portNumber, portConfig) -> networkManager.initialize(portConfig));
       networkManager.start();

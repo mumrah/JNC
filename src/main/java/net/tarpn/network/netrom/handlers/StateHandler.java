@@ -10,6 +10,6 @@ public interface StateHandler {
   NetRomCircuit.State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<NetRomCircuitEvent> networkEvents,
+      Consumer<LinkPrimitive> networkEvents,
       Consumer<NetRomPacket> outgoing);
 }

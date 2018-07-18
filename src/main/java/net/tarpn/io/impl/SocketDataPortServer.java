@@ -12,6 +12,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.tarpn.app.SysopApplication;
 import net.tarpn.network.NetworkManager;
+import net.tarpn.network.netrom.NetRomSession;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +36,7 @@ public class SocketDataPortServer {
       try {
         ServerSocket serverSocket = new ServerSocket(7777);
         System.err.println("Started socket server on 7777");
+
         while(!Thread.currentThread().isInterrupted()) {
           Socket clientSocket = serverSocket.accept();
           System.err.println("New connection at " + clientSocket.getLocalAddress());
@@ -51,7 +54,7 @@ public class SocketDataPortServer {
               try {
                 String line;
                 while((line = reader.readLine()) != null) {
-                  // TODO send to app
+
                 }
               } catch (IOException e) {
                 LOG.error("Could not read line from client", e);

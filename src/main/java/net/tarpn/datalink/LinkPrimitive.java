@@ -2,10 +2,8 @@ package net.tarpn.datalink;
 
 
 import net.tarpn.packet.impl.ax25.AX25Call;
-import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
-import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
@@ -14,86 +12,75 @@ import net.tarpn.packet.impl.ax25.UIFrame;
  */
 public class LinkPrimitive {
 
-  private final String dataLinkId; // TODO remove this?
   private final AX25Call remoteCall;
   private final Type type;
   private final boolean isConfirmation;
-  private final HasInfo infoPacket;
+  private final HasInfo linkInfo;
   private final ErrorType error;
 
-  private LinkPrimitive(String dataLinkId, AX25Call remoteCall,
-      Type type, boolean isConfirmation, HasInfo infoPacket, ErrorType error) {
-    this.dataLinkId = dataLinkId;
+  private LinkPrimitive(AX25Call remoteCall, Type type, boolean isConfirmation,
+      HasInfo linkInfo, ErrorType error) {
     this.remoteCall = remoteCall;
     this.type = type;
     this.isConfirmation = isConfirmation;
-    this.infoPacket = infoPacket;
+    this.linkInfo = linkInfo;
     this.error = error;
   }
 
   public LinkPrimitive copyOf(AX25Call newCall) {
-    return new LinkPrimitive(this.dataLinkId, newCall, this.type, this.isConfirmation, this.infoPacket, this.error);
+    return new LinkPrimitive(newCall, this.type, this.isConfirmation, this.linkInfo, this.error);
   }
 
   public static LinkPrimitive newConnectRequest(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
-        null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
   }
 
   public static LinkPrimitive newDisconnectRequest(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
-       null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
   }
 
   public static LinkPrimitive newDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
-    InternalInfo iFrame = new InternalInfo(protocol, data, FrameType.I);
-    return new LinkPrimitive(destCall.toString(), destCall, Type.DL_DATA,
-        false, iFrame, ErrorType.NONE);
+    //InternalInfo iFrame = new InternalInfo(protocol, data, FrameType.I);
+    LinkInfo iFrame = new LinkInfo(protocol, data);
+    return new LinkPrimitive(destCall, Type.DL_DATA, false, iFrame, ErrorType.NONE);
   }
 
   public static LinkPrimitive newUnitDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
-    InternalInfo uiFrame = new InternalInfo(protocol, data, FrameType.UI);
-    return new LinkPrimitive(destCall.toString(), destCall, Type.DL_UNIT_DATA,
-        false, uiFrame, ErrorType.NONE);
+    //InternalInfo uiFrame = new InternalInfo(protocol, data, FrameType.UI);
+    LinkInfo uiFrame = new LinkInfo(protocol, data);
+    return new LinkPrimitive(destCall, Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
   }
 
   public static LinkPrimitive newConnectIndication(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, false,
-        null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
   }
 
   public static LinkPrimitive newDisconnectIndication(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, false,
-        null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
   }
 
   public static LinkPrimitive newConnectConfirmation(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_CONNECT, true,
-        null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_CONNECT, true, null, ErrorType.NONE);
   }
 
   public static LinkPrimitive newDisconnectConfirmation(AX25Call remoteCall) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_DISCONNECT, true,
-        null, ErrorType.NONE);
+    return new LinkPrimitive(remoteCall, Type.DL_DISCONNECT, true, null, ErrorType.NONE);
+  }
+
+  public static LinkPrimitive newDataIndication(AX25Call remoteCall, Protocol protocol, byte[] info) {
+    return new LinkPrimitive(remoteCall, Type.DL_DATA, false, new LinkInfo(protocol, info), ErrorType.NONE);
   }
 
   public static LinkPrimitive newDataIndication(IFrame iFrame) {
-    return new LinkPrimitive(iFrame.getSourceCall().toString(), iFrame.getSourceCall(), Type.DL_DATA,
-        false, iFrame, ErrorType.NONE);
+    return new LinkPrimitive(iFrame.getSourceCall(), Type.DL_DATA, false, iFrame, ErrorType.NONE);
   }
 
   public static LinkPrimitive newUnitDataIndication(UIFrame uiFrame) {
-    return new LinkPrimitive(uiFrame.getSourceCall().toString(), uiFrame.getSourceCall(), Type.DL_UNIT_DATA,
-        false, uiFrame, ErrorType.NONE);
+    return new LinkPrimitive(uiFrame.getSourceCall(), Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
   }
 
   public static LinkPrimitive newErrorResponse(AX25Call remoteCall, ErrorType error) {
-    return new LinkPrimitive(remoteCall.toString(), remoteCall, Type.DL_ERROR, false,
-        null, error);
-  }
-
-  public String getDataLinkId() {
-    return dataLinkId;
+    return new LinkPrimitive(remoteCall, Type.DL_ERROR, false, null, error);
   }
 
   public AX25Call getRemoteCall() {
@@ -108,8 +95,8 @@ public class LinkPrimitive {
     return isConfirmation;
   }
 
-  public HasInfo getPacket() {
-    return infoPacket;
+  public HasInfo getLinkInfo() {
+    return linkInfo;
   }
 
   public ErrorType getError() {
@@ -118,13 +105,12 @@ public class LinkPrimitive {
 
   @Override
   public String toString() {
-    return "DataLinkPrimitive{" +
-        "dataLinkId='" + dataLinkId + '\'' +
-        ", remoteCall=" + remoteCall +
+    return "LinkPrimitive{" +
+        "remoteCall=" + remoteCall +
         ", type=" + type +
         ", isConfirmation=" + isConfirmation +
-        ", packet=" + getPacket() +
-        ", error=" + error +
+        ", info=" + getLinkInfo() +
+        ", error=" + getError() +
         '}';
   }
 
@@ -169,6 +155,31 @@ public class LinkPrimitive {
 
     public String getMessage() {
       return msg;
+    }
+  }
+
+  public static final class LinkInfo implements HasInfo {
+    private final Protocol protocol;
+    private final byte[] data;
+
+    public LinkInfo(Protocol protocol, byte[] data) {
+      this.protocol = protocol;
+      this.data = data;
+    }
+
+    @Override
+    public byte[] getInfo() {
+      return data;
+    }
+
+    @Override
+    public byte getProtocolByte() {
+      return protocol.asByte();
+    }
+
+    @Override
+    public Protocol getProtocol() {
+      return protocol;
     }
   }
 }

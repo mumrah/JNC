@@ -22,7 +22,7 @@ public class DisconnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<NetRomCircuitEvent> networkEvents,
+      Consumer<LinkPrimitive> networkEvents,
       Consumer<NetRomPacket> outgoing) {
 
     final State newState;
@@ -40,9 +40,11 @@ public class DisconnectedStateHandler implements StateHandler {
             connReq.getProposedWindowSize(),
             OpType.ConnectAcknowledge.asByte(false, false,false)
         );
-        outgoing.accept(connAck);
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
+        outgoing.accept(connAck);
+        networkEvents.accept(LinkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
+
         // TODO move this out
         NetRomPacket welcome = NetRomInfo.create(
             circuit.getLocalNodeCall(),

@@ -2,7 +2,6 @@ package net.tarpn.app;
 
 import static net.tarpn.util.Util.ascii;
 
-import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.datalink.LinkPrimitive.Type;
@@ -12,7 +11,7 @@ public class SysopApplication {
 
   public void handle(LinkPrimitive request, Consumer<LinkPrimitive> response) {
     if(request.getType().equals(Type.DL_DATA)) {
-      String message = ascii(request.getPacket().getInfo()).trim();
+      String message = ascii(request.getLinkInfo().getInfo()).trim();
       if(message.equalsIgnoreCase("BYE")) {
         response.accept(LinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
       } else if(message.equalsIgnoreCase("PING")) {
