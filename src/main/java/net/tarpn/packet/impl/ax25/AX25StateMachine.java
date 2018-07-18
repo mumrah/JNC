@@ -161,10 +161,10 @@ public class AX25StateMachine implements PacketHandler {
             )
         );
         StateHandler handler = handlers.get(state.getState());
-        LOG.info("AX25 BEFORE: " + state + " got " + event);
+        LOG.debug("AX25 BEFORE: " + state + " got " + event);
         State newState = handler.onEvent(state, event, outgoingPackets);
         state.setState(newState);
-        LOG.info("AX25 AFTER : " + state);
+        LOG.debug("AX25 AFTER : " + state);
       }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));
     };
   }

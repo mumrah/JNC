@@ -69,6 +69,10 @@ public class Util {
     return String.format("0x%02x", b);
   }
 
+  public static String toHexString(int b) {
+    return String.format("0x%02x", b);
+  }
+
   public static String toEscapedASCII(byte[] msg) {
     return new String(msg, StandardCharsets.US_ASCII)
         .replace("\r", "\\r")

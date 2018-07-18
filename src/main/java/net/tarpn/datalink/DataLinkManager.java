@@ -18,7 +18,6 @@ import net.tarpn.frame.FrameHandler;
 import net.tarpn.frame.FrameReader;
 import net.tarpn.frame.FrameWriter;
 import net.tarpn.frame.impl.CompositeFrameHandler;
-import net.tarpn.frame.impl.ConsoleFrameHandler;
 import net.tarpn.frame.impl.DefaultFrameRequest;
 import net.tarpn.frame.impl.KISS.Command;
 import net.tarpn.frame.impl.KISSCommandHandler;
@@ -41,6 +40,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,6 +102,10 @@ public class DataLinkManager {
         executorService
     );
 
+    String level = config.getString("log.level", "info");
+    Level dataLinkLevel = Level.getLevel(level.toUpperCase());
+    Configurator.setLevel(DataLinkManager.class.getName(), dataLinkLevel);
+
     try {
       port.open();
     } catch (IOException e) {
@@ -148,7 +153,7 @@ public class DataLinkManager {
         this.recoveryThread.cancel(true);
         this.recoveryThread = null;
       } else {
-        LOG.info("Still no connection to " + dataPort + ". Trying again later");
+        LOG.debug("Still no connection to " + dataPort + ". Trying again later");
       }
     }, 100, 5000, TimeUnit.MILLISECONDS); // TODO configure this timer?
   }
@@ -199,7 +204,7 @@ public class DataLinkManager {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
       PacketHandler packetHandler = CompositePacketHandler.wrap(
-          new ConsolePacketHandler(),
+          packetRequest -> LOG.debug("Got Packet: " + packetRequest.getPacket()),
           externalHandler,
           new DestinationFilteringPacketHandler(portConfig.getNodeCall()),
           ax25StateHandler
@@ -210,7 +215,7 @@ public class DataLinkManager {
 
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(
-          new ConsoleFrameHandler(),
+          frameRequest -> LOG.debug("Got Frame: " + frameRequest.getFrame()),
           pCapDumpFrameHandler,
           new KISSCommandHandler(),
           new PacketReadingFrameHandler(packetReader, packetConsumer)
@@ -234,6 +239,7 @@ public class DataLinkManager {
               try {
                 while(inputStream.available() > 0) {
                   int d = inputStream.read();
+                  LOG.trace("Read byte from port " + portConfig.getPortNumber() + ": " + Util.toHexString(d));
                   frameReader.accept(d, frame -> {
                     frameHandler.onFrame(new DefaultFrameRequest(frame, frameConsumer));
                   });
@@ -263,7 +269,7 @@ public class DataLinkManager {
       FrameWriter frameWriter = new KISSFrameWriter();
 
       Util.queueProcessingLoop(outboundPackets::poll, outgoingPacket -> {
-        LOG.info("Sending " + outgoingPacket);
+        LOG.debug("Sending " + outgoingPacket + " to port " + dataPort.getPortNumber());
         if (outgoingPacket instanceof AX25Packet) {
           pCapDumpFrameHandler.dump(outgoingPacket.getPayload());
         }
@@ -275,7 +281,7 @@ public class DataLinkManager {
             } else if(!dataPort.isOpen()) {
               setFault(new IOException("Port is unexpectedly closed, cannot write"));
             } else {
-              LOG.info("Sending data to port " + dataPort.getPortNumber());
+              LOG.trace("Writing to port " + dataPort.getPortNumber() + "\n" + Util.toHexDump(bytes));
               OutputStream outputStream = dataPort.getOutputStream();
               try {
                 outputStream.write(bytes);

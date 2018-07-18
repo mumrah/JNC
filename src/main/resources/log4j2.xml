@@ -2,7 +2,7 @@
 <Configuration status="WARN">
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{ISO8601} - %-5p [%t:%C{3.}@%L] - %X - %m%n"/>
+      <PatternLayout pattern="%d{ISO8601} - %-5p [%30.30C{3.}@%-3.3L] - %m%n"/>
     </Console>
     <File name="KISS" filename="build/kiss.log">
       <PatternLayout>
@@ -11,7 +11,7 @@
     </File>
     <RollingRandomAccessFile name="RollingFile" fileName="build/app.log" filePattern="build/app-%d{MM-dd-yyyy}-%i.log.gz">
       <PatternLayout>
-        <pattern>%d{ISO8601} - %-5p [%t:%C{3}@%L] - %X - %m%n</pattern>
+        <pattern>%d{ISO8601} - %-5p [%30.30C{3.}@%-3.3L] - %m%n</pattern>
       </PatternLayout>
       <Policies>
         <TimeBasedTriggeringPolicy/> <!-- Rotated everyday -->

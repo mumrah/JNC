@@ -12,7 +12,7 @@ import net.tarpn.io.impl.PortFactory;
 
 public class DataLinkMain {
   public static void main(String[] args) throws IOException {
-    Configs config = Configs.read("conf/sample.ini");
+    Configs config = Configs.read("src/dist/conf/sample.ini");
 
     PortConfig portConfig = config.getPortConfigs().get(1);
 

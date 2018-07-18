@@ -1,6 +1,7 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
+import net.tarpn.packet.impl.ax25.AX25StateMachine;
 import net.tarpn.util.ByteUtil;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
@@ -19,8 +20,12 @@ import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConnectedStateHandler implements StateHandler {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ConnectedStateHandler.class);
 
   @Override
   public State onEvent(
@@ -63,9 +68,9 @@ public class ConnectedStateHandler implements StateHandler {
           break;
         }
         if(state.windowExceeded()) {
-          System.err.println("Window Full!!");
+          LOG.warn("IFrame window is full, waiting a bit and retrying");
           // one-shot timer to delay the re-sending a bit
-          Timer.create(10, () ->
+          Timer.create(50, () ->
               state.pushIFrame(pendingIFrame)
           ).start();
         } else {

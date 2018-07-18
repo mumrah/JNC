@@ -19,8 +19,12 @@ import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TimerRecoveryStateHandler implements StateHandler {
+
+  private static final Logger LOG = LoggerFactory.getLogger(TimerRecoveryStateHandler.class);
 
   @Override
   public State onEvent(
@@ -63,9 +67,9 @@ public class TimerRecoveryStateHandler implements StateHandler {
           break;
         }
         if(state.windowExceeded()) {
-          System.err.println("Window Full!!");
+          LOG.warn("IFrame window is full, waiting a bit and retrying");
           // one-shot timer to delay the re-sending a bit
-          Timer.create(10, () ->
+          Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)
           ).start();
         } else {
@@ -134,16 +138,20 @@ public class TimerRecoveryStateHandler implements StateHandler {
         SFrame sFrame = (SFrame)packet;
         if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
           state.getT1Timer().cancel();
-          if(ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
+          StateHelper.selectT1Value(state);
+          if(ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte()) &&
+              ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), sFrame.getReceiveSequenceNumber())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             if(state.checkSendEqAckSeq()) {
               state.getT3Timer().start();
               newState = State.CONNECTED;
             } else {
+              LOG.debug("Invoke Retransmission, N(r)=" + sFrame.getReceiveSequenceNumber() + ", state=" + state);
               StateHelper.invokeRetransmission(sFrame.getReceiveSequenceNumber(), state);
               newState = State.TIMER_RECOVERY;
             }
           } else {
+            LOG.debug("N(r) Error Recovery");
             StateHelper.nrErrorRecovery(state, outgoingPackets);
             newState = State.AWAITING_CONNECTION;
           }
@@ -151,11 +159,14 @@ public class TimerRecoveryStateHandler implements StateHandler {
           if (sFrame.getCommand().equals(Command.COMMAND) && sFrame.isPollOrFinalSet()) {
             StateHelper.enquiryResponse(state, sFrame, outgoingPackets);
           }
-          if (ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
+          if (ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte()) &&
+              ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), sFrame.getReceiveSequenceNumber())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             newState = State.TIMER_RECOVERY;
           } else {
             // N(R) error recovery
+            LOG.debug("N(r) Error Recovery");
+            StateHelper.nrErrorRecovery(state, outgoingPackets);
             newState = State.AWAITING_CONNECTION;
           }
         }
