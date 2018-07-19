@@ -1,4 +1,4 @@
-# Disclaimer!
+# Danger, Will Robinson! 
 
 This code is still highly experimental!! Contact me at my Github email 
 if you're interested in testing it out. This program interfaces with TNC devices
