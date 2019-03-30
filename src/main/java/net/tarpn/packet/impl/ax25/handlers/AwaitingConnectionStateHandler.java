@@ -58,7 +58,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         HasInfo pendingIFrame = state.popIFrame();
         if(pendingIFrame != null) {
           // one-shot timer to delay the re-sending a bit
-          Timer.create(10, () ->
+          Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)
           ).start();
         }

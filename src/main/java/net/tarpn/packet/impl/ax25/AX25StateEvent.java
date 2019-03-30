@@ -1,9 +1,11 @@
 package net.tarpn.packet.impl.ax25;
 
+import java.util.Arrays;
 import java.util.List;
 import net.tarpn.packet.impl.ax25.AX25Packet.FrameType;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
+import net.tarpn.util.Util;
 
 /**
  * A uniform event type to allow for sequential processing of all AX.25 state primitives, packets,
@@ -196,6 +198,15 @@ public class AX25StateEvent {
     @Override
     public Protocol getProtocol() {
       return protocol;
+    }
+
+    @Override
+    public String toString() {
+      return "InternalInfo{" +
+          "protocol=" + protocol +
+          ", ascii=" + Util.toEscapedASCII(data) +
+          ", frameType=" + frameType +
+          '}';
     }
   }
 }

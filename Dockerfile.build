@@ -1,0 +1,9 @@
+FROM gradle:4.9-jdk10
+
+RUN mkdir jnc
+
+WORKDIR jnc
+
+COPY build.gradle .
+
+COPY src ./src/

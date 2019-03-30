@@ -7,8 +7,8 @@ import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
-import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit.State;
+import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.util.ByteUtil;
 
 public class AwaitingConnectionStateHandler implements StateHandler {
@@ -18,7 +18,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
       Consumer<LinkPrimitive> networkEvents,
-      Consumer<NetRomPacket> outgoing) {
+      NetRomRouter outgoing) {
     final State newState;
     switch(event.getType()) {
       case NETROM_CONNECT:
@@ -62,7 +62,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
             circuit.getLocalNodeCall(),  // TODO make user configurable
             circuit.getLocalNodeCall()
         );
-        outgoing.accept(connReq);
+        boolean routed = outgoing.route(connReq);
         newState = State.AWAITING_CONNECTION;
         break;
       case NL_DISCONNECT:

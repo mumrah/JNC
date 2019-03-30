@@ -8,13 +8,12 @@ import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
-import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
-import net.tarpn.network.netrom.NetRomCircuitEvent.UserDataEvent;
 import net.tarpn.network.netrom.NetRomConnectAck;
 import net.tarpn.network.netrom.NetRomConnectRequest;
 import net.tarpn.network.netrom.NetRomInfo;
 import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomPacket.OpType;
+import net.tarpn.network.netrom.NetRomRouter;
 
 public class DisconnectedStateHandler implements StateHandler {
 
@@ -23,7 +22,7 @@ public class DisconnectedStateHandler implements StateHandler {
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
       Consumer<LinkPrimitive> networkEvents,
-      Consumer<NetRomPacket> outgoing) {
+      NetRomRouter outgoing) {
 
     final State newState;
     switch (event.getType()) {
@@ -42,7 +41,7 @@ public class DisconnectedStateHandler implements StateHandler {
         );
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
-        outgoing.accept(connAck);
+        outgoing.route(connAck);
         networkEvents.accept(LinkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
 
         // TODO move this out
@@ -56,7 +55,7 @@ public class DisconnectedStateHandler implements StateHandler {
             circuit.getRecvStateSeqByte(),
             "Welcome to David's packet node! L3!".getBytes(StandardCharsets.US_ASCII)
         );
-        outgoing.accept(welcome);
+        outgoing.route(welcome);
         newState = State.CONNECTED;
         break;
       }
@@ -71,7 +70,7 @@ public class DisconnectedStateHandler implements StateHandler {
             circuit.getLocalNodeCall(),  // TODO make user configurable
             circuit.getLocalNodeCall()
         );
-        outgoing.accept(connReq);
+        outgoing.route(connReq);
         newState = State.AWAITING_CONNECTION;
         break;
       }
@@ -89,7 +88,7 @@ public class DisconnectedStateHandler implements StateHandler {
             packet.getCircuitIndex(),
             packet.getCircuitId()
         );
-        outgoing.accept(disc);
+        outgoing.route(disc);
         newState = State.DISCONNECTED;
         break;
       }

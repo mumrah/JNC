@@ -4,12 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
@@ -60,6 +58,9 @@ public class DataLinkManager {
   private final Object portLock = new Object();
   private final ScheduledExecutorService executorService;
 
+  private final Map<AX25Call, DataLinkSession> attachedSessions;
+  private final Map<AX25Call, Consumer<LinkPrimitive>> linkPrimitiveConsumers;
+
   private IOException fault;
   private ScheduledFuture<?> recoveryThread;
 
@@ -73,7 +74,15 @@ public class DataLinkManager {
     this.dataPort = dataPort;
     this.outboundPackets = new ConcurrentLinkedQueue<>();
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-    this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, dataLinkEvents);
+    this.attachedSessions = new HashMap<>();
+    this.linkPrimitiveConsumers = new HashMap<>();
+    this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, linkPrimitive -> {
+      dataLinkEvents.accept(linkPrimitive);
+
+      AX25Call remoteCall = linkPrimitive.getRemoteCall();
+      Consumer<LinkPrimitive> consumer = linkPrimitiveConsumers.getOrDefault(remoteCall, lp -> {});
+      consumer.accept(linkPrimitive);
+    });
     this.externalHandler = externalHandler;
     this.executorService = executorService;
   }
@@ -197,6 +206,13 @@ public class DataLinkManager {
       default:
         break;
     }
+  }
+
+  public DataLinkSession attach(AX25Call remoteCall, Consumer<LinkPrimitive> sessionConsumer) {
+    return attachedSessions.computeIfAbsent(remoteCall, newSessionId -> {
+      linkPrimitiveConsumers.put(remoteCall, sessionConsumer);
+      return new DataLinkSession(remoteCall, this);
+    });
   }
 
   public AX25StateMachine getAx25StateHandler() {

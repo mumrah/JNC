@@ -47,4 +47,12 @@ public class DefaultPacketRequest implements PacketRequest {
   public boolean shouldContinue() {
     return !done;
   }
+
+  @Override
+  public String toString() {
+    return "DefaultPacketRequest{" +
+            "port=" + port +
+            ", incomingPacket=" + incomingPacket +
+            '}';
+  }
 }

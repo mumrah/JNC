@@ -10,7 +10,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.Function;
+import net.tarpn.network.netrom.NetRomRouter;
+import net.tarpn.network.netrom.NetRomSocket;
 import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
@@ -19,12 +21,11 @@ import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.datalink.LinkPrimitive.Type;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
-import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitManager;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomPacket;
-import net.tarpn.network.netrom.NetRomRouter;
-import net.tarpn.network.netrom.NetRomRouter.Neighbor;
+import net.tarpn.network.netrom.NetRomRoutingTable;
+import net.tarpn.network.netrom.NetRomRoutingTable.Neighbor;
 import net.tarpn.network.netrom.NetRomSession;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -54,7 +55,7 @@ public class NetworkManager {
   private final NetRomConfig netromConfig;
   private final Queue<LinkPrimitive> level2Events;
   private final Map<Integer, DataLinkManager> dataPorts;
-  private final NetRomRouter router;
+  private final NetRomRoutingTable router;
   private final Map<AX25Call, NetRomSession> sessions;
   private final NetRomCircuitManager circuitManager;
 
@@ -62,18 +63,14 @@ public class NetworkManager {
     this.netromConfig = netromConfig;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
-    this.router = new NetRomRouter(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig());
+    this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig());
 
-    Consumer<NetRomPacket> packetRouter = netRomPacket ->
+    NetRomRouter packetRouter = netRomPacket ->
         route(LinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
     this.sessions = new HashMap<>();
     this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, event -> {
-      NetRomSession session = sessions.get(event.getRemoteCall());
-      if(session != null) {
-        session.accept(event);
-      } else {
-        LOG.debug("Got NET/ROM event: " + event);
-      }
+      // Every network event comes in here
+
     });
   }
 
@@ -115,7 +112,7 @@ public class NetworkManager {
   /**
    * Accept a level 2 primitive, find the appropriate port to route it to, and send it
    */
-  private void route(LinkPrimitive level2Primitive) {
+  private boolean route(LinkPrimitive level2Primitive) {
     List<AX25Call> potentialRoutes = router.routePacket(level2Primitive.getRemoteCall());
     boolean routed = false;
 
@@ -137,6 +134,7 @@ public class NetworkManager {
     if(!routed) {
       LOG.warn("No route to destination " + level2Primitive.getRemoteCall());
     }
+    return routed;
   }
 
   public DataLinkManager getPortManager(int port) {
@@ -200,14 +198,7 @@ public class NetworkManager {
     }
   }
 
-  public NetRomSession open(AX25Call address) {
-    return sessions.computeIfAbsent(address, newAddress -> {
-      int circuitId = circuitManager.open(address);
-      if(circuitId == -1) {
-        throw new RuntimeException("All circuits busy.");
-      } else {
-        return new NetRomSession(circuitId, address, circuitManager);
-      }
-    });
+  public NetRomSocket open(AX25Call address) {
+    return new NetRomSocket(address, circuitManager);
   }
 }

@@ -4,12 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import net.tarpn.config.Configs;
-import net.tarpn.config.Configuration;
 import net.tarpn.network.netrom.NetRomNodes;
-import net.tarpn.network.netrom.NetRomRouter;
-import net.tarpn.network.netrom.NetRomRouter.Destination;
+import net.tarpn.network.netrom.NetRomRoutingTable;
 import net.tarpn.packet.impl.AX25PacketReader;
-import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.junit.Test;
@@ -24,7 +21,7 @@ public class NetRomNodesTest {
     };
 
     Configs configs = Configs.read("conf/sample.ini");
-    NetRomRouter router = new NetRomRouter(configs.getNetRomConfig(), portNum -> configs.getPortConfigs().get(portNum));
+    NetRomRoutingTable router = new NetRomRoutingTable(configs.getNetRomConfig(), portNum -> configs.getPortConfigs().get(portNum));
 
     for(String nodeFile : nodesFiles) {
       byte[] packetBytes = Files.readAllBytes(Paths.get(nodeFile));

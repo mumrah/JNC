@@ -1,14 +1,9 @@
 package net.tarpn.io.impl;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.Pipe;
 import net.tarpn.io.DataPort;
+
+import java.io.*;
+import java.nio.channels.Pipe;
 
 public class LoopBackPort implements DataPort {
 
@@ -24,9 +19,6 @@ public class LoopBackPort implements DataPort {
 
 
   public static LoopBackPort[] createPair() throws Exception {
-    Pipe pipe1 = Pipe.open();
-    Pipe pipe2 = Pipe.open();
-
     PipedInputStream pipe1In = new PipedInputStream();
     PipedOutputStream pipe1Out = new PipedOutputStream();
 
@@ -58,7 +50,8 @@ public class LoopBackPort implements DataPort {
 
   @Override
   public void close() throws IOException {
-
+    inputStream.close();
+    outputStream.close();
   }
 
   @Override

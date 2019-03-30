@@ -4,13 +4,18 @@ import java.nio.charset.StandardCharsets;
 import net.tarpn.config.Configs;
 import net.tarpn.network.NetworkManager;
 import net.tarpn.network.netrom.NetRomSession;
+import net.tarpn.network.netrom.NetRomSocket;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NetworkMain {
+  private static final Logger LOG = LoggerFactory.getLogger(NetworkMain.class);
+
   public static void main(String[] args) throws Exception {
-    Configs config = Configs.read("src/dist/conf/sample.ini");
+    Configs config = Configs.read("src/dist/conf/sample2.ini");
 
     String level = config.getNodeConfig().getString("log.level", "info");
     Level rootLevel = Level.getLevel(level.toUpperCase());
@@ -21,15 +26,10 @@ public class NetworkMain {
         (portNumber, portConfig) -> networkManager.initialize(portConfig));
     networkManager.start();
 
-    NetRomSession session = networkManager.open(AX25Call.create("K4DBZ", 9));
-    session.connect();
-    while(!session.isConnected()) {
-      Thread.sleep(5000);
-      session.connect();
-    }
+    NodeApplication application = new NodeApplication(networkManager);
+    application.handleLine("CONNECT K4DBZ-2", LOG::info);
+    application.handleLine("Hello there!", LOG::info);
+    application.handleLine("BYE", LOG::info);
 
-    session.write("testing".getBytes(StandardCharsets.US_ASCII));
-    Thread.sleep(5000);
-    session.close();
   }
 }

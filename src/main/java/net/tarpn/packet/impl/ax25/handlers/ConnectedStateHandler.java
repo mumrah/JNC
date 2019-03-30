@@ -70,7 +70,7 @@ public class ConnectedStateHandler implements StateHandler {
         if(state.windowExceeded()) {
           LOG.warn("IFrame window is full, waiting a bit and retrying");
           // one-shot timer to delay the re-sending a bit
-          Timer.create(50, () ->
+          Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)
           ).start();
         } else {

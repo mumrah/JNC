@@ -1,7 +1,6 @@
 package net.tarpn.network.netrom;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.packet.impl.ax25.AX25Call;
@@ -117,9 +116,9 @@ public class NetRomCircuit {
     this.windowSize = windowSize;
   }
 
-  public void enqueueInfoAck(Consumer<NetRomPacket> outgoing) {
+  public void enqueueInfoAck(NetRomRouter outgoing) {
     if(ackTimer == null) {
-      ackTimer = Timer.create(100, () -> {
+      ackTimer = Timer.create(config.getInt("netrom.ack.delay", 100), () -> {
         if(ackPending) {
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
               getRemoteNodeCall(),
@@ -130,7 +129,7 @@ public class NetRomCircuit {
               getRecvStateSeqByte(),
               OpType.InformationAcknowledge.asByte(false, true, false)
           );
-          outgoing.accept(infoAck);
+          boolean routed = outgoing.route(infoAck);
           ackPending = false;
         }
       });

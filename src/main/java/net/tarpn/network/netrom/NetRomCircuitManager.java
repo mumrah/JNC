@@ -4,7 +4,10 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
@@ -33,15 +36,17 @@ public class NetRomCircuitManager {
 
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
 
+  private final Map<Integer, BlockingQueue<LinkPrimitive>> circuitBuffers = new ConcurrentHashMap<>();
+
   private final Map<State, StateHandler> stateHandlers = new HashMap<>();
 
-  private final Consumer<NetRomPacket> outgoingNetRomPackets;
+  private final NetRomRouter outgoingNetRomPackets;
 
   private final Consumer<LinkPrimitive> networkEvents;
 
   public NetRomCircuitManager(
       NetRomConfig config,
-      Consumer<NetRomPacket> outgoingNetRomPackets,
+      NetRomRouter outgoingNetRomPackets,
       Consumer<LinkPrimitive> networkEvents) {
     this.config = config;
     this.outgoingNetRomPackets = outgoingNetRomPackets;
@@ -147,7 +152,10 @@ public class NetRomCircuitManager {
       if(!event.getNetRomPacket().getDestNode().equals(config.getNodeCall())) {
         // forward it
         // TODO change this to accept events?
-        outgoingNetRomPackets.accept(event.getNetRomPacket());
+        boolean routed = outgoingNetRomPackets.route(event.getNetRomPacket());
+        if(!routed) {
+          // TODO what now? emit a no-route-to-host event?
+        }
       } else {
         // handle it
         onCircuitEvent(event);
@@ -166,6 +174,11 @@ public class NetRomCircuitManager {
     }
   }
 
+  public BlockingQueue<LinkPrimitive> getCircuitBuffer(int circuitId) {
+    return circuitBuffers.computeIfAbsent(
+        circuitId, newCircuitId -> new LinkedBlockingQueue<>(1024));
+  }
+
   /**
    * Dispatch a {@link NetRomCircuitEvent} to the appropriate {@link NetRomCircuit}
    * @param event
@@ -177,7 +190,9 @@ public class NetRomCircuitManager {
     StateHandler handler = stateHandlers.get(circuit.getState());
     if(handler != null) {
       LOG.debug("BEFORE: " + circuit + " got " + event);
-      State newState = handler.handle(circuit, event, networkEvents, outgoingNetRomPackets);
+      Consumer<LinkPrimitive> eventHandler = circuitEvent ->
+          getCircuitBuffer(circuit.getCircuitId()).add(circuitEvent);
+      State newState = handler.handle(circuit, event, eventHandler, outgoingNetRomPackets);
       circuit.setState(newState);
       LOG.debug("AFTER : " + circuit);
     } else {

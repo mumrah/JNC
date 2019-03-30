@@ -1,6 +1,5 @@
 package net.tarpn.config;
 
-import net.tarpn.packet.impl.ax25.AX25Call;
 import org.apache.commons.configuration2.Configuration;
 
 public class PortConfig extends NodeConfig {
@@ -36,5 +35,12 @@ public class PortConfig extends NodeConfig {
     return getString("serial.protocol");
   }
 
+  public int getI2CBus() {
+    return getInt("i2c.bus");
+  }
+
+  public int getI2CDeviceAddress() {
+    return getInt("i2c.address");
+  }
 
 }

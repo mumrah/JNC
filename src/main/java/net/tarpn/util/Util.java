@@ -1,11 +1,6 @@
 package net.tarpn.util;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.Writer;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -117,6 +112,14 @@ public class Util {
           Thread.currentThread().interrupt();
         }
       }
+    }
+  }
+
+  public static void closeQuietly(Closeable closeable) {
+    try {
+      closeable.close();
+    } catch (IOException e) {
+      // do nothing
     }
   }
 }

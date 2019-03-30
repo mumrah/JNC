@@ -5,7 +5,7 @@ import net.tarpn.config.Configs;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
-import net.tarpn.io.impl.SocketDataPortServer;
+import net.tarpn.io.socket.SocketDataPortServer;
 import net.tarpn.network.NetworkManager;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -24,6 +24,9 @@ public class Main {
       config.getPortConfigs().forEach(
           (portNumber, portConfig) -> networkManager.initialize(portConfig));
       networkManager.start();
+
+      //SocketDataPortServer server = new SocketDataPortServer(applicationRegistry);
+      //server.start();
     } else {
       config.getPortConfigs().forEach((portNumber, portConfig) -> {
         DataPort port = PortFactory.createPortFromConfig(portConfig);
@@ -32,5 +35,6 @@ public class Main {
         dataLinkManager.start();
       });
     }
+
   }
 }

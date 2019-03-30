@@ -6,6 +6,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
@@ -183,7 +184,7 @@ public class AX25StateMachine implements PacketHandler {
   /**
    * Return the current set of session IDs
    */
-  public Set<String> getSessionIds() {
-    return sessions.keySet();
+  public void forEachSession(BiConsumer<String, AX25State> biConsumer) {
+    sessions.forEach(biConsumer);
   }
 }
