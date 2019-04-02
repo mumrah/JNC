@@ -1,11 +1,7 @@
-package net.tarpn.app;
+package net.tarpn.main;
 
-import java.nio.charset.StandardCharsets;
-import net.tarpn.config.Configs;
+import net.tarpn.config.impl.Configs;
 import net.tarpn.network.NetworkManager;
-import net.tarpn.network.netrom.NetRomSession;
-import net.tarpn.network.netrom.NetRomSocket;
-import net.tarpn.packet.impl.ax25.AX25Call;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;

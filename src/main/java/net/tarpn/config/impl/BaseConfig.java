@@ -1,4 +1,6 @@
-package net.tarpn.config;
+package net.tarpn.config.impl;
+
+import net.tarpn.config.Configuration;
 
 import java.util.Set;
 import java.util.Spliterator;
@@ -12,14 +14,6 @@ public class BaseConfig implements Configuration {
 
   BaseConfig(org.apache.commons.configuration2.Configuration delegate) {
     this.delegate = delegate;
-  }
-
-  public boolean isEmpty() {
-    return delegate.isEmpty();
-  }
-
-  public boolean containsKey(String key) {
-    return delegate.containsKey(key);
   }
 
   @Override

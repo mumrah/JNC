@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{ISO8601} - %-5p [%30.30C{3.}@%-3.3L] - %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="TRACE" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Root>
+        <Logger name="net.tarpn.frame.impl.KISSFrameReader" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="net.tarpn.frame.impl.KISSFrameWriter" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
+    </Loggers>
+</Configuration>

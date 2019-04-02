@@ -25,7 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Handle incoming AX.25 frames and send them to the appropriate state handler.
+ * Handle incoming AX.25 frames and outgoing data link primitives. Dispatch these messages to the
+ * appropriate state handler.
+ *
+ * This state machine has two interfaces which support inbound and outbound messaging. The first is the packet layer
+ * which accepts incoming packets and sends outgoing packets from/to the {@link net.tarpn.io.DataPort}. The second is
+ * the data link layer which sends link primitives to/from the {@link net.tarpn.datalink.DataLinkManager}.
  */
 public class AX25StateMachine implements PacketHandler {
 
@@ -56,10 +61,7 @@ public class AX25StateMachine implements PacketHandler {
    */
   private final Consumer<LinkPrimitive> dataLinkEvents;
 
-
   private final PortConfig portConfig;
-
-
 
   public AX25StateMachine(
       PortConfig portConfig,
@@ -162,10 +164,10 @@ public class AX25StateMachine implements PacketHandler {
             )
         );
         StateHandler handler = handlers.get(state.getState());
-        LOG.debug("AX25 BEFORE: " + state + " got " + event);
+        LOG.trace("AX25 BEFORE: " + state + " got " + event);
         State newState = handler.onEvent(state, event, outgoingPackets);
         state.setState(newState);
-        LOG.debug("AX25 AFTER : " + state);
+        LOG.trace("AX25 AFTER : " + state);
       }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));
     };
   }

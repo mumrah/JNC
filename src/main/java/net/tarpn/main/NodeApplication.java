@@ -1,4 +1,4 @@
-package net.tarpn.app;
+package net.tarpn.main;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

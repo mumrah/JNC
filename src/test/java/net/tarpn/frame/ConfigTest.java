@@ -1,6 +1,6 @@
 package net.tarpn.frame;
 
-import net.tarpn.config.Configs;
+import net.tarpn.config.impl.Configs;
 import net.tarpn.config.PortConfig;
 import org.junit.Test;
 

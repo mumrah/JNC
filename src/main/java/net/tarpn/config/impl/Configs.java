@@ -1,4 +1,4 @@
-package net.tarpn.config;
+package net.tarpn.config.impl;
 
 import static org.apache.commons.configuration2.tree.DefaultExpressionEngineSymbols.DEFAULT_ATTRIBUTE_END;
 import static org.apache.commons.configuration2.tree.DefaultExpressionEngineSymbols.DEFAULT_ATTRIBUTE_START;
@@ -16,6 +16,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import net.tarpn.config.AppConfig;
+import net.tarpn.config.NetRomConfig;
+import net.tarpn.config.NodeConfig;
+import net.tarpn.config.PortConfig;
 import org.apache.commons.configuration2.CombinedConfiguration;
 import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.configuration2.INIConfiguration;
@@ -47,15 +52,18 @@ public class Configs extends BaseConfig {
 
   private final Map<Integer, PortConfig> portConfigs;
 
-  Configs(
-      Configuration delegate,
-      NodeConfig nodeConfig,
-      NetRomConfig netromConfig,
-      Map<Integer, PortConfig> portConfigs) {
+  private final Map<String, AppConfig> appConfigs;
+
+  Configs(Configuration delegate,
+          NodeConfig nodeConfig,
+          NetRomConfig netromConfig,
+          Map<Integer, PortConfig> portConfigs,
+          Map<String, AppConfig> appConfigs) {
     super(delegate);
     this.nodeConfig = nodeConfig;
     this.netromConfig = netromConfig;
     this.portConfigs = portConfigs;
+    this.appConfigs = appConfigs;
   }
 
   public NodeConfig getNodeConfig() {
@@ -68,6 +76,10 @@ public class Configs extends BaseConfig {
 
   public Map<Integer, PortConfig> getPortConfigs() {
     return portConfigs;
+  }
+
+  public Map<String, AppConfig> getAppConfigs() {
+    return appConfigs;
   }
 
   public static Configs read(String fileName) throws IOException {
@@ -104,7 +116,7 @@ public class Configs extends BaseConfig {
           portConfig.addConfiguration(configuration.getSection(section), section);
           portConfig.addConfiguration(portDefaults, "defaults");
           portConfig.addConfiguration(nodeConfig, "node");
-          return new PortConfig(portNum, portConfig);
+          return new PortConfigImpl(portNum, portConfig);
         })
         .collect(Collectors.toMap(PortConfig::getPortNumber, Function.identity()));
 
@@ -114,7 +126,24 @@ public class Configs extends BaseConfig {
     netromCombinedConfig.addConfiguration(configuration.getSection("netrom"), "netrom");
     netromCombinedConfig.addConfiguration(nodeConfig, "node");
 
-    NetRomConfig netromConfig = new NetRomConfig(netromCombinedConfig);
-    return new Configs(configuration, new NodeConfig(nodeConfig), netromConfig, portConfigs);
+    NetRomConfig netromConfig = new NetRomConfigImpl(netromCombinedConfig);
+
+    // Application configs
+    Map<String, AppConfig> appConfigs = configuration.getSections()
+            .stream()
+            .filter(Objects::nonNull)
+            .map(String::toLowerCase)
+            .filter(section -> section.startsWith("app:"))
+            .map(section -> {
+              String appName = section.substring("port:".length());
+              CombinedConfiguration appConfig = new CombinedConfiguration(new OverrideCombiner());
+              appConfig.setExpressionEngine(EXPRESSION_ENGINE);
+              appConfig.addConfiguration(configuration.getSection(section), section);
+              appConfig.addConfiguration(nodeConfig, "node");
+              return new AppConfigImpl(appName, appConfig);
+            })
+            .collect(Collectors.toMap(AppConfig::getAppName, Function.identity()));
+
+    return new Configs(configuration, new NodeConfigImpl(nodeConfig), netromConfig, portConfigs, appConfigs);
   }
 }

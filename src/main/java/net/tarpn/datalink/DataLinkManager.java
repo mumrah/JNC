@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+
+import net.tarpn.config.AppConfig;
+import net.tarpn.config.impl.Configs;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
@@ -42,6 +45,10 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Provides a data link layer interface. Supports connecting to a remote station, sending and receiving data frames, and
+ * disconnecting.
+ */
 public class DataLinkManager {
 
   private static final ScheduledExecutorService PORT_RECOVERY_EXECUTOR = Executors
@@ -87,12 +94,21 @@ public class DataLinkManager {
     this.executorService = executorService;
   }
 
+  /**
+   *
+   * @param config
+   * @param port
+   * @param dataLinkEvents used to consume data link events from a higher layer (e.g., network or application)
+   * @param externalHandler this is used to hook into the packet handling before filtering occurs
+   * @return
+   */
   public static DataLinkManager create(
       PortConfig config,
       DataPort port,
       Consumer<LinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler) {
-    return create(config, port, dataLinkEvents, externalHandler, Executors.newScheduledThreadPool(128));
+    return create(config, port, dataLinkEvents, externalHandler,
+            Executors.newScheduledThreadPool(128));
   }
 
   public static DataLinkManager create(
@@ -224,10 +240,10 @@ public class DataLinkManager {
       FrameReader frameReader = new KISSFrameReader(dataPort.getPortNumber());
       PacketReader packetReader = new AX25PacketReader();
       PacketHandler packetHandler = CompositePacketHandler.wrap(
-          packetRequest -> LOG.debug("Got Packet: " + packetRequest.getPacket()),
-          externalHandler,
-          new DestinationFilteringPacketHandler(portConfig.getNodeCall()),
-          ax25StateHandler
+          packetRequest -> LOG.debug("Got Packet: " + packetRequest.getPacket()),       // trace logs
+          externalHandler,                                                              // external packet handler
+          new DestinationFilteringPacketHandler(portConfig.getNodeCall()),  // ignore packets not bound for us
+          ax25StateHandler                                                              // pass to the ax.25 state machine
       );
 
       Consumer<Packet> packetConsumer = packet -> packetHandler.onPacket(
@@ -235,10 +251,10 @@ public class DataLinkManager {
 
       // Run these as we get new data frames from the port
       FrameHandler frameHandler = CompositeFrameHandler.wrap(
-          frameRequest -> LOG.debug("Got Frame: " + frameRequest.getFrame()),
-          pCapDumpFrameHandler,
-          new KISSCommandHandler(),
-          new PacketReadingFrameHandler(packetReader, packetConsumer)
+          frameRequest -> LOG.debug("Got Frame: " + frameRequest.getFrame()), // trace logs
+          pCapDumpFrameHandler,                                               // pcap dump for debugging
+          new KISSCommandHandler(),                                           // kiss deframing
+          new PacketReadingFrameHandler(packetReader, packetConsumer)         // packet handler
       );
 
       Consumer<Frame> frameConsumer = frame ->
@@ -250,7 +266,7 @@ public class DataLinkManager {
           // don't write anything while we're reading
           synchronized (portLock) {
             if(hasFault()) {
-              //LOG.warn(dataPort + " has a fault, cannot read");
+              LOG.warn(dataPort + " has a fault, cannot read");
             } else if(!dataPort.isOpen()) {
               setFault(new IOException("Port is unexpectedly closed, cannot read"));
             } else {
@@ -271,7 +287,7 @@ public class DataLinkManager {
             }
           }
           // yield the lock so the writer may obtain it
-          Thread.sleep(50);
+          Thread.sleep(10);
         }
       } catch( InterruptedException e) {
         Thread.currentThread().interrupt();

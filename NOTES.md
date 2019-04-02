@@ -71,3 +71,20 @@ require a connection).
 
 
 Need to set QUALITY=0 in bpq32.cfg for ports?
+
+
+
+3/31/2019
+
+DataLinkManager exposes all packets for a given port, need the ability to filter this by "session" (which local callsign
+the ax.25 session is connected to). Maybe rename DataLinkManager to DataPortSomething and reserve the Link name for
+the thing that interacts with a single ax.25 session (link).
+
+Command ideas:
+
+`LINKS`: list all links and their state
+
+> link 1: k4dbz-2 to kn4orb-2 is UP
+> link 2: k4dbz-5 to kn4orb-5 is DOWN
+
+`CONNECT [n] [call]`

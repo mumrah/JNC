@@ -1,4 +1,4 @@
-package net.tarpn.app;
+package net.tarpn.main;
 
 import static net.tarpn.util.Util.ascii;
 

@@ -16,7 +16,12 @@ import java.util.stream.Collectors;
 //  CONNECT [port] CALL: issue a connect request L2 event
 //  DISCONNECT [port] CALL: issue a disconnect request L2 event
 //  ATTACH [port]: attach a port for sending and receiving UI frames
+//  LISTEN [port]: list on a port, no sending enabled
 //  DETACH: detach from a port
+
+/**
+ * An Application that interacts directly with the local data links (layer 2). Useful for debugging.
+ */
 public class DataLinkApplication implements Application<String> {
     private final Map<Integer, DataLinkManager> dataLinks;
     private Optional<Integer> usePort;
@@ -91,14 +96,18 @@ public class DataLinkApplication implements Application<String> {
                             response.accept("Disconnected from " + call);
                             break;
                         case DL_DATA:
+                            response.accept(linkPrimitive.getLinkInfo().getInfoAsASCII());
                             break;
                         case DL_UNIT_DATA:
+                            response.accept(linkPrimitive.getLinkInfo().getInfoAsASCII());
                             break;
                         case DL_ERROR:
+                            response.accept("Error! " + linkPrimitive.getError());
                             break;
                     }
                 });
                 this.session = Optional.of(session);
+                this.attached = true;
             }
         } else if (cmd.equalsIgnoreCase("L") || cmd.equalsIgnoreCase("LINKS")) {
             response.accept("> Links:");

@@ -1,9 +1,9 @@
-package net.tarpn.app;
+package net.tarpn.main;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
-import net.tarpn.config.Configs;
+import net.tarpn.config.impl.Configs;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.datalink.LinkPrimitive;
@@ -20,7 +20,8 @@ public class DataLinkMain {
 
     Queue<LinkPrimitive> inQueue = new LinkedList<>();
 
-    DataLinkManager dataLinkManager = DataLinkManager.create(portConfig, port1, inQueue::add, packetRequest -> {});
+    DataLinkManager dataLinkManager = DataLinkManager.create(portConfig, port1,
+            inQueue::add, packetRequest -> {});
     dataLinkManager.start();
 
     SysopApplication app = new SysopApplication();

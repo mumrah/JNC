@@ -253,7 +253,7 @@ public class ApplicationRegistry {
 
         @Override
         public void onDisconnect(Consumer<String> response) {
-            //response.accept("Goodbye from ECHO");
+            response.accept("Goodbye from ECHO");
         }
     }
 }

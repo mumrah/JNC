@@ -1,46 +1,19 @@
 package net.tarpn.config;
 
-import org.apache.commons.configuration2.Configuration;
+public interface PortConfig extends Configuration, NodeConfig {
+    int getPortNumber();
 
-public class PortConfig extends NodeConfig {
+    boolean isEnabled();
 
-  private final int portNumber;
+    String getPortType();
 
-  public PortConfig(int portNumber, Configuration delegate) {
-    super(delegate);
-    this.portNumber = portNumber;
-  }
+    String getSerialDevice();
 
-  public int getPortNumber() {
-    return portNumber;
-  }
+    int getSerialSpeed();
 
-  public boolean isEnabled() {
-    return getBoolean("port.enabled");
-  }
+    String getSerialProtocol();
 
-  public String getPortType() {
-    return getString("port.type");
-  }
+    int getI2CBus();
 
-  public String getSerialDevice() {
-    return getString("serial.device");
-  }
-
-  public int getSerialSpeed() {
-    return getInt("serial.speed");
-  }
-
-  public String getSerialProtocol() {
-    return getString("serial.protocol");
-  }
-
-  public int getI2CBus() {
-    return getInt("i2c.bus");
-  }
-
-  public int getI2CDeviceAddress() {
-    return getInt("i2c.address");
-  }
-
+    int getI2CDeviceAddress();
 }

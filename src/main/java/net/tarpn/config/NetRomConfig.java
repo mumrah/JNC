@@ -1,38 +1,17 @@
 package net.tarpn.config;
 
-import org.apache.commons.configuration2.Configuration;
+public interface NetRomConfig extends Configuration, NodeConfig {
+    int getTimeToLive();
 
-public class NetRomConfig extends NodeConfig {
+    int getRetryCount();
 
-  NetRomConfig(Configuration delegate) {
-    super(delegate);
-  }
+    int getMinObs();
 
-  public int getTimeToLive() {
-    return getInt("netrom.ttl", 7);
-  }
+    int getInitialObs();
 
-  public int getRetryCount() {
-    return getInt("netrom.retry.count", 1);
-  }
+    int getNodesInterval();
 
-  public int getMinObs() {
-    return getInt("netrom.obs.min", 4);
-  }
+    byte getTTL();
 
-  public int getInitialObs() {
-    return getInt("netrom.obs.init", 6);
-  }
-
-  public int getNodesInterval() {
-    return getInt("netrom.nodes.interval", 300);
-  }
-
-  public byte getTTL() {
-    return (byte)(getInt("netrom.ttl", 7) & 0xff);
-  }
-
-  public byte getWindowSize() {
-    return (byte)(getInt("netrom.circuit.window", 2) & 0xff);
-  }
+    byte getWindowSize();
 }

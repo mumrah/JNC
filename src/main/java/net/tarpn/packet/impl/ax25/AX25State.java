@@ -5,6 +5,7 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.config.PortConfig;
+import net.tarpn.config.impl.PortConfigImpl;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
@@ -23,7 +24,7 @@ public class AX25State {
       "N0CALL-0",
       AX25Call.create("N0CALL", 0),
       AX25Call.create("N0CALL", 0),
-      new PortConfig(-1, new PropertiesConfiguration()),
+      new PortConfigImpl(-1, new PropertiesConfiguration()),
       event -> {},
       event -> {});
 
