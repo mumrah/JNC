@@ -33,15 +33,13 @@ public class NodeApplication {
       LOG.debug("Attempting to connecting to " + call);
 
       try {
-        socket.tryConnect();
+        //socket.tryConnect();
         while(!socket.isConnected() && attempts++ < 10) {
           Thread.sleep((int)Math.pow(2, attempts) * 1000);
-          socket.tryConnect();
+          //socket.tryConnect();
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-      } catch (IOException e) {
-        throw new RuntimeException("Error while connecting", e);
       }
 
       if(!socket.isConnected()) {

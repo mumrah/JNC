@@ -1,4 +1,4 @@
-package net.tarpn.network.netrom;
+package net.tarpn.network.netrom.packet;
 
 import net.tarpn.packet.Packet;
 import net.tarpn.packet.impl.ax25.AX25Call;

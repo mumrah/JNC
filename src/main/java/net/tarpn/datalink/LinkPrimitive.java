@@ -7,6 +7,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
+import java.util.Arrays;
+
 /**
  * Used for interfacing with a {@link DataLinkManager} or {@link net.tarpn.network.NetworkManager}
  */
@@ -180,6 +182,14 @@ public class LinkPrimitive {
     @Override
     public Protocol getProtocol() {
       return protocol;
+    }
+
+    @Override
+    public String toString() {
+      return "LinkInfo{" +
+              "protocol=" + protocol +
+              ", data=" + getInfoAsASCII() +
+              '}';
     }
   }
 }

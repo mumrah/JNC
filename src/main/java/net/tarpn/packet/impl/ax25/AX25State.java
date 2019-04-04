@@ -309,16 +309,18 @@ public class AX25State {
   @Override
   public String toString() {
     return "AX25State(" + sessionId + "){" +
-        "state=" + currentState +
-        ", V(s)=" + getSendState() +
-        ", N(s)=" + (getSendStateByte() & 0xff) +
-        ", V(r)=" + getReceiveState() +
-        ", N(r)=" + (getReceiveStateByte() & 0xff) +
-        ", V(a)=" + getAcknowledgeState() +
-        ", SRT=" + getSRT() +
-        ", T1=" + getT1Timer().timeRemaining() + "/" + getT1Timer().getTimeout() +
-        ", T3=" + getT3Timer().timeRemaining() + "/" + getT3Timer().getTimeout() +
-        '}';
+            "local=" + localNodeCall +
+            ", remote=" + remoteNodeCall +
+            ", state=" + currentState +
+            ", V(s)=" + getSendState() +
+            ", N(s)=" + (getSendStateByte() & 0xff) +
+            ", V(r)=" + getReceiveState() +
+            ", N(r)=" + (getReceiveStateByte() & 0xff) +
+            ", V(a)=" + getAcknowledgeState() +
+            ", SRT=" + getSRT() +
+            ", T1=" + getT1Timer().timeRemaining() + "/" + getT1Timer().getTimeout() +
+            ", T3=" + getT3Timer().timeRemaining() + "/" + getT3Timer().getTimeout() +
+            '}';
   }
 
   public enum State {

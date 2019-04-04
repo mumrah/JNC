@@ -1,12 +1,12 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
-import net.tarpn.network.netrom.NetRomConnectAck;
-import net.tarpn.network.netrom.NetRomConnectRequest;
+import net.tarpn.network.netrom.NetworkPrimitive;
+import net.tarpn.network.netrom.packet.NetRomConnectAck;
+import net.tarpn.network.netrom.packet.NetRomConnectRequest;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.util.ByteUtil;
@@ -17,7 +17,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<LinkPrimitive> networkEvents,
+      Consumer<NetworkPrimitive> networkEvents,
       NetRomRouter outgoing) {
     final State newState;
     switch(event.getType()) {
@@ -31,7 +31,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           circuit.setRemoteCircuitId(connAck.getRxSeqNumber());
           circuit.setRemoteCircuitIdx(connAck.getTxSeqNumber());
           circuit.setWindowSize(connAck.getAcceptWindowSize());
-          networkEvents.accept(LinkPrimitive.newConnectConfirmation(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newConnectAck(circuit.getRemoteNodeCall()));
           newState = State.CONNECTED;
         } else {
           // Error!

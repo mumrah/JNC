@@ -1,9 +1,9 @@
 package net.tarpn.network.netrom;
 
+import net.tarpn.network.netrom.packet.NetRomPacket;
 import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
-// TODO consolidate with LinkPrimitive?
 public class NetRomCircuitEvent {
 
   private final int circuitId;
@@ -86,12 +86,15 @@ public class NetRomCircuitEvent {
   }
 
   public enum Type {
+    // 6 NET/ROM message types
     NETROM_CONNECT,
     NETROM_CONNECT_ACK,
     NETROM_DISCONNECT,
     NETROM_DISCONNECT_ACK,
     NETROM_INFO,
     NETROM_INFO_ACK,
+
+    // Three SAP types
     NL_CONNECT,
     NL_DISCONNECT,
     NL_DATA;

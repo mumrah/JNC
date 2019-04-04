@@ -39,7 +39,7 @@ public class KISSFrameReader implements FrameReader {
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
     if(currentTime - frameTime > L2_TIMEOUT) {
-      LOG.warn("KISS timeout");
+      LOG.trace("KISS timeout");
       reset();
     }
     frameTime = System.currentTimeMillis();

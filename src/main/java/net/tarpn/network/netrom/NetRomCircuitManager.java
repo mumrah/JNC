@@ -1,13 +1,9 @@
 package net.tarpn.network.netrom;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.OptionalInt;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
@@ -16,7 +12,8 @@ import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
-import net.tarpn.network.netrom.NetRomPacket.OpType;
+import net.tarpn.network.netrom.packet.*;
+import net.tarpn.network.netrom.packet.NetRomPacket.OpType;
 import net.tarpn.network.netrom.handlers.AwaitingConnectionStateHandler;
 import net.tarpn.network.netrom.handlers.AwaitingReleaseStateHandler;
 import net.tarpn.network.netrom.handlers.ConnectedStateHandler;
@@ -42,12 +39,12 @@ public class NetRomCircuitManager {
 
   private final NetRomRouter outgoingNetRomPackets;
 
-  private final Consumer<LinkPrimitive> networkEvents;
+  private final Consumer<NetworkPrimitive> networkEvents;
 
   public NetRomCircuitManager(
       NetRomConfig config,
       NetRomRouter outgoingNetRomPackets,
-      Consumer<LinkPrimitive> networkEvents) {
+      Consumer<NetworkPrimitive> networkEvents) {
     this.config = config;
     this.outgoingNetRomPackets = outgoingNetRomPackets;
     this.networkEvents = networkEvents;
@@ -57,7 +54,7 @@ public class NetRomCircuitManager {
     this.stateHandlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
   }
 
-  public int getNextCircuitId() {
+  private int getNextCircuitId() {
     OptionalInt nextFreeId = IntStream.range(0, 255)
         .filter(((IntPredicate)circuits::containsKey).negate())
         .findFirst();
@@ -174,9 +171,23 @@ public class NetRomCircuitManager {
     }
   }
 
-  public BlockingQueue<LinkPrimitive> getCircuitBuffer(int circuitId) {
-    return circuitBuffers.computeIfAbsent(
-        circuitId, newCircuitId -> new LinkedBlockingQueue<>(1024));
+  public int getCircuit(AX25Call remoteNode) {
+    Optional<NetRomCircuit> maybeCircuit = circuits.values()
+            .stream()
+            .filter(circuit -> circuit.getRemoteNodeCall().equals(remoteNode))
+            .findFirst();
+
+    if (maybeCircuit.isPresent()) {
+      return maybeCircuit.get().getCircuitId();
+    } else {
+      int circuitId = getNextCircuitId();
+      if (circuits.containsKey(circuitId)) {
+        return -1;
+      } else {
+        circuits.put(circuitId, new NetRomCircuit(circuitId, remoteNode, config.getNodeCall(), config));
+        return circuitId;
+      }
+    }
   }
 
   /**
@@ -190,10 +201,12 @@ public class NetRomCircuitManager {
     StateHandler handler = stateHandlers.get(circuit.getState());
     if(handler != null) {
       LOG.debug("BEFORE: " + circuit + " got " + event);
-      Consumer<LinkPrimitive> eventHandler = circuitEvent ->
-          getCircuitBuffer(circuit.getCircuitId()).add(circuitEvent);
-      State newState = handler.handle(circuit, event, eventHandler, outgoingNetRomPackets);
+      //Consumer<LinkPrimitive> eventHandler = circuitEvent ->
+      //    getCircuitBuffer(circuit.getCircuitId()).add(circuitEvent);
+      List<NetworkPrimitive> capturedEvents = new LinkedList<>();
+      State newState = handler.handle(circuit, event, capturedEvents::add, outgoingNetRomPackets);
       circuit.setState(newState);
+      capturedEvents.forEach(networkEvents);
       LOG.debug("AFTER : " + circuit);
     } else {
       LOG.error("No handler found for state " + circuit.getState());

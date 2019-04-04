@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+
 import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.network.netrom.NetRomSocket;
 import net.tarpn.util.Util;
@@ -20,10 +20,8 @@ import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
 import net.tarpn.network.netrom.NetRomCircuitManager;
 import net.tarpn.network.netrom.NetRomNodes;
-import net.tarpn.network.netrom.NetRomPacket;
 import net.tarpn.network.netrom.NetRomRoutingTable;
 import net.tarpn.network.netrom.NetRomRoutingTable.Neighbor;
-import net.tarpn.network.netrom.NetRomSession;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
@@ -42,7 +40,9 @@ import org.slf4j.LoggerFactory;
  * Handle incoming NET/ROM packets from the Data Link layer (level 2) and decide what to do with
  * them.
  *
+ * @deprecated in favor of {@link NetworkManager2}
  */
+@Deprecated
 public class NetworkManager {
 
   private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(128);
@@ -53,21 +53,19 @@ public class NetworkManager {
   private final Queue<LinkPrimitive> level2Events;
   private final Map<Integer, DataLinkManager> dataPorts;
   private final NetRomRoutingTable router;
-  private final Map<AX25Call, NetRomSession> sessions;
   private final NetRomCircuitManager circuitManager;
 
   private NetworkManager(NetRomConfig netromConfig) {
     this.netromConfig = netromConfig;
     this.level2Events = new ConcurrentLinkedQueue<>();
     this.dataPorts = new HashMap<>();
-    this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig());
+    this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig(), neighbor -> {});
 
     NetRomRouter packetRouter = netRomPacket ->
         route(LinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
-    this.sessions = new HashMap<>();
     this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, event -> {
       // Every network event comes in here
-
+      LOG.info("Got L3 event: " + event);
     });
   }
 

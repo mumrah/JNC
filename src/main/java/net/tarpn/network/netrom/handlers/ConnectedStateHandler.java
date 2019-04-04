@@ -3,19 +3,19 @@ package net.tarpn.network.netrom.handlers;
 import java.util.function.Consumer;
 import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetRomRouter;
-import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
+import net.tarpn.network.netrom.NetworkPrimitive;
 import net.tarpn.util.ByteUtil;
-import net.tarpn.network.netrom.BaseNetRomPacket;
+import net.tarpn.network.netrom.packet.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.UserDataEvent;
-import net.tarpn.network.netrom.NetRomConnectAck;
-import net.tarpn.network.netrom.NetRomConnectRequest;
-import net.tarpn.network.netrom.NetRomInfo;
-import net.tarpn.network.netrom.NetRomPacket;
+import net.tarpn.network.netrom.packet.NetRomConnectAck;
+import net.tarpn.network.netrom.packet.NetRomConnectRequest;
+import net.tarpn.network.netrom.packet.NetRomInfo;
+import net.tarpn.network.netrom.packet.NetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit.State;
-import net.tarpn.network.netrom.NetRomPacket.OpType;
+import net.tarpn.network.netrom.packet.NetRomPacket.OpType;
 
 public class ConnectedStateHandler implements StateHandler {
 
@@ -23,7 +23,7 @@ public class ConnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<LinkPrimitive> networkEvents,
+      Consumer<NetworkPrimitive> networkEvents,
       NetRomRouter outgoing) {
     final State newState;
     switch(event.getType()) {
@@ -46,7 +46,9 @@ public class ConnectedStateHandler implements StateHandler {
           );
           // TODO Need to check the result of the router before transitioning to CONNECTED
           outgoing.route(connAck);
-          networkEvents.accept(LinkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
+          NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall());
+          // TODO ^ instead of below
+          networkEvents.accept(NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
           newState = State.CONNECTED;
         } else {
           // Reject the connection
@@ -62,7 +64,7 @@ public class ConnectedStateHandler implements StateHandler {
               OpType.ConnectAcknowledge.asByte(true, false, false)
           );
           outgoing.route(connRej);
-          networkEvents.accept(LinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
           newState = State.DISCONNECTED;
         }
         break;
@@ -107,8 +109,9 @@ public class ConnectedStateHandler implements StateHandler {
               ((NetRomInfo)info).getInfo()
           ));*/
           circuit.enqueueInfoAck(outgoing);
-          networkEvents.accept(LinkPrimitive.newDataIndication(
-              circuit.getRemoteNodeCall(), Protocol.NETROM, ((NetRomInfo)info).getInfo()));
+          networkEvents.accept(NetworkPrimitive.newDataIndication(circuit.getRemoteNodeCall(), ((NetRomInfo)info).getInfo()));
+          //networkEvents.accept(LinkPrimitive.newDataIndication(
+          //    circuit.getRemoteNodeCall(), Protocol.NETROM, ((NetRomInfo)info).getInfo()));
         } else {
           NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(
               circuit.getRemoteNodeCall(),
@@ -142,6 +145,7 @@ public class ConnectedStateHandler implements StateHandler {
             ((UserDataEvent)event).getData()
         );
         outgoing.route(info);
+        circuit.incrementSendState();
         newState = State.CONNECTED;
         break;
       }

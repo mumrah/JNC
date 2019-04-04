@@ -21,7 +21,8 @@ public class NetRomNodesTest {
     };
 
     Configs configs = Configs.read("conf/sample.ini");
-    NetRomRoutingTable router = new NetRomRoutingTable(configs.getNetRomConfig(), portNum -> configs.getPortConfigs().get(portNum));
+    NetRomRoutingTable router = new NetRomRoutingTable(configs.getNetRomConfig(),
+            portNum -> configs.getPortConfigs().get(portNum), neighbor -> {});
 
     for(String nodeFile : nodesFiles) {
       byte[] packetBytes = Files.readAllBytes(Paths.get(nodeFile));

@@ -150,6 +150,7 @@ public interface AX25Packet extends Packet {
   }
 
   enum Protocol {
+    NO_PROTOCOL(0x00),
     NETROM(0xCF),
     NO_LAYER3(0xF0);
 

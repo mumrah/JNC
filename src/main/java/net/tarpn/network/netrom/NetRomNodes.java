@@ -7,6 +7,9 @@ import java.util.List;
 import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
+/**
+ * Helper class to parse NODES broadcast for updating the {@link NetRomRoutingTable}
+ */
 public class NetRomNodes {
   private final String sendingAlias;
   private final List<NodeDestination> destinationList;

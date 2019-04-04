@@ -1,19 +1,18 @@
 package net.tarpn.network.netrom.handlers;
 
-import java.nio.charset.StandardCharsets;
-import java.util.function.Consumer;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.network.netrom.BaseNetRomPacket;
 import net.tarpn.network.netrom.NetRomCircuit;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
-import net.tarpn.network.netrom.NetRomConnectAck;
-import net.tarpn.network.netrom.NetRomConnectRequest;
-import net.tarpn.network.netrom.NetRomInfo;
-import net.tarpn.network.netrom.NetRomPacket;
-import net.tarpn.network.netrom.NetRomPacket.OpType;
 import net.tarpn.network.netrom.NetRomRouter;
+import net.tarpn.network.netrom.NetworkPrimitive;
+import net.tarpn.network.netrom.packet.BaseNetRomPacket;
+import net.tarpn.network.netrom.packet.NetRomConnectAck;
+import net.tarpn.network.netrom.packet.NetRomConnectRequest;
+import net.tarpn.network.netrom.packet.NetRomPacket;
+import net.tarpn.network.netrom.packet.NetRomPacket.OpType;
+
+import java.util.function.Consumer;
 
 public class DisconnectedStateHandler implements StateHandler {
 
@@ -21,7 +20,7 @@ public class DisconnectedStateHandler implements StateHandler {
   public State handle(
       NetRomCircuit circuit,
       NetRomCircuitEvent event,
-      Consumer<LinkPrimitive> networkEvents,
+      Consumer<NetworkPrimitive> networkEvents,
       NetRomRouter outgoing) {
 
     final State newState;
@@ -42,20 +41,7 @@ public class DisconnectedStateHandler implements StateHandler {
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
         outgoing.route(connAck);
-        networkEvents.accept(LinkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
-
-        // TODO move this out
-        NetRomPacket welcome = NetRomInfo.create(
-            circuit.getLocalNodeCall(),
-            circuit.getRemoteNodeCall(),
-            circuit.getConfig().getTTL(),
-            circuit.getRemoteCircuitIdx(),
-            circuit.getRemoteCircuitId(),
-            circuit.getSendStateSeqByte(),
-            circuit.getRecvStateSeqByte(),
-            "Welcome to David's packet node! L3!".getBytes(StandardCharsets.US_ASCII)
-        );
-        outgoing.route(welcome);
+        networkEvents.accept(NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
         newState = State.CONNECTED;
         break;
       }

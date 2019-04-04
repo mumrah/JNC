@@ -48,7 +48,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Provides a data link layer interface. Supports connecting to a remote station, sending and receiving data frames, and
  * disconnecting.
+ *
+ * @deprecated in favor of {@link DataLink}
  */
+@Deprecated
 public class DataLinkManager {
 
   private static final ScheduledExecutorService PORT_RECOVERY_EXECUTOR = Executors

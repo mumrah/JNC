@@ -1,14 +1,9 @@
 package net.tarpn.network.netrom;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.tarpn.config.NetRomConfig;
@@ -27,12 +22,15 @@ public class NetRomRoutingTable {
   private final Map<AX25Call, Neighbor> neighbors;
   private final Map<AX25Call, Destination> destinations;
   private final Function<Integer, PortConfig> portConfigGetter;
+  private final Consumer<Neighbor> newNeighborHandler;
 
-  public NetRomRoutingTable(NetRomConfig config, Function<Integer, PortConfig> portConfigGetter) {
+  public NetRomRoutingTable(NetRomConfig config, Function<Integer, PortConfig> portConfigGetter,
+                            Consumer<Neighbor> newNeighborHandler) {
     this.config = config;
     this.neighbors = new HashMap<>();
     this.destinations = new HashMap<>();
     this.portConfigGetter = portConfigGetter;
+    this.newNeighborHandler = newNeighborHandler;
   }
 
   /**
@@ -40,7 +38,7 @@ public class NetRomRoutingTable {
    */
   public void updateNodes(AX25Call heardFrom, int heardOnPort, NetRomNodes nodes) {
     LOG.info("Got routing table from " + nodes.getSendingAlias());
-
+    Set<Neighbor> neighborsBefore = new HashSet<>(neighbors.values());
     PortConfig portConfig = portConfigGetter.apply(heardOnPort);
     int defaultQuality = portConfig.getInt("port.quality", 255);
     int defaultObs = config.getInitialObs();
@@ -87,6 +85,12 @@ public class NetRomRoutingTable {
             }
           }
         });
+    Set<Neighbor> neighborsAfter = new HashSet<>(neighbors.values());
+    neighborsAfter.removeAll(neighborsBefore);
+    if (!neighborsAfter.isEmpty()) {
+      LOG.info("New neighbors: " + neighborsAfter);
+      neighborsAfter.forEach(newNeighborHandler);
+    }
     LOG.info("New Routing table: " + this);
   }
 
@@ -210,6 +214,20 @@ public class NetRomRoutingTable {
           ", port=" + port +
           ", quality=" + quality +
           '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      Neighbor neighbor = (Neighbor) o;
+      return port == neighbor.port &&
+              Objects.equals(nodeCall, neighbor.nodeCall);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(nodeCall, port);
     }
   }
 

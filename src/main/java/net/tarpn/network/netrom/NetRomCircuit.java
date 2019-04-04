@@ -2,7 +2,9 @@ package net.tarpn.network.netrom;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import net.tarpn.config.NetRomConfig;
-import net.tarpn.network.netrom.NetRomPacket.OpType;
+import net.tarpn.network.netrom.packet.BaseNetRomPacket;
+import net.tarpn.network.netrom.packet.NetRomPacket;
+import net.tarpn.network.netrom.packet.NetRomPacket.OpType;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.util.Timer;
 
@@ -121,8 +123,8 @@ public class NetRomCircuit {
       ackTimer = Timer.create(config.getInt("netrom.ack.delay", 100), () -> {
         if(ackPending) {
           NetRomPacket infoAck = BaseNetRomPacket.createInfoAck(
-              getRemoteNodeCall(),
               getLocalNodeCall(),
+              getRemoteNodeCall(),
               getConfig().getTTL(),
               getRemoteCircuitIdx(),
               getRemoteCircuitId(),
@@ -141,13 +143,15 @@ public class NetRomCircuit {
   @Override
   public String toString() {
     return "NetRomState(" + circuitId + "){" +
-        "state=" + state +
-        ", V(s)=" + vs.get() +
-        ", V(r)=" + vr.get() +
-        ", cId=" + (remoteCircuitId & 0xff) +
-        ", cIdx=" + (remoteCircuitIdx & 0xff) +
-        ", k=" + windowSize +
-        '}';
+            "local=" + localNodeCall +
+            ", remote=" + remoteNodeCall +
+            ", state=" + state +
+            ", V(s)=" + vs.get() +
+            ", V(r)=" + vr.get() +
+            ", cId=" + (remoteCircuitId & 0xff) +
+            ", cIdx=" + (remoteCircuitIdx & 0xff) +
+            ", k=" + windowSize +
+            '}';
   }
 
   public AX25Call getLocalNodeCall() {
