@@ -1,9 +1,6 @@
 package net.tarpn.app;
 
-import net.tarpn.datalink.DataLinkManager;
-import net.tarpn.datalink.DataLinkSession;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.packet.impl.ax25.AX25Call;
+import net.tarpn.network.netrom.NetworkPrimitive;
 
 import java.util.HashMap;
 import java.util.Map;

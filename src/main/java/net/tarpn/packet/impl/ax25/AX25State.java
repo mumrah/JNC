@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.config.PortConfig;
 import net.tarpn.config.impl.PortConfigImpl;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
@@ -48,7 +48,7 @@ public class AX25State {
 
   private final Consumer<AX25StateEvent> internalEvents;
 
-  private final Consumer<LinkPrimitive> outgoingEvents;
+  private final Consumer<DataLinkPrimitive> outgoingEvents;
 
   /**
    * Send state variable
@@ -89,7 +89,7 @@ public class AX25State {
       AX25Call localNodeCall,
       PortConfig portConfig,
       Consumer<AX25StateEvent> stateEventConsumer,
-      Consumer<LinkPrimitive> outgoingEvents) {
+      Consumer<DataLinkPrimitive> outgoingEvents) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
@@ -125,7 +125,7 @@ public class AX25State {
     pendingInfoFrames.clear();
   }
 
-  public void sendDataLinkPrimitive(LinkPrimitive event) {
+  public void sendDataLinkPrimitive(DataLinkPrimitive event) {
     outgoingEvents.accept(event);
   }
 

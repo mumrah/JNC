@@ -1,7 +1,7 @@
 package net.tarpn.network.netrom.handlers;
 
 import java.util.function.Consumer;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.network.netrom.NetworkPrimitive;
 import net.tarpn.util.ByteUtil;
@@ -94,7 +94,7 @@ public class ConnectedStateHandler implements StateHandler {
             discReq.getCircuitId()
         );
         outgoing.route(discAck);
-        LinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall());
+        DataLinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall());
         newState = State.DISCONNECTED;
         break;
       }
@@ -110,7 +110,7 @@ public class ConnectedStateHandler implements StateHandler {
           ));*/
           circuit.enqueueInfoAck(outgoing);
           networkEvents.accept(NetworkPrimitive.newDataIndication(circuit.getRemoteNodeCall(), ((NetRomInfo)info).getInfo()));
-          //networkEvents.accept(LinkPrimitive.newDataIndication(
+          //networkEvents.accept(DataLinkPrimitive.newDataIndication(
           //    circuit.getRemoteNodeCall(), Protocol.NETROM, ((NetRomInfo)info).getInfo()));
         } else {
           NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(

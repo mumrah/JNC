@@ -10,8 +10,6 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-import net.tarpn.config.AppConfig;
-import net.tarpn.config.impl.Configs;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
@@ -25,7 +23,6 @@ import net.tarpn.frame.impl.KISSCommandHandler;
 import net.tarpn.frame.impl.KISSFrame;
 import net.tarpn.frame.impl.KISSFrameReader;
 import net.tarpn.frame.impl.KISSFrameWriter;
-import net.tarpn.frame.impl.PCapDumpFrameHandler;
 import net.tarpn.frame.impl.PacketReadingFrameHandler;
 import net.tarpn.io.DataPort;
 import net.tarpn.packet.Packet;
@@ -36,7 +33,6 @@ import net.tarpn.packet.impl.CompositePacketHandler;
 import net.tarpn.packet.impl.DefaultPacketRequest;
 import net.tarpn.packet.impl.DestinationFilteringPacketHandler;
 import net.tarpn.packet.impl.ax25.AX25Call;
-import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
@@ -62,7 +58,7 @@ public class DataLink {
     private final AX25StateMachine ax25StateHandler;
     private final Object portLock = new Object();
     private final ScheduledExecutorService executorService;
-    private final Map<String, Consumer<LinkPrimitive>> dataLinkListeners;
+    private final Map<String, Consumer<DataLinkPrimitive>> dataLinkListeners;
 
     private PacketHandler extraPacketHandler;
     private IOException fault;
@@ -122,13 +118,13 @@ public class DataLink {
 
     /**
      * Called when we receive DL events from the AX.25 state machine
-     * @param linkPrimitive
+     * @param dataLinkPrimitive
      */
-    private void onDataLinkEvent(LinkPrimitive linkPrimitive) {
-        dataLinkListeners.values().forEach(consumer -> consumer.accept(linkPrimitive));
+    private void onDataLinkEvent(DataLinkPrimitive dataLinkPrimitive) {
+        dataLinkListeners.values().forEach(consumer -> consumer.accept(dataLinkPrimitive));
     }
 
-    public void addDataLinkListener(String listenerName, Consumer<LinkPrimitive> listener) {
+    public void addDataLinkListener(String listenerName, Consumer<DataLinkPrimitive> listener) {
         dataLinkListeners.put(listenerName, listener);
     }
 
@@ -172,10 +168,10 @@ public class DataLink {
     }
 
     /**
-     * Accept a {@link LinkPrimitive} from a higher layer (Network or Application)
+     * Accept a {@link DataLinkPrimitive} from a higher layer (Network or Application)
      * @param event
      */
-    public void sendDataLinkEvent(LinkPrimitive event) {
+    public void sendDataLinkEvent(DataLinkPrimitive event) {
         switch (event.getType()) {
 
             case DL_CONNECT:

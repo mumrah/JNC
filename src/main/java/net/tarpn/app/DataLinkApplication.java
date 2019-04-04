@@ -1,8 +1,8 @@
 package net.tarpn.app;
 
 import net.tarpn.datalink.DataLinkManager;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.datalink.DataLinkSession;
-import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.util.ParsedLine;
 
@@ -85,7 +85,7 @@ public class DataLinkApplication implements Application<String> {
                 response.accept("Known ports are: " + dataLinks.keySet().stream().map(Object::toString).collect(Collectors.joining(", ")));
             } else {
                 AX25Call call = AX25Call.fromString(line.word().get());
-                dataLink.acceptDataLinkPrimitive(LinkPrimitive.newConnectRequest(call));
+                dataLink.acceptDataLinkPrimitive(DataLinkPrimitive.newConnectRequest(call));
                 response.accept("Connecting to " + call + " on port " + port);
                 DataLinkSession session = dataLink.attach(call, linkPrimitive -> {
                     switch(linkPrimitive.getType()) {

@@ -7,8 +7,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.ErrorType;
+import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -29,9 +29,9 @@ public class DisconnectedStateHandler implements StateHandler {
     switch (event.getType()) {
       case AX25_UA: {
         state.sendDataLinkPrimitive(
-            LinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
         state.sendDataLinkPrimitive(
-            LinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
         newState = State.DISCONNECTED;
         break;
       }
@@ -49,7 +49,7 @@ public class DisconnectedStateHandler implements StateHandler {
         break;
       }
       case DL_DISCONNECT: {
-        state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
         newState = State.DISCONNECTED;
         break;
       }
@@ -85,7 +85,7 @@ public class DisconnectedStateHandler implements StateHandler {
         // Reset exceptions, state values, and timers
         StateHelper.clearExceptionConditions(state);
         state.reset();
-        state.sendDataLinkPrimitive(LinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
         if(!state.getWelcomeMessage().isEmpty()) {

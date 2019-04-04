@@ -6,7 +6,7 @@ import java.util.Queue;
 import net.tarpn.config.impl.Configs;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
 
@@ -18,7 +18,7 @@ public class DataLinkMain {
 
     DataPort port1 = PortFactory.createPortFromConfig(portConfig);
 
-    Queue<LinkPrimitive> inQueue = new LinkedList<>();
+    Queue<DataLinkPrimitive> inQueue = new LinkedList<>();
 
     DataLinkManager dataLinkManager = DataLinkManager.create(portConfig, port1,
             inQueue::add, packetRequest -> {});
@@ -26,7 +26,7 @@ public class DataLinkMain {
 
     SysopApplication app = new SysopApplication();
     while(!Thread.currentThread().isInterrupted()) {
-      LinkPrimitive primitive = inQueue.poll();
+      DataLinkPrimitive primitive = inQueue.poll();
       if(primitive != null) {
         app.handle(primitive, dataLinkManager::acceptDataLinkPrimitive);
       } else {

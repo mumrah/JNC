@@ -1,6 +1,5 @@
 package net.tarpn.app;
 
-import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.network.netrom.NetworkPrimitive;
 import net.tarpn.util.Util;
 
@@ -23,7 +22,6 @@ public class ApplicationAdaptor implements Consumer<NetworkPrimitive> {
                 NetworkPrimitive.newData(event.getRemoteCall(), response.getBytes(StandardCharsets.UTF_8)));
         try {
             switch (event.getType()) {
-
                 case NL_CONNECT:
                     Thread.sleep(100);
                     application.onConnect(stringResponder);

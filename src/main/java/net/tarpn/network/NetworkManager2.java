@@ -10,12 +10,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import net.tarpn.datalink.DataLink;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.*;
+import net.tarpn.network.netrom.packet.NetRomPacket;
 import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.Type;
+import net.tarpn.datalink.DataLinkPrimitive.Type;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
 import net.tarpn.network.netrom.NetRomRoutingTable.Neighbor;
@@ -45,7 +46,7 @@ public class NetworkManager2 {
     private static final Logger LOG = LoggerFactory.getLogger(NetworkManager.class);
 
     private final NetRomConfig netromConfig;
-    private final Queue<LinkPrimitive> level2Events;
+    private final Queue<DataLinkPrimitive> dataLinkPrimitiveQueue;
     private final Map<Integer, DataLink> dataPorts;
     private final NetRomRoutingTable router;
     private final NetRomCircuitManager circuitManager;
@@ -55,20 +56,15 @@ public class NetworkManager2 {
 
     private NetworkManager2(NetRomConfig netromConfig) {
         this.netromConfig = netromConfig;
-        this.level2Events = new ConcurrentLinkedQueue<>();
+        this.dataLinkPrimitiveQueue = new ConcurrentLinkedQueue<>();
         this.dataPorts = new HashMap<>();
         this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig(), getNewNeighborHandler());
-        this.circuitManager = new NetRomCircuitManager(netromConfig, router(), this::onNetworkLinkEvent);
+        this.circuitManager = new NetRomCircuitManager(netromConfig, this::route, this::handleNetworkPrimitive);
         this.networkLinkListeners = new HashMap<>();
     }
 
     public static NetworkManager2 create(NetRomConfig config) {
         return new NetworkManager2(config);
-    }
-
-    private void onNetworkLinkEvent(NetworkPrimitive linkPrimitive) {
-        LOG.info("L3: " + linkPrimitive);
-        networkLinkListeners.values().forEach(consumer -> consumer.accept(linkPrimitive));
     }
 
     public void addNetworkLinkListener(String listenerName, Consumer<NetworkPrimitive> listener) {
@@ -79,65 +75,15 @@ public class NetworkManager2 {
         networkLinkListeners.remove(listenerName);
     }
 
-    public void acceptNetworkPrimitive(NetworkPrimitive networkPrimitive) {
-        int circuitId = circuitManager.getCircuit(networkPrimitive.getRemoteCall());
-        switch (networkPrimitive.getType()) {
-            case NL_CONNECT:
-                circuitManager.onCircuitEvent(
-                        new NetRomCircuitEvent(circuitId, networkPrimitive.getRemoteCall(),
-                                NetRomCircuitEvent.Type.NL_CONNECT));
-                break;
-            case NL_DISCONNECT:
-                circuitManager.onCircuitEvent(
-                        new NetRomCircuitEvent(circuitId, networkPrimitive.getRemoteCall(),
-                                NetRomCircuitEvent.Type.NL_DISCONNECT));
-                break;
-            case NL_INFO:
-                circuitManager.onCircuitEvent(
-                        new NetRomCircuitEvent.UserDataEvent(circuitId, networkPrimitive.getRemoteCall(),
-                                networkPrimitive.getInfo()));
-                break;
-        }
-    }
-
     public void initialize(PortConfig portConfig) {
         if(portConfig.isEnabled()) {
             DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
             DataLink dataLink = DataLink.create(
                     portConfig, dataPort, executorService);
-            dataLink.addDataLinkListener("network", level2Events::add);
+            dataLink.addDataLinkListener("network", dataLinkPrimitiveQueue::add);
             dataLink.setExtraPacketHandler(getNetRomNodesHandler());
             dataPorts.put(dataPort.getPortNumber(), dataLink);
         }
-    }
-
-    /**
-     * Accept a level 2 primitive, find the appropriate port to route it to, and send it
-     */
-    private boolean route(LinkPrimitive event) {
-        List<AX25Call> potentialRoutes = router.routePacket(event.getRemoteCall());
-        boolean routed = false;
-
-        for(AX25Call route : potentialRoutes) {
-            Neighbor neighbor = router.getNeighbors().get(route);
-            int routePort = neighbor.getPort();
-            DataLink portManager = dataPorts.get(routePort);
-            AX25State state = portManager.getAx25StateHandler().getState(route);
-            if(state.getState().equals(State.DISCONNECTED)) {
-                portManager.sendDataLinkEvent(LinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
-            }
-            // Change the dest address to the neighbor and send it
-            LinkPrimitive readdressed = event.copyOf(neighbor.getNodeCall());
-            portManager.sendDataLinkEvent(readdressed);
-            routed = true;
-            break;
-        }
-
-        if(!routed) {
-            LOG.warn("No route to destination " + event.getRemoteCall() + ", known routes: " + potentialRoutes);
-        }
-
-        return routed;
     }
 
     public void start() {
@@ -149,7 +95,7 @@ public class NetworkManager2 {
 
             // Start event processing
             Util.queueProcessingLoop(
-                    level2Events::poll,
+                    dataLinkPrimitiveQueue::poll,
                     dataLinkPrimitive -> {
                         LOG.info("Got DL event " + dataLinkPrimitive);
                         // Only pass data and unit data up to L3, everything else is ignored
@@ -196,12 +142,74 @@ public class NetworkManager2 {
         return new NetRomSocket(address, circuitManager);
     }
 
-    private NetRomRouter router() {
-        return netRomPacket -> route(
-                LinkPrimitive.newDataRequest(
-                        netRomPacket.getDestNode(),
-                        Protocol.NETROM,
-                        netRomPacket.getPayload()));
+    /**
+     * Accept a {@link NetworkPrimitive} and send it to the circuit manager.
+     * @param networkPrimitive
+     */
+    public void acceptNetworkPrimitive(NetworkPrimitive networkPrimitive) {
+        int circuitId = circuitManager.getCircuit(networkPrimitive.getRemoteCall());
+        switch (networkPrimitive.getType()) {
+            case NL_CONNECT:
+                circuitManager.onCircuitEvent(
+                        new NetRomCircuitEvent(circuitId, networkPrimitive.getRemoteCall(),
+                                NetRomCircuitEvent.Type.NL_CONNECT));
+                break;
+            case NL_DISCONNECT:
+                circuitManager.onCircuitEvent(
+                        new NetRomCircuitEvent(circuitId, networkPrimitive.getRemoteCall(),
+                                NetRomCircuitEvent.Type.NL_DISCONNECT));
+                break;
+            case NL_INFO:
+                circuitManager.onCircuitEvent(
+                        new NetRomCircuitEvent.UserDataEvent(circuitId, networkPrimitive.getRemoteCall(),
+                                networkPrimitive.getInfo()));
+                break;
+        }
+    }
+
+    /**
+     * Handle a {@link NetworkPrimitive} emitted from the circuit manager
+     * @param linkPrimitive
+     */
+    private void handleNetworkPrimitive(NetworkPrimitive linkPrimitive) {
+        LOG.debug("Layer 3 primitive: " + linkPrimitive);
+        networkLinkListeners.values().forEach(consumer -> consumer.accept(linkPrimitive));
+    }
+
+    /**
+     * Accept a NET/ROM packet, construct a L2 packet, find the appropriate port to route it to,
+     * re-address the packet, and send it.
+     *
+     * This method implements {@link NetRomRouter}.
+     */
+    private boolean route(NetRomPacket netRomPacket) {
+        DataLinkPrimitive dataLinkPrimitive = DataLinkPrimitive.newDataRequest(
+                netRomPacket.getDestNode(),
+                Protocol.NETROM,
+                netRomPacket.getPayload());
+        List<AX25Call> potentialRoutes = router.routePacket(dataLinkPrimitive.getRemoteCall());
+        boolean routed = false;
+
+        for(AX25Call route : potentialRoutes) {
+            Neighbor neighbor = router.getNeighbors().get(route);
+            int routePort = neighbor.getPort();
+            DataLink portManager = dataPorts.get(routePort);
+            AX25State state = portManager.getAx25StateHandler().getState(route);
+            if(state.getState().equals(State.DISCONNECTED)) {
+                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
+            }
+            // Change the dest address to the neighbor and send it
+            DataLinkPrimitive readdressed = dataLinkPrimitive.copyOf(neighbor.getNodeCall());
+            portManager.sendDataLinkEvent(readdressed);
+            routed = true;
+            break;
+        }
+
+        if(!routed) {
+            LOG.warn("No route to destination " + dataLinkPrimitive.getRemoteCall() + ", known routes: " + potentialRoutes);
+        }
+
+        return routed;
     }
 
     /**
@@ -230,7 +238,7 @@ public class NetworkManager2 {
             DataLink portManager = dataPorts.get(routePort);
             AX25State state = portManager.getAx25StateHandler().getState(neighbor.getNodeCall());
             if(state.getState().equals(State.DISCONNECTED)) {
-                portManager.sendDataLinkEvent(LinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
+                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
             }
         };
     }

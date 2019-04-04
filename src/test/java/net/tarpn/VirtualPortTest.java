@@ -144,7 +144,7 @@ public class VirtualPortTest {
         server.start();
         server.join();
 
-        //dataLinkManager2.acceptDataLinkPrimitive(LinkPrimitive.newConnectRequest(AX25Call.create("TEST", 1)));
+        //dataLinkManager2.acceptDataLinkPrimitive(DataLinkPrimitive.newConnectRequest(AX25Call.create("TEST", 1)));
 
         // Server-side, configure default application, start DL event processing loop
     }

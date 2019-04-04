@@ -3,19 +3,20 @@ package net.tarpn.main;
 import static net.tarpn.util.Util.ascii;
 
 import java.util.function.Consumer;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.Type;
+
+import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive.Type;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 
 public class SysopApplication {
 
-  public void handle(LinkPrimitive request, Consumer<LinkPrimitive> response) {
+  public void handle(DataLinkPrimitive request, Consumer<DataLinkPrimitive> response) {
     if(request.getType().equals(Type.DL_DATA)) {
       String message = ascii(request.getLinkInfo().getInfo()).trim();
       if(message.equalsIgnoreCase("BYE")) {
-        response.accept(LinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
+        response.accept(DataLinkPrimitive.newDisconnectRequest(request.getRemoteCall()));
       } else if(message.equalsIgnoreCase("PING")) {
-        response.accept(LinkPrimitive.newDataRequest(request.getRemoteCall(), Protocol.NO_LAYER3, ascii("PONG\r")));
+        response.accept(DataLinkPrimitive.newDataRequest(request.getRemoteCall(), Protocol.NO_LAYER3, ascii("PONG\r")));
       } else {
         System.err.println("Got Message: " + message);
       }

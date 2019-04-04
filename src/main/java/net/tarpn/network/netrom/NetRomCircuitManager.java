@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.stream.IntStream;
 import net.tarpn.config.NetRomConfig;
-import net.tarpn.datalink.LinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.NetRomCircuit.State;
 import net.tarpn.network.netrom.NetRomCircuitEvent.DataLinkEvent;
 import net.tarpn.network.netrom.NetRomCircuitEvent.Type;
@@ -32,8 +32,6 @@ public class NetRomCircuitManager {
   private final NetRomConfig config;
 
   private final Map<Integer, NetRomCircuit> circuits = new ConcurrentHashMap<>();
-
-  private final Map<Integer, BlockingQueue<LinkPrimitive>> circuitBuffers = new ConcurrentHashMap<>();
 
   private final Map<State, StateHandler> stateHandlers = new HashMap<>();
 
@@ -201,7 +199,7 @@ public class NetRomCircuitManager {
     StateHandler handler = stateHandlers.get(circuit.getState());
     if(handler != null) {
       LOG.debug("BEFORE: " + circuit + " got " + event);
-      //Consumer<LinkPrimitive> eventHandler = circuitEvent ->
+      //Consumer<DataLinkPrimitive> eventHandler = circuitEvent ->
       //    getCircuitBuffer(circuit.getCircuitId()).add(circuitEvent);
       List<NetworkPrimitive> capturedEvents = new LinkedList<>();
       State newState = handler.handle(circuit, event, capturedEvents::add, outgoingNetRomPackets);

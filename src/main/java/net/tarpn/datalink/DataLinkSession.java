@@ -15,7 +15,7 @@ public class DataLinkSession {
     }
 
     public void send(String line) {
-        dataLinkManager.acceptDataLinkPrimitive(LinkPrimitive.newUnitDataRequest(destAddress,
+        dataLinkManager.acceptDataLinkPrimitive(DataLinkPrimitive.newUnitDataRequest(destAddress,
                 AX25Packet.Protocol.NO_LAYER3, line.getBytes(StandardCharsets.UTF_8)));
     }
 

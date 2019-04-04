@@ -1,13 +1,14 @@
 package net.tarpn.packet.impl.ax25.handlers;
 
 import java.util.function.Consumer;
+
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Command;
 import net.tarpn.packet.impl.ax25.AX25Packet.SupervisoryFrame;
 import net.tarpn.packet.impl.ax25.AX25Packet.UnnumberedFrame.ControlType;
 import net.tarpn.packet.impl.ax25.AX25State;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.ErrorType;
+import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.SFrame;
 import net.tarpn.packet.impl.ax25.UFrame;
@@ -16,7 +17,7 @@ import net.tarpn.packet.impl.ax25.UIFrame;
 public class StateHelper {
 
   public static void nrErrorRecovery(AX25State state, Consumer<AX25Packet> packetConsumer) {
-    state.sendDataLinkPrimitive(LinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.J));
+    state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.J));
     establishDataLink(state, packetConsumer);
     // clear layer 3 init
   }
@@ -85,7 +86,7 @@ public class StateHelper {
       enquiryResponse(state, sFrame, packetConsumer);
     } else {
       if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
-        state.sendDataLinkPrimitive(LinkPrimitive
+        state.sendDataLinkPrimitive(DataLinkPrimitive
             .newErrorResponse(state.getRemoteNodeCall(), ErrorType.A));
 
       }
@@ -95,9 +96,9 @@ public class StateHelper {
   public static void UICheck(AX25State state, UIFrame uiFrame) {
     if(uiFrame.getCommand().equals(Command.COMMAND)) {
       // TODO check length, error K
-      state.sendDataLinkPrimitive(LinkPrimitive.newUnitDataIndication(uiFrame));
+      state.sendDataLinkPrimitive(DataLinkPrimitive.newUnitDataIndication(uiFrame));
     } else {
-      state.sendDataLinkPrimitive(LinkPrimitive
+      state.sendDataLinkPrimitive(DataLinkPrimitive
           .newErrorResponse(state.getRemoteNodeCall(), ErrorType.Q));
 
     }

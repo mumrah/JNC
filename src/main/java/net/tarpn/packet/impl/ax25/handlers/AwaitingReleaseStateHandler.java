@@ -8,8 +8,8 @@ import net.tarpn.packet.impl.ax25.AX25State;
 import net.tarpn.packet.impl.ax25.AX25State.State;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateEvent.InternalInfo;
-import net.tarpn.datalink.LinkPrimitive;
-import net.tarpn.datalink.LinkPrimitive.ErrorType;
+import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.datalink.DataLinkPrimitive.ErrorType;
 import net.tarpn.packet.impl.ax25.UFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
@@ -81,11 +81,11 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_UA: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
-          state.sendDataLinkPrimitive(LinkPrimitive
+          state.sendDataLinkPrimitive(DataLinkPrimitive
               .newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
           newState = State.AWAITING_RELEASE;
         }
@@ -94,7 +94,7 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_DM: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
@@ -112,9 +112,9 @@ public class AwaitingReleaseStateHandler implements StateHandler {
           state.getT1Timer().start();
           newState = State.AWAITING_RELEASE;
         } else {
-          state.sendDataLinkPrimitive(LinkPrimitive
+          state.sendDataLinkPrimitive(DataLinkPrimitive
               .newErrorResponse(state.getRemoteNodeCall(), ErrorType.H));
-          state.sendDataLinkPrimitive(LinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
           newState = State.DISCONNECTED;
         }
         break;

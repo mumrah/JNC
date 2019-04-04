@@ -10,8 +10,6 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-import net.tarpn.config.AppConfig;
-import net.tarpn.config.impl.Configs;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
@@ -69,7 +67,7 @@ public class DataLinkManager {
   private final ScheduledExecutorService executorService;
 
   private final Map<AX25Call, DataLinkSession> attachedSessions;
-  private final Map<AX25Call, Consumer<LinkPrimitive>> linkPrimitiveConsumers;
+  private final Map<AX25Call, Consumer<DataLinkPrimitive>> linkPrimitiveConsumers;
 
   private IOException fault;
   private ScheduledFuture<?> recoveryThread;
@@ -77,7 +75,7 @@ public class DataLinkManager {
   private DataLinkManager(
       PortConfig portConfig,
       DataPort dataPort,
-      Consumer<LinkPrimitive> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
     this.portConfig = portConfig;
@@ -90,7 +88,7 @@ public class DataLinkManager {
       dataLinkEvents.accept(linkPrimitive);
 
       AX25Call remoteCall = linkPrimitive.getRemoteCall();
-      Consumer<LinkPrimitive> consumer = linkPrimitiveConsumers.getOrDefault(remoteCall, lp -> {});
+      Consumer<DataLinkPrimitive> consumer = linkPrimitiveConsumers.getOrDefault(remoteCall, lp -> {});
       consumer.accept(linkPrimitive);
     });
     this.externalHandler = externalHandler;
@@ -108,7 +106,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       PortConfig config,
       DataPort port,
-      Consumer<LinkPrimitive> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler) {
     return create(config, port, dataLinkEvents, externalHandler,
             Executors.newScheduledThreadPool(128));
@@ -117,7 +115,7 @@ public class DataLinkManager {
   public static DataLinkManager create(
       PortConfig config,
       DataPort port,
-      Consumer<LinkPrimitive> dataLinkEvents,
+      Consumer<DataLinkPrimitive> dataLinkEvents,
       PacketHandler externalHandler,
       ScheduledExecutorService executorService) {
 
@@ -194,11 +192,11 @@ public class DataLinkManager {
   }
 
   /**
-   * Accept a {@link LinkPrimitive}, translate it into a AX25StateEvent, and send it into the AX.25
+   * Accept a {@link DataLinkPrimitive}, translate it into a AX25StateEvent, and send it into the AX.25
    * state machine
    * @param event
    */
-  public void acceptDataLinkPrimitive(LinkPrimitive event) {
+  public void acceptDataLinkPrimitive(DataLinkPrimitive event) {
     switch (event.getType()) {
 
       case DL_CONNECT:
@@ -227,7 +225,7 @@ public class DataLinkManager {
     }
   }
 
-  public DataLinkSession attach(AX25Call remoteCall, Consumer<LinkPrimitive> sessionConsumer) {
+  public DataLinkSession attach(AX25Call remoteCall, Consumer<DataLinkPrimitive> sessionConsumer) {
     return attachedSessions.computeIfAbsent(remoteCall, newSessionId -> {
       linkPrimitiveConsumers.put(remoteCall, sessionConsumer);
       return new DataLinkSession(remoteCall, this);

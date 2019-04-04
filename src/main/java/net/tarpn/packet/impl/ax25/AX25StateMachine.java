@@ -3,14 +3,14 @@ package net.tarpn.packet.impl.ax25;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+
+import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
-import net.tarpn.datalink.LinkPrimitive;
 import net.tarpn.packet.PacketHandler;
 import net.tarpn.packet.PacketRequest;
 import net.tarpn.packet.impl.ax25.AX25State.State;
@@ -59,14 +59,14 @@ public class AX25StateMachine implements PacketHandler {
   /**
    * Inbound level 3 packets (NET/ROM only for now)
    */
-  private final Consumer<LinkPrimitive> dataLinkEvents;
+  private final Consumer<DataLinkPrimitive> dataLinkEvents;
 
   private final PortConfig portConfig;
 
   public AX25StateMachine(
       PortConfig portConfig,
       Consumer<AX25Packet> outgoingPackets,
-      Consumer<LinkPrimitive> dataLinkEvents) {
+      Consumer<DataLinkPrimitive> dataLinkEvents) {
     this.portConfig = portConfig;
     this.outgoingPackets = outgoingPackets;
     this.dataLinkEvents = dataLinkEvents;
