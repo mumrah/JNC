@@ -31,7 +31,9 @@ public class ApplicationAdaptor implements Consumer<NetworkPrimitive> {
                     application.onDisconnect(stringResponder);
                     break;
                 case NL_INFO:
-                    application.handle(Util.toEscapedASCII(event.getInfo()), stringResponder, () -> { });
+                    application.handle(Util.toEscapedASCII(event.getInfo()), stringResponder, () -> {
+                        networkConsumer.accept(NetworkPrimitive.newDisconnect(event.getRemoteCall()));
+                    });
                     break;
             }
         } catch (InterruptedException e) {

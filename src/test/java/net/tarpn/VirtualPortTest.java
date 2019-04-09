@@ -1,8 +1,6 @@
 package net.tarpn;
 
-import net.tarpn.app.Application;
-import net.tarpn.app.ApplicationAdaptor;
-import net.tarpn.app.ApplicationRegistry;
+import net.tarpn.app.*;
 import net.tarpn.config.impl.Configs;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
@@ -55,7 +53,7 @@ public class VirtualPortTest {
 
         //DataLink dataLink2 = DataLink.create(portConfig2, port2);
         NetworkManager2 networkManager2 = NetworkManager2.create(configs.getNetRomConfig());
-        ApplicationRegistry.EchoApplication echoApp = new ApplicationRegistry.EchoApplication();
+        EchoApplication echoApp = new EchoApplication();
         ApplicationAdaptor appListener = new ApplicationAdaptor(echoApp, networkManager2::acceptNetworkPrimitive);
 
         networkManager2.initialize(portConfig2);
@@ -66,8 +64,8 @@ public class VirtualPortTest {
         //dataLinks.putAll(networkManager.getPorts());
 
         ApplicationRegistry registry = new ApplicationRegistry();
-        registry.registerApplication(new ApplicationRegistry.DefaultApplication(registry));
-        registry.registerApplication(new ApplicationRegistry.EchoApplication());
+        registry.registerApplication(new DefaultApplication(registry));
+        registry.registerApplication(new EchoApplication());
         //registry.registerApplication(new DataLinkApplication(dataLinks));
         registry.registerApplication(new Application<String>() {
 
@@ -108,6 +106,7 @@ public class VirtualPortTest {
                                             break;
                                         case NL_DISCONNECT:
                                             response.accept("Disconnected from " + netRomSocket.getAddress());
+                                            netRomSocket = null;
                                             break;
                                         case NL_INFO:
                                             response.accept(Util.toEscapedASCII(linkPrimitive.getInfo()));
@@ -135,7 +134,7 @@ public class VirtualPortTest {
 
             @Override
             public void onDisconnect(Consumer<String> response) {
-
+                response.accept("onDisconnect");
             }
         });
 

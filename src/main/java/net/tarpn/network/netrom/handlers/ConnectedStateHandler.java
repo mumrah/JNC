@@ -46,8 +46,6 @@ public class ConnectedStateHandler implements StateHandler {
           );
           // TODO Need to check the result of the router before transitioning to CONNECTED
           outgoing.route(connAck);
-          NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall());
-          // TODO ^ instead of below
           networkEvents.accept(NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
           newState = State.CONNECTED;
         } else {
@@ -76,6 +74,7 @@ public class ConnectedStateHandler implements StateHandler {
             ByteUtil.equals(connAck.getRxSeqNumber(), circuit.getRemoteCircuitId()) &&
             ByteUtil.equals(connAck.getCircuitIndex(), circuit.getCircuitIdByte()) &&
             ByteUtil.equals(connAck.getCircuitId(), circuit.getCircuitIdByte())) {
+          networkEvents.accept(NetworkPrimitive.newConnectAck(circuit.getRemoteNodeCall()));
           newState = State.CONNECTED;
         } else {
           // disconnect?
@@ -87,14 +86,14 @@ public class ConnectedStateHandler implements StateHandler {
         // Ack and transition
         NetRomPacket discReq = ((DataLinkEvent)event).getNetRomPacket();
         BaseNetRomPacket discAck = BaseNetRomPacket.createDisconnectAck(
-            discReq.getDestNode(),
             discReq.getOriginNode(),
+            discReq.getDestNode(),
             circuit.getConfig().getTTL(),
             discReq.getCircuitIndex(),
             discReq.getCircuitId()
         );
         outgoing.route(discAck);
-        DataLinkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall());
+        networkEvents.accept(NetworkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
         newState = State.DISCONNECTED;
         break;
       }

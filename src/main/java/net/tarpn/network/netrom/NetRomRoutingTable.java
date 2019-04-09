@@ -91,7 +91,7 @@ public class NetRomRoutingTable {
       LOG.info("New neighbors: " + neighborsAfter);
       neighborsAfter.forEach(newNeighborHandler);
     }
-    LOG.info("New Routing table: " + this);
+    LOG.info("New routing table from " + nodes.getSendingAlias() + ": " + this);
   }
 
   /**
@@ -111,7 +111,7 @@ public class NetRomRoutingTable {
         .collect(Collectors.toSet());
 
     noRoutes.forEach(ax25Call -> {
-      LOG.info(ax25Call + " went away");
+      LOG.info("No routes to " + ax25Call + ". Removing from routing table");
       destinations.remove(ax25Call);
       neighbors.remove(ax25Call);
     });

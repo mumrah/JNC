@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  */
 public class KISSFrameReader implements FrameReader {
 
-  public static final Integer L2_TIMEOUT = 100;
+  public static final Integer KISS_TIMEOUT = 100;
 
   private static final Logger LOG = LoggerFactory.getLogger(KISSFrameReader.class);
 
@@ -35,10 +35,10 @@ public class KISSFrameReader implements FrameReader {
 
   @Override
   public void accept(int b, Consumer<Frame> frameHandler) {
-    LOG.debug("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
+    LOG.trace("KISS READ " + b + "\t" + String.format("%02X", b) + "\t" + (char) b);
     // Clean up our state if we haven't heard anything in a while
     long currentTime = System.currentTimeMillis();
-    if(currentTime - frameTime > L2_TIMEOUT) {
+    if(currentTime - frameTime > KISS_TIMEOUT) {
       LOG.trace("KISS timeout");
       reset();
     }

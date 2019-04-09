@@ -58,7 +58,8 @@ public class NetworkManager2 {
         this.netromConfig = netromConfig;
         this.dataLinkPrimitiveQueue = new ConcurrentLinkedQueue<>();
         this.dataPorts = new HashMap<>();
-        this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig(), getNewNeighborHandler());
+        this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig(),
+                getNewNeighborHandler());
         this.circuitManager = new NetRomCircuitManager(netromConfig, this::route, this::handleNetworkPrimitive);
         this.networkLinkListeners = new HashMap<>();
     }
@@ -80,6 +81,7 @@ public class NetworkManager2 {
             DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
             DataLink dataLink = DataLink.create(
                     portConfig, dataPort, executorService);
+            // A a listener for layer 2 events (connected, disconnected, etc)
             dataLink.addDataLinkListener("network", dataLinkPrimitiveQueue::add);
             dataLink.setExtraPacketHandler(getNetRomNodesHandler());
             dataPorts.put(dataPort.getPortNumber(), dataLink);
@@ -97,7 +99,7 @@ public class NetworkManager2 {
             Util.queueProcessingLoop(
                     dataLinkPrimitiveQueue::poll,
                     dataLinkPrimitive -> {
-                        LOG.info("Got DL event " + dataLinkPrimitive);
+                        LOG.info("Got Layer 2 event from data link: " + dataLinkPrimitive);
                         // Only pass data and unit data up to L3, everything else is ignored
                         if(dataLinkPrimitive.getType().equals(Type.DL_DATA) || dataLinkPrimitive.getType().equals(Type.DL_UNIT_DATA)) {
                             circuitManager.handleInfo(dataLinkPrimitive.getLinkInfo());
@@ -120,6 +122,17 @@ public class NetworkManager2 {
         // Prune routing table
         executorService.scheduleAtFixedRate(router::pruneRoutes,
                 30, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
+    }
+
+    public void join() {
+        while(!executorService.isShutdown()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     public void stop() {
@@ -234,6 +247,7 @@ public class NetworkManager2 {
 
     private Consumer<Neighbor> getNewNeighborHandler() {
         return neighbor -> {
+            LOG.info("Connecting to new neighbor " + neighbor);
             int routePort = neighbor.getPort();
             DataLink portManager = dataPorts.get(routePort);
             AX25State state = portManager.getAx25StateHandler().getState(neighbor.getNodeCall());

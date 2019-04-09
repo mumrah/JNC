@@ -48,7 +48,7 @@ public class KISSFrameWriter implements FrameWriter {
     Consumer<byte[]> logger = bytes -> {
       for(int i=0; i<bytes.length; i++) {
         byte b = bytes[i];
-        LOG.debug("KISS WRITE " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
+        LOG.trace("KISS WRITE " + b + "\t" + String.format("%02X", b) + "\t" + Character.toString((char)b));
       }
     };
     //dataSink.accept(out);

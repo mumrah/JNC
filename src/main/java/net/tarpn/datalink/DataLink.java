@@ -163,6 +163,17 @@ public class DataLink {
         // TODO submit recurring thread to send KISS params to TNC (Persist, SlotTime, etc)
     }
 
+    public void join() {
+        while(!executorService.isShutdown()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     public void stop() {
         executorService.shutdownNow();
     }
@@ -230,7 +241,7 @@ public class DataLink {
 
             // Run these as we get new data frames from the port
             FrameHandler frameHandler = CompositeFrameHandler.wrap(
-                    frameRequest -> LOG.debug("Got Frame: " + frameRequest.getFrame()), // trace logs
+                    frameRequest -> LOG.trace("Got Frame: " + frameRequest.getFrame()), // trace logs
                     new KISSCommandHandler(),                                           // kiss deframing
                     new PacketReadingFrameHandler(packetReader, packetConsumer)         // packet handler
             );

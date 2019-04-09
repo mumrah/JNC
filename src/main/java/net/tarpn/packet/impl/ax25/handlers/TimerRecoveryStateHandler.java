@@ -133,9 +133,9 @@ public class TimerRecoveryStateHandler implements StateHandler {
         break;
       }
       case AX25_RNR:
-        // Set peer busy
+        // TODO Set peer busy
       case AX25_RR: {
-        // Set peer clear
+        // TODO Set peer clear
         SFrame sFrame = (SFrame)packet;
         if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
           state.getT1Timer().cancel();
