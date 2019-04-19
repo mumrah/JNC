@@ -10,6 +10,7 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
+import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
@@ -90,7 +91,7 @@ public class DataLinkManager {
       AX25Call remoteCall = linkPrimitive.getRemoteCall();
       Consumer<DataLinkPrimitive> consumer = linkPrimitiveConsumers.getOrDefault(remoteCall, lp -> {});
       consumer.accept(linkPrimitive);
-    });
+    }, Clock.getRealClock());
     this.externalHandler = externalHandler;
     this.executorService = executorService;
   }
@@ -330,7 +331,7 @@ public class DataLinkManager {
             }
           }
         });
-      }, (failedPacket, t) -> LOG.error("Error handling outgoing packet " + failedPacket, t));
+      }, (failedPacket, t) -> LOG.error("Error handling outgoing packet " + failedPacket, t), Clock.getRealClock());
     };
   }
 

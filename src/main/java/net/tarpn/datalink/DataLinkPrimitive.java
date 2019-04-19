@@ -7,6 +7,8 @@ import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.IFrame;
 import net.tarpn.packet.impl.ax25.UIFrame;
 
+import java.util.Objects;
+
 /**
  * Used for interfacing with a {@link DataLinkManager}
  */
@@ -17,6 +19,7 @@ public class DataLinkPrimitive {
   private final boolean isConfirmation;
   private final HasInfo linkInfo;
   private final ErrorType error;
+  private int port = -1;
 
   private DataLinkPrimitive(AX25Call remoteCall, Type type, boolean isConfirmation,
                             HasInfo linkInfo, ErrorType error) {
@@ -103,15 +106,41 @@ public class DataLinkPrimitive {
     return error;
   }
 
+  public int getPort() {
+      return port;
+  }
+
+  public void setPort(int port) {
+      this.port = port;
+  }
+
   @Override
   public String toString() {
     return "DataLinkPrimitive{" +
         "remoteCall=" + remoteCall +
+        ", port=" + port +
         ", type=" + type +
         ", isConfirmation=" + isConfirmation +
         ", info=" + getLinkInfo() +
         ", error=" + getError() +
         '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DataLinkPrimitive that = (DataLinkPrimitive) o;
+    return isConfirmation == that.isConfirmation &&
+            Objects.equals(remoteCall, that.remoteCall) &&
+            type == that.type &&
+            Objects.equals(linkInfo, that.linkInfo) &&
+            error == that.error;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(remoteCall, type, isConfirmation, linkInfo, error);
   }
 
 

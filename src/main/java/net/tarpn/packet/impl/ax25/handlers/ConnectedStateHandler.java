@@ -68,7 +68,7 @@ public class ConnectedStateHandler implements StateHandler {
           break;
         }
         if(state.windowExceeded()) {
-          LOG.warn("IFrame window is full, waiting a bit and retrying");
+          LOG.warn("IFrame window is full, waiting a bit and retrying. Pending IFrames: " + state.peekIFrames());
           // one-shot timer to delay the re-sending a bit
           Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)
@@ -182,6 +182,7 @@ public class ConnectedStateHandler implements StateHandler {
           StateHelper.checkIFrameAck(state, frame.getReceiveSequenceNumber());
           newState = State.CONNECTED;
         } else {
+          LOG.warn("N(R) error recovery, re-establishing connectiong");
           StateHelper.nrErrorRecovery(state, outgoingPackets);
           newState = State.AWAITING_CONNECTION;
         }
@@ -192,7 +193,8 @@ public class ConnectedStateHandler implements StateHandler {
         // Got info frame, need to ack it
         IFrame iFrame = (IFrame) packet;
         if(iFrame.getCommand().equals(Command.COMMAND)) {
-          if(ByteUtil.lessThanEq(iFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
+          if(ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), iFrame.getReceiveSequenceNumber()) &&
+              ByteUtil.lessThanEq(iFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
             StateHelper.checkIFrameAck(state, iFrame.getReceiveSequenceNumber());
             if(ByteUtil.equals(iFrame.getSendSequenceNumber(), state.getReceiveStateByte())) {
               state.incrementReceiveState();

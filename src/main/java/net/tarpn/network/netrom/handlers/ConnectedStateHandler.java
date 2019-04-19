@@ -101,20 +101,12 @@ public class ConnectedStateHandler implements StateHandler {
         NetRomPacket info = ((DataLinkEvent)event).getNetRomPacket();
         if(ByteUtil.equals(info.getTxSeqNumber(), circuit.getRecvStateSeqByte())) {
           circuit.incrementRecvState();
-
-          /*networkEvents.accept(new UserDataEvent(
-              circuit.getCircuitId(),
-              circuit.getRemoteNodeCall(),
-              ((NetRomInfo)info).getInfo()
-          ));*/
           circuit.enqueueInfoAck(outgoing);
           networkEvents.accept(NetworkPrimitive.newDataIndication(circuit.getRemoteNodeCall(), ((NetRomInfo)info).getInfo()));
-          //networkEvents.accept(DataLinkPrimitive.newDataIndication(
-          //    circuit.getRemoteNodeCall(), Protocol.NETROM, ((NetRomInfo)info).getInfo()));
         } else {
           NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(
-              circuit.getRemoteNodeCall(),
               circuit.getLocalNodeCall(),
+              circuit.getRemoteNodeCall(),
               circuit.getConfig().getTTL(),
               circuit.getRemoteCircuitIdx(),
               circuit.getRemoteCircuitId(),

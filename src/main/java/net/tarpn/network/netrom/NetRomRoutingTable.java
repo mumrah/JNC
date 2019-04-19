@@ -13,6 +13,7 @@ import net.tarpn.network.netrom.NetRomRoutingTable.Destination.DestinationRoute;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class NetRomRoutingTable {
 
@@ -31,12 +32,21 @@ public class NetRomRoutingTable {
     this.destinations = new HashMap<>();
     this.portConfigGetter = portConfigGetter;
     this.newNeighborHandler = newNeighborHandler;
+    MDC.put("node", config.getNodeAlias());
   }
 
+  public void addNeighbor(AX25Call heardFrom, int heardOnPort) {
+    PortConfig portConfig = portConfigGetter.apply(heardOnPort);
+    int defaultQuality = portConfig.getInt("port.quality", 255);
+    neighbors.computeIfAbsent(heardFrom,
+            call -> new Neighbor(call, heardOnPort, defaultQuality));
+  }
   /**
    * Process an incoming NODES payload and update our routing table
    */
   public void updateNodes(AX25Call heardFrom, int heardOnPort, NetRomNodes nodes) {
+    MDC.put("node", config.getNodeAlias());
+
     LOG.info("Got routing table from " + nodes.getSendingAlias());
     Set<Neighbor> neighborsBefore = new HashSet<>(neighbors.values());
     PortConfig portConfig = portConfigGetter.apply(heardOnPort);
@@ -99,6 +109,8 @@ public class NetRomRoutingTable {
    * remove any neighbors which no longer have any routes.
    */
   public void pruneRoutes() {
+    MDC.put("node", config.getNodeAlias());
+
     destinations.forEach(((ax25Call, destination) -> {
       destination.getNeighborMap().values().forEach(DestinationRoute::decrementObsolescence);
       destination.getNeighborMap().entrySet().removeIf(entry -> entry.getValue().getObsolescence() <= 0);
@@ -142,6 +154,8 @@ public class NetRomRoutingTable {
    * @return
    */
   public List<AX25Call> routePacket(AX25Call destCall) {
+    MDC.put("node", config.getNodeAlias());
+
     Destination destination = destinations.get(destCall);
     if(destination != null) {
       List<AX25Call> routes = destination.getSortedNeighbors()
@@ -151,7 +165,11 @@ public class NetRomRoutingTable {
       LOG.info("Found routes to " + destCall + ": " + routes);
       return routes;
     } else {
-      return Collections.emptyList();
+      if (neighbors.containsKey(destCall)) {
+        return Collections.singletonList(destCall);
+      } else {
+        return Collections.emptyList();
+      }
     }
   }
 

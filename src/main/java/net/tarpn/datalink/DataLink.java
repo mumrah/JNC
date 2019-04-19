@@ -10,6 +10,7 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
+import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.frame.Frame;
@@ -59,6 +60,7 @@ public class DataLink {
     private final Object portLock = new Object();
     private final ScheduledExecutorService executorService;
     private final Map<String, Consumer<DataLinkPrimitive>> dataLinkListeners;
+    private final Clock clock;
 
     private PacketHandler extraPacketHandler;
     private IOException fault;
@@ -67,30 +69,34 @@ public class DataLink {
     private DataLink(
             PortConfig portConfig,
             DataPort dataPort,
-            ScheduledExecutorService executorService) {
+            ScheduledExecutorService executorService,
+            Clock clock) {
         this.portConfig = portConfig;
         this.dataPort = dataPort;
         this.outboundPackets = new ConcurrentLinkedQueue<>();
-        this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, this::onDataLinkEvent);
+        this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, this::onDataLinkEvent, clock);
         this.executorService = executorService;
         this.dataLinkListeners = new HashMap<>();
+        this.clock = clock;
     }
 
     public static DataLink create(
             PortConfig config,
             DataPort port) {
-        return create(config, port, Executors.newScheduledThreadPool(128));
+        return create(config, port, Executors.newScheduledThreadPool(128), Clock.getRealClock());
     }
 
     public static DataLink create(
             PortConfig config,
             DataPort port,
-            ScheduledExecutorService executorService) {
+            ScheduledExecutorService executorService,
+            Clock clock) {
 
         DataLink dataLink = new DataLink(
                 config,
                 port,
-                executorService
+                executorService,
+                clock
         );
 
         String level = config.getString("log.level", "info");
@@ -105,14 +111,18 @@ public class DataLink {
         }
 
         // Start automated ID broadcast
-        executorService.scheduleWithFixedDelay(() -> {
-            LOG.info("Sending automatic ID message on " + port);
-            dataLink.getAx25StateHandler().getEventQueue().add(
-                    AX25StateEvent.createUnitDataEvent(
-                            AX25Call.create("ID"),
-                            Protocol.NO_LAYER3,
-                            config.getIdMessage().getBytes(StandardCharsets.US_ASCII)));
-        }, 5, config.getIdInterval(), TimeUnit.SECONDS);
+        if (config.getIdInterval() > 0) {
+            executorService.scheduleWithFixedDelay(() -> {
+                LOG.info("Sending automatic ID message on " + port);
+                dataLink.getAx25StateHandler().getEventQueue().add(
+                        AX25StateEvent.createUnitDataEvent(
+                                AX25Call.create("ID"),
+                                Protocol.NO_LAYER3,
+                                config.getIdMessage().getBytes(StandardCharsets.US_ASCII)));
+            }, 5, config.getIdInterval(), TimeUnit.SECONDS);
+        } else {
+            LOG.warn("Continuing without ID broadcast enabled. You shouldn't do this if you're actually on the air.");
+        }
         return dataLink;
     }
 
@@ -166,7 +176,7 @@ public class DataLink {
     public void join() {
         while(!executorService.isShutdown()) {
             try {
-                Thread.sleep(10);
+                clock.sleep(10);
             } catch (InterruptedException e) {
                 executorService.shutdownNow();
                 Thread.currentThread().interrupt();
@@ -276,7 +286,7 @@ public class DataLink {
                         }
                     }
                     // yield the lock so the writer may obtain it
-                    Thread.sleep(10);
+                    clock.sleep(10);
                 }
             } catch( InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -293,29 +303,34 @@ public class DataLink {
         return () -> {
             FrameWriter frameWriter = new KISSFrameWriter();
 
-            Util.queueProcessingLoop(outboundPackets::poll, outgoingPacket -> {
-                LOG.debug("Sending " + outgoingPacket + " to port " + dataPort.getPortNumber());
-                Frame outgoingFrame = new KISSFrame(0, Command.Data, outgoingPacket.getPayload());
-                frameWriter.accept(outgoingFrame, bytes -> {
-                    synchronized (portLock) {
-                        if(hasFault()) {
-                            LOG.warn(dataPort + " has a fault, cannot write", getFault());
-                        } else if(!dataPort.isOpen()) {
-                            setFault(new IOException("Port is unexpectedly closed, cannot write"));
-                        } else {
-                            LOG.trace("Writing to port " + dataPort.getPortNumber() + "\n" + Util.toHexDump(bytes));
-                            OutputStream outputStream = dataPort.getOutputStream();
-                            try {
-                                outputStream.write(bytes);
-                                outputStream.flush();
-                            } catch (IOException e) {
-                                LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
-                                setFault(e);
+            Util.queueProcessingLoop(
+                outboundPackets::poll,
+                outgoingPacket -> {
+                    LOG.debug("Sending " + outgoingPacket + " to port " + dataPort.getPortNumber());
+                    Frame outgoingFrame = new KISSFrame(0, Command.Data, outgoingPacket.getPayload());
+                    frameWriter.accept(outgoingFrame, bytes -> {
+                        synchronized (portLock) {
+                            if(hasFault()) {
+                                LOG.warn(dataPort + " has a fault, cannot write", getFault());
+                            } else if(!dataPort.isOpen()) {
+                                setFault(new IOException("Port is unexpectedly closed, cannot write"));
+                            } else {
+                                LOG.trace("Writing to port " + dataPort.getPortNumber() + "\n" + Util.toHexDump(bytes));
+                                OutputStream outputStream = dataPort.getOutputStream();
+                                try {
+                                    outputStream.write(bytes);
+                                    outputStream.flush();
+                                } catch (IOException e) {
+                                    LOG.error("Error writing to DataPort " + dataPort.getPortNumber(), e);
+                                    setFault(e);
+                                }
                             }
                         }
-                    }
-                });
-            }, (failedPacket, t) -> LOG.error("Error handling outgoing packet " + failedPacket, t));
+                    });
+                },
+                (failedPacket, t) -> LOG.error("Error handling outgoing packet " + failedPacket, t),
+                clock
+            );
         };
     }
 

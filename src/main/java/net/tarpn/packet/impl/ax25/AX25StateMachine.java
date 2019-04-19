@@ -9,6 +9,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.PortConfig;
 import net.tarpn.packet.PacketHandler;
@@ -63,13 +64,17 @@ public class AX25StateMachine implements PacketHandler {
 
   private final PortConfig portConfig;
 
+  private final Clock clock;
+
   public AX25StateMachine(
       PortConfig portConfig,
       Consumer<AX25Packet> outgoingPackets,
-      Consumer<DataLinkPrimitive> dataLinkEvents) {
+      Consumer<DataLinkPrimitive> dataLinkEvents,
+      Clock clock) {
     this.portConfig = portConfig;
     this.outgoingPackets = outgoingPackets;
     this.dataLinkEvents = dataLinkEvents;
+    this.clock = clock;
     handlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
     handlers.put(State.CONNECTED, new ConnectedStateHandler());
     handlers.put(State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
@@ -148,27 +153,39 @@ public class AX25StateMachine implements PacketHandler {
     eventQueue.add(event);
   }
 
+  public boolean poll() {
+    return Util.queuePoll(eventQueue::poll, event -> {
+      String sessionId = event.getRemoteCall().toString();
+      // For each incoming event, figure out which state machine should handle it
+      AX25State state = sessions.computeIfAbsent(sessionId,
+              ax25Call -> new AX25State(
+                      sessionId,
+                      event.getRemoteCall(),
+                      portConfig.getNodeCall(),
+                      portConfig,
+                      eventQueue::add,
+                      dataLinkEvents
+              )
+      );
+      StateHandler handler = handlers.get(state.getState());
+      LOG.trace("AX25 BEFORE: " + state + " got " + event);
+      State newState = handler.onEvent(state, event, outgoingPackets);
+      state.setState(newState);
+      LOG.trace("AX25 AFTER : " + state);
+    }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));
+  }
   public Runnable getRunnable() {
     return () -> {
-      Util.queueProcessingLoop(eventQueue::poll, event -> {
-        String sessionId = event.getRemoteCall().toString();
-        // For each incoming event, figure out which state machine should handle it
-        AX25State state = sessions.computeIfAbsent(sessionId,
-            ax25Call -> new AX25State(
-                sessionId,
-                event.getRemoteCall(),
-                portConfig.getNodeCall(),
-                portConfig,
-                eventQueue::add,
-                dataLinkEvents
-            )
-        );
-        StateHandler handler = handlers.get(state.getState());
-        LOG.trace("AX25 BEFORE: " + state + " got " + event);
-        State newState = handler.onEvent(state, event, outgoingPackets);
-        state.setState(newState);
-        LOG.trace("AX25 AFTER : " + state);
-      }, (failedEvent, t) -> LOG.error("Error in AX.25 state machine", t));
+      while(!Thread.currentThread().isInterrupted()) {
+        boolean didPoll = poll();
+        if (!didPoll) {
+          try {
+            clock.sleep(10);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+      }
     };
   }
 

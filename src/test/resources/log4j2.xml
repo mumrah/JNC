@@ -2,7 +2,7 @@
 <Configuration status="WARN">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{ISO8601} - %-5p [%30.30C{3.}@%-3.3L] - %m%n"/>
+            <PatternLayout pattern="%d{ISO8601} - %-5p [%30.30C{3.}@%-3.3L] [%X{node}] - %m%n"/>
         </Console>
     </Appenders>
     <Loggers>

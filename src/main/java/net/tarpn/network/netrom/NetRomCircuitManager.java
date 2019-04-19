@@ -24,6 +24,7 @@ import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class NetRomCircuitManager {
 
@@ -50,6 +51,7 @@ public class NetRomCircuitManager {
     this.stateHandlers.put(State.CONNECTED, new ConnectedStateHandler());
     this.stateHandlers.put(State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
     this.stateHandlers.put(State.DISCONNECTED, new DisconnectedStateHandler());
+    MDC.put("node", config.getNodeAlias());
   }
 
   private int getNextCircuitId() {
@@ -145,6 +147,7 @@ public class NetRomCircuitManager {
       // Ignore KEEPLI-0, some INP3 thing
 
       if(!event.getNetRomPacket().getDestNode().equals(config.getNodeCall())) {
+        LOG.debug(event.getNetRomPacket().getDestNode() + " :: " + config.getNodeCall());
         // forward it
         // TODO change this to accept events?
         boolean routed = outgoingNetRomPackets.route(event.getNetRomPacket());
@@ -169,7 +172,7 @@ public class NetRomCircuitManager {
     }
   }
 
-  public int getCircuit(AX25Call remoteNode) {
+  public int getOrCreateCircuit(AX25Call remoteNode) {
     Optional<NetRomCircuit> maybeCircuit = circuits.values()
             .stream()
             .filter(circuit -> circuit.getRemoteNodeCall().equals(remoteNode))
@@ -186,6 +189,13 @@ public class NetRomCircuitManager {
         return circuitId;
       }
     }
+  }
+
+  public Optional<NetRomCircuit> getCircuit(AX25Call remoteCall) {
+    return circuits.values()
+            .stream()
+            .filter(circuit -> circuit.getRemoteNodeCall().equals(remoteCall))
+            .findFirst();
   }
 
   /**

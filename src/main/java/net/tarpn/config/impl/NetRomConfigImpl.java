@@ -6,7 +6,7 @@ import org.apache.commons.configuration2.Configuration;
 
 public class NetRomConfigImpl extends NodeConfigImpl implements NetRomConfig {
 
-  NetRomConfigImpl(Configuration delegate) {
+  public NetRomConfigImpl(Configuration delegate) {
     super(delegate);
   }
 

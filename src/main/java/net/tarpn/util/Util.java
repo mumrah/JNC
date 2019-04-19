@@ -1,20 +1,13 @@
 package net.tarpn.util;
 
-import java.io.*;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class Util {
@@ -93,21 +86,34 @@ public class Util {
     return arr;
   }
 
-  public static <T> void queueProcessingLoop(
-      Supplier<T> valueSupplier,
-      Consumer<T> valueConsumer,
-      BiConsumer<T, Throwable> errorConsumer) {
-    while(!Thread.currentThread().isInterrupted()) {
+  public static <T> boolean queuePoll(
+          Supplier<T> valueSupplier,
+          Consumer<T> valueConsumer,
+          BiConsumer<T, Throwable> errorConsumer) {
       T value = valueSupplier.get();
       if(value != null) {
         try {
           valueConsumer.accept(value);
+          return true;
         } catch (Throwable t) {
           errorConsumer.accept(value, t);
+          return true;
         }
       } else {
+        return false;
+      }
+  }
+
+  public static <T> void queueProcessingLoop(
+      Supplier<T> valueSupplier,
+      Consumer<T> valueConsumer,
+      BiConsumer<T, Throwable> errorConsumer,
+      Clock clock) {
+    while(!Thread.currentThread().isInterrupted()) {
+      boolean didPoll = queuePoll(valueSupplier, valueConsumer, errorConsumer);
+      if (!didPoll) {
         try {
-          Thread.sleep(10);
+          clock.sleep(10);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }

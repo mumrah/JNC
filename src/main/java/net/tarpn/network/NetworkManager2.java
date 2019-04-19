@@ -13,6 +13,7 @@ import net.tarpn.datalink.DataLink;
 import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.*;
 import net.tarpn.network.netrom.packet.NetRomPacket;
+import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
@@ -31,6 +32,7 @@ import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.UIFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * Networking layer (level 3)
@@ -50,11 +52,10 @@ public class NetworkManager2 {
     private final Map<Integer, DataLink> dataPorts;
     private final NetRomRoutingTable router;
     private final NetRomCircuitManager circuitManager;
-
     private final Map<String, Consumer<NetworkPrimitive>> networkLinkListeners;
+    private final Clock clock;
 
-
-    private NetworkManager2(NetRomConfig netromConfig) {
+    private NetworkManager2(NetRomConfig netromConfig, Clock clock) {
         this.netromConfig = netromConfig;
         this.dataLinkPrimitiveQueue = new ConcurrentLinkedQueue<>();
         this.dataPorts = new HashMap<>();
@@ -62,10 +63,16 @@ public class NetworkManager2 {
                 getNewNeighborHandler());
         this.circuitManager = new NetRomCircuitManager(netromConfig, this::route, this::handleNetworkPrimitive);
         this.networkLinkListeners = new HashMap<>();
+        this.clock = clock;
+        MDC.put("node", netromConfig.getNodeAlias());
     }
 
     public static NetworkManager2 create(NetRomConfig config) {
-        return new NetworkManager2(config);
+        return new NetworkManager2(config, Clock.getRealClock());
+    }
+
+    public static NetworkManager2 create(NetRomConfig config, Clock clock) {
+        return new NetworkManager2(config, clock);
     }
 
     public void addNetworkLinkListener(String listenerName, Consumer<NetworkPrimitive> listener) {
@@ -80,9 +87,12 @@ public class NetworkManager2 {
         if(portConfig.isEnabled()) {
             DataPort dataPort = PortFactory.createPortFromConfig(portConfig);
             DataLink dataLink = DataLink.create(
-                    portConfig, dataPort, executorService);
+                    portConfig, dataPort, executorService, clock);
             // A a listener for layer 2 events (connected, disconnected, etc)
-            dataLink.addDataLinkListener("network", dataLinkPrimitiveQueue::add);
+            dataLink.addDataLinkListener("network", dataLinkPrimitive -> {
+                dataLinkPrimitive.setPort(dataPort.getPortNumber());
+                dataLinkPrimitiveQueue.add(dataLinkPrimitive);
+            });
             dataLink.setExtraPacketHandler(getNetRomNodesHandler());
             dataPorts.put(dataPort.getPortNumber(), dataLink);
         }
@@ -94,34 +104,37 @@ public class NetworkManager2 {
 
         // Start up router and event processor
         executorService.submit(() -> {
+            MDC.put("node", netromConfig.getNodeAlias());
 
             // Start event processing
             Util.queueProcessingLoop(
                     dataLinkPrimitiveQueue::poll,
                     dataLinkPrimitive -> {
                         LOG.info("Got Layer 2 event from data link: " + dataLinkPrimitive);
+                        // Learn about new neighbors
+                        if (dataLinkPrimitive.getPort() != -1) {
+                            router.addNeighbor(dataLinkPrimitive.getRemoteCall(), dataLinkPrimitive.getPort());
+                        }
+
                         // Only pass data and unit data up to L3, everything else is ignored
                         if(dataLinkPrimitive.getType().equals(Type.DL_DATA) || dataLinkPrimitive.getType().equals(Type.DL_UNIT_DATA)) {
                             circuitManager.handleInfo(dataLinkPrimitive.getLinkInfo());
                         }
                     },
-                    (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
+                    (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t), clock);
         });
 
         // Send automatic NODES packets
-        executorService.scheduleAtFixedRate(() -> {
-            NetRomNodes nodes = router.getNodes();
-            byte[] nodesData = NetRomNodes.write(nodes);
-            for(DataLink portManager : dataPorts.values()) {
-                LOG.info("Sending automatic NODES message on " + portManager.getDataPort() + ": " + nodes);
-                portManager.getAx25StateHandler().getEventQueue().add(
-                        AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
-            }
-        }, 15, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
+        if (netromConfig.getNodesInterval() > 0) {
+            executorService.scheduleAtFixedRate(this::broadcastRoutingTable, 15,
+                    netromConfig.getNodesInterval(), TimeUnit.SECONDS);
 
-        // Prune routing table
-        executorService.scheduleAtFixedRate(router::pruneRoutes,
-                30, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
+            // Prune routing table TODO separate timer
+            executorService.scheduleAtFixedRate(router::pruneRoutes,
+                    30, netromConfig.getNodesInterval(), TimeUnit.SECONDS);
+        }
+
+
     }
 
     public void join() {
@@ -160,7 +173,7 @@ public class NetworkManager2 {
      * @param networkPrimitive
      */
     public void acceptNetworkPrimitive(NetworkPrimitive networkPrimitive) {
-        int circuitId = circuitManager.getCircuit(networkPrimitive.getRemoteCall());
+        int circuitId = circuitManager.getOrCreateCircuit(networkPrimitive.getRemoteCall());
         switch (networkPrimitive.getType()) {
             case NL_CONNECT:
                 circuitManager.onCircuitEvent(
@@ -178,6 +191,22 @@ public class NetworkManager2 {
                                 networkPrimitive.getInfo()));
                 break;
         }
+    }
+
+    void broadcastRoutingTable() {
+        MDC.put("node", netromConfig.getNodeAlias());
+
+        NetRomNodes nodes = router.getNodes();
+        byte[] nodesData = NetRomNodes.write(nodes);
+        for(DataLink portManager : dataPorts.values()) {
+            LOG.info("Sending automatic NODES message on " + portManager.getDataPort() + ": " + nodes);
+            portManager.getAx25StateHandler().getEventQueue().add(
+                    AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
+        }
+    }
+
+    NetRomCircuit getCircuit(AX25Call remoteCall) {
+        return circuitManager.getCircuit(remoteCall).orElse(null);
     }
 
     /**

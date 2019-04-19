@@ -1,5 +1,7 @@
 package net.tarpn.packet.impl.ax25;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -125,6 +127,9 @@ public class AX25State {
     pendingInfoFrames.clear();
   }
 
+  public Collection<HasInfo> peekIFrames() {
+    return new ArrayList<>(pendingInfoFrames);
+  }
   public void sendDataLinkPrimitive(DataLinkPrimitive event) {
     outgoingEvents.accept(event);
   }
@@ -246,6 +251,10 @@ public class AX25State {
     vs.getAndIncrement();
   }
 
+  public void setSendState(int vs) {
+    this.vs.set(vs);
+  }
+
   public int getReceiveState() {
     return vr.get();
   }
@@ -256,6 +265,10 @@ public class AX25State {
 
   public void incrementReceiveState() {
     this.vr.incrementAndGet();
+  }
+
+  public void setReceiveState(int vr) {
+    this.vr.set(vr);
   }
 
   public int getAcknowledgeState() {
@@ -270,6 +283,10 @@ public class AX25State {
     this.va.set(va & 0xff);
   }
 
+  /**
+   * If V(S) is equal to V(A) + window size (7) means we can't transmit any more until we get an ACK
+   * @return
+   */
   public boolean windowExceeded() {
     return (vs.get() % 8) == ((va.get() + 7) % 8);
   }

@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.NetRomRouter;
 import net.tarpn.network.netrom.NetRomSocket;
+import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
 import net.tarpn.config.PortConfig;
@@ -157,7 +158,7 @@ public class NetworkManager {
               circuitManager.handleInfo(dataLinkPrimitive.getLinkInfo());
             }
           },
-          (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t));
+          (failedEvent, t) -> LOG.error("Error processing event " + failedEvent, t), Clock.getRealClock());
     });
 
     // Send automatic NODES packets

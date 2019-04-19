@@ -68,7 +68,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           break;
         }
         if(state.windowExceeded()) {
-          LOG.warn("IFrame window is full, waiting a bit and retrying");
+          LOG.warn("IFrame window is full, waiting a bit and retrying. Pending IFrames: " + pendingIFrame + ", " + state.peekIFrames());
           // one-shot timer to delay the re-sending a bit
           Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)
@@ -101,6 +101,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           StateHelper.transmitEnquiry(state, outgoingPackets);
           newState = State.TIMER_RECOVERY;
         } else {
+          LOG.warn("L2 retries exceeded, disconnecting.");
           if(state.getAcknowledgeState() == state.getSendState()) {
             state.sendDataLinkPrimitive(DataLinkPrimitive
                 .newErrorResponse(state.getRemoteNodeCall(), ErrorType.U));
@@ -109,6 +110,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
                 .newErrorResponse(state.getRemoteNodeCall(), ErrorType.I));
           }
           state.internalDisconnectRequest();
+          state.clearIFrames(); // TODO check on these
           UFrame dm = UFrame.create(state.getRemoteNodeCall(), state.getLocalNodeCall(),
               Command.COMMAND, ControlType.DM, true);
           outgoingPackets.accept(dm);
@@ -140,6 +142,22 @@ public class TimerRecoveryStateHandler implements StateHandler {
         if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
           state.getT1Timer().cancel();
           StateHelper.selectT1Value(state);
+
+          // Check if N(R) (received seq) is leq the V(S) (send seq) and if
+          // the V(A) (ack'd seq) is leq N(R) (received seq).
+          //
+          // N(S) is the senders seq number
+          // N(R) is the receivers next expected seq number
+          // V(A) is the last acknowledged seq
+          // V(S) is the next send seq
+          // V(R) is the next expected seq number
+          //
+          // E.g., V(A) <= N(R) <= V(S) reads as:
+          // if the last acknowledged sequence is less than or equal to the next expected seq is less than
+          // or equal to the next send seq
+          //
+          // We get an RR with N(R) of 5, that means the receiver expects our next send seq to be 5
+          // If this is equal to our last ack'd seq it means we've missed a whole window.
           if(ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte()) &&
               ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), sFrame.getReceiveSequenceNumber())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
@@ -160,8 +178,8 @@ public class TimerRecoveryStateHandler implements StateHandler {
           if (sFrame.getCommand().equals(Command.COMMAND) && sFrame.isPollOrFinalSet()) {
             StateHelper.enquiryResponse(state, sFrame, outgoingPackets);
           }
-          if (ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte()) &&
-              ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), sFrame.getReceiveSequenceNumber())) {
+          if (ByteUtil.lessThanEq(state.getAcknowledgeStateByte(), sFrame.getReceiveSequenceNumber()) &&
+              ByteUtil.lessThanEq(sFrame.getReceiveSequenceNumber(), state.getSendStateByte())) {
             state.setAcknowledgeState(sFrame.getReceiveSequenceNumber());
             newState = State.TIMER_RECOVERY;
           } else {
