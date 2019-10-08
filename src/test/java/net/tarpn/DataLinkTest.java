@@ -9,10 +9,7 @@ import net.tarpn.packet.impl.ax25.*;
 import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import org.apache.commons.configuration2.MapConfiguration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 import java.util.*;
 import java.util.concurrent.Executors;

@@ -28,7 +28,6 @@ public class SwitchTest {
     AX25Call call2 = AX25Call.create("T3ST", 2);
     NetworkManager2 nl2;
 
-
     AX25Call call3 = AX25Call.create("T3ST", 3);
     NetworkManager2 nl3;
 
@@ -123,7 +122,7 @@ public class SwitchTest {
         //waitUntil(() -> primitives.size() > 0, 3000, "Timed out");
 
         Thread.sleep(5000);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 7; i++) {
             nl1.acceptNetworkPrimitive(NetworkPrimitive.newDataIndication(call3, Util.ascii("Hello, TEST3 " + i)));
             nl3.acceptNetworkPrimitive(NetworkPrimitive.newDataIndication(call1, Util.ascii("Hello, TEST1 " + i)));
             //Thread.sleep(1000);
@@ -133,7 +132,7 @@ public class SwitchTest {
             NetworkPrimitive primitive = node3primitives.poll();
             if (primitive != null) {
                 return primitive.getType().equals(NetworkPrimitive.Type.NL_INFO) &&
-                        Util.ascii(primitive.getInfo()).equalsIgnoreCase("Hello, TEST3 4");
+                        Util.ascii(primitive.getInfo()).equalsIgnoreCase("Hello, TEST3 6");
             } else {
                 return false;
             }

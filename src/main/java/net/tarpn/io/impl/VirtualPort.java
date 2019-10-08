@@ -60,9 +60,10 @@ public class VirtualPort implements DataPort {
   }
 
   @Override
-  public void close() throws IOException {
+  public synchronized void close() throws IOException {
     inputStream.close();
     outputStream.close();
+    virtualPorts.remove(name);
   }
 
   @Override

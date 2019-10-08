@@ -186,6 +186,11 @@ public class DataLink {
 
     public void stop() {
         executorService.shutdownNow();
+        try {
+            dataPort.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
