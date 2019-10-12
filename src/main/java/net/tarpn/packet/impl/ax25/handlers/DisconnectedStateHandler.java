@@ -29,9 +29,9 @@ public class DisconnectedStateHandler implements StateHandler {
     switch (event.getType()) {
       case AX25_UA: {
         state.sendDataLinkPrimitive(
-            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.C));
         state.sendDataLinkPrimitive(
-            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
+            DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.D));
         newState = State.DISCONNECTED;
         break;
       }
@@ -49,7 +49,7 @@ public class DisconnectedStateHandler implements StateHandler {
         break;
       }
       case DL_DISCONNECT: {
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         newState = State.DISCONNECTED;
         break;
       }
@@ -85,7 +85,7 @@ public class DisconnectedStateHandler implements StateHandler {
         // Reset exceptions, state values, and timers
         StateHelper.clearExceptionConditions(state);
         state.reset();
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
         if(!state.getWelcomeMessage().isEmpty()) {

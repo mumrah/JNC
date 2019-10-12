@@ -91,7 +91,7 @@ public class VirtualPortTest {
                 ParsedLine line = ParsedLine.parse(request);
                 String cmd = line.word().get();
                 if (cmd.equalsIgnoreCase("C")) {
-                    AX25Call call = AX25Call.fromString(line.word().get());
+                    AX25Call call = AX25Call.create(line.word().get());
 
                     netRomSocket = networkManager.open(call);
                     try {

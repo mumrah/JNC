@@ -201,7 +201,7 @@ public class NetworkManager2 {
         for(DataLink portManager : dataPorts.values()) {
             LOG.info("Sending automatic NODES message on " + portManager.getDataPort() + ": " + nodes);
             portManager.getAx25StateHandler().getEventQueue().add(
-                    AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
+                    AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES", 0), Protocol.NETROM, nodesData));
         }
     }
 
@@ -227,6 +227,7 @@ public class NetworkManager2 {
     private boolean route(NetRomPacket netRomPacket) {
         DataLinkPrimitive dataLinkPrimitive = DataLinkPrimitive.newDataRequest(
                 netRomPacket.getDestNode(),
+                netRomPacket.getOriginNode(),
                 Protocol.NETROM,
                 netRomPacket.getPayload());
         List<AX25Call> potentialRoutes = router.routePacket(dataLinkPrimitive.getRemoteCall());
@@ -238,7 +239,8 @@ public class NetworkManager2 {
             DataLink portManager = dataPorts.get(routePort);
             AX25State state = portManager.getAx25StateHandler().getState(route);
             if(state.getState().equals(State.DISCONNECTED)) {
-                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
+                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(
+                        neighbor.getNodeCall(), netromConfig.getNodeCall()));
             }
             // Change the dest address to the neighbor and send it
             DataLinkPrimitive readdressed = dataLinkPrimitive.copyOf(neighbor.getNodeCall());
@@ -281,7 +283,8 @@ public class NetworkManager2 {
             DataLink portManager = dataPorts.get(routePort);
             AX25State state = portManager.getAx25StateHandler().getState(neighbor.getNodeCall());
             if(state.getState().equals(State.DISCONNECTED)) {
-                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
+                portManager.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(
+                        neighbor.getNodeCall(), netromConfig.getNodeCall()));
             }
         };
     }

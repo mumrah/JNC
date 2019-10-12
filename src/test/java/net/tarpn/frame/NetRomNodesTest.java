@@ -39,7 +39,7 @@ public class NetRomNodesTest {
 
     // find route for call
     /*
-    AX25Call targetCall = AX25Call.fromString("N3LTV-2");
+    AX25Call targetCall = AX25Call.create("N3LTV-2");
     Destination destination = router.getDestinations().get(targetCall);
     if(destination != null) {
       System.err.println("Found routes to " + targetCall);

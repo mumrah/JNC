@@ -5,6 +5,8 @@ import java.util.Objects;
 
 public class AX25Call {
 
+  public static final AX25Call WILDCARD = AX25Call.create("*", 0);
+
   @FunctionalInterface
   public interface ByteConsumer {
     void accept(byte b);
@@ -25,11 +27,7 @@ public class AX25Call {
     this.last = last;
   }
 
-  public static AX25Call create(String call) {
-    return create(call, 0);
-  }
-
-  public static AX25Call fromString(String callWithSSID) {
+  public static AX25Call create(String callWithSSID) {
     String[] tokens = callWithSSID.split("-");
     try {
       return create(tokens[0].trim(), Integer.parseInt(tokens[1]));

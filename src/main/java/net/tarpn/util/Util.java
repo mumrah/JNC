@@ -1,9 +1,6 @@
 package net.tarpn.util;
 
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.function.BiConsumer;
@@ -14,8 +11,8 @@ public class Util {
 
   public static String toHexDump(byte[] msg) {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    hexDump(msg, baos);
     try {
+      hexDump(msg, baos);
       baos.flush();
     } catch (IOException e) {
       // do nothing
@@ -24,24 +21,40 @@ public class Util {
     return new String(output, StandardCharsets.US_ASCII);
   }
 
-  public static void hexDump(byte[] msg, OutputStream outputStream) {
-    try {
-      for (int j = 1; j < msg.length + 1; j++) {
-        if (j % 8 == 1 || j == 0) {
-          if (j != 0) {
-            outputStream.write('\n');
+  public static void hexDump(byte[] msg, OutputStream outputStream) throws IOException {
+    int addr = 0;
+    OutputStreamWriter writer = new OutputStreamWriter(outputStream);
+    writer.write('\n');
+
+    while (addr < msg.length) {
+      StringBuilder sOffset = new StringBuilder(String.format("$%02x:", addr & 0xFF));
+      StringBuilder text = new StringBuilder();
+      for (int col = 0; col < 8; col++)
+      {
+        int val = msg[addr];
+        sOffset.append(String.format(" %02x", val & 0xff));
+        if (val < 0xFF) {
+          char ch = (char)(val & 0xFF);
+          if (Character.isLetterOrDigit(ch)) {
+            text.append(ch);
+          } else {
+            text.append(".");
           }
-          outputStream.write(String.format("0%d\t|\t", j / 8).getBytes(StandardCharsets.US_ASCII));
+        } else {
+          text.append(".");
         }
-        outputStream.write(String.format("%02X", msg[j - 1]).getBytes(StandardCharsets.US_ASCII));
-        //if (j % 4 == 0) {
-        outputStream.write(' ');
-        //}
+        addr += 1;
+        if (addr == msg.length) {
+          break;
+        }
       }
-      outputStream.write('\n');
-    } catch (IOException e) {
-      // do nothing
+      writer.write(sOffset.toString());
+      writer.write('\t');
+      writer.write(text.toString());
+      writer.write('\n');
     }
+    writer.flush();
+    outputStream.flush();
   }
 
   public static String toHexString(byte[] msg) {

@@ -66,25 +66,25 @@ public class DataLinkTest {
         dl2.addDataLinkListener("test-listener-2", events::add);
 
         Assert.assertEquals(dl1.getAx25StateHandler().getState(call2).getState(), AX25State.State.DISCONNECTED);
-        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2));
+        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2, call1));
 
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.AWAITING_CONNECTION), 1000, "Timed out");
         waitUntil(() -> dl2.getAx25StateHandler().getState(call1).getState().equals(AX25State.State.CONNECTED), 1000, "Timed out");
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.CONNECTED), 1000, "Timed out");
 
         Assert.assertEquals(events.size(), 2);
-        Assert.assertEquals(events.get(0), DataLinkPrimitive.newConnectIndication(call1));
-        Assert.assertEquals(events.get(1), DataLinkPrimitive.newConnectConfirmation(call2));
+        Assert.assertEquals(events.get(0), DataLinkPrimitive.newConnectIndication(call1, call2));
+        Assert.assertEquals(events.get(1), DataLinkPrimitive.newConnectConfirmation(call2, call1));
         events.clear();
 
-        dl1.sendDataLinkEvent(DataLinkPrimitive.newDisconnectRequest(call2));
+        dl1.sendDataLinkEvent(DataLinkPrimitive.newDisconnectRequest(call2, call1));
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.AWAITING_RELEASE), 1000, "Timed out");
         waitUntil(() -> dl2.getAx25StateHandler().getState(call1).getState().equals(AX25State.State.DISCONNECTED), 1000, "Timed out");
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.DISCONNECTED), 1000, "Timed out");
 
         Assert.assertEquals(events.size(), 2);
-        Assert.assertEquals(events.get(0), DataLinkPrimitive.newDisconnectIndication(call1));
-        Assert.assertEquals(events.get(1), DataLinkPrimitive.newDisconnectConfirmation(call2));
+        Assert.assertEquals(events.get(0), DataLinkPrimitive.newDisconnectIndication(call1, call2));
+        Assert.assertEquals(events.get(1), DataLinkPrimitive.newDisconnectConfirmation(call2, call1));
     }
 
     @Test
@@ -94,36 +94,36 @@ public class DataLinkTest {
         dl2.addDataLinkListener("test-listener-2", events::add);
 
         Assert.assertEquals(dl1.getAx25StateHandler().getState(call2).getState(), AX25State.State.DISCONNECTED);
-        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2));
+        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2, call1));
 
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.AWAITING_CONNECTION), 1000, "Timed out");
         waitUntil(() -> dl2.getAx25StateHandler().getState(call1).getState().equals(AX25State.State.CONNECTED), 1000, "Timed out");
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.CONNECTED), 1000, "Timed out");
 
         Assert.assertEquals(events.size(), 2);
-        Assert.assertEquals(events.get(0), DataLinkPrimitive.newConnectIndication(call1));
-        Assert.assertEquals(events.get(1), DataLinkPrimitive.newConnectConfirmation(call2));
+        Assert.assertEquals(events.get(0), DataLinkPrimitive.newConnectIndication(call1, call2));
+        Assert.assertEquals(events.get(1), DataLinkPrimitive.newConnectConfirmation(call2, call1));
         events.clear();
 
-        dl2.sendDataLinkEvent(DataLinkPrimitive.newDisconnectRequest(call1));
+        dl2.sendDataLinkEvent(DataLinkPrimitive.newDisconnectRequest(call1, call2));
         waitUntil(() -> dl2.getAx25StateHandler().getState(call1).getState().equals(AX25State.State.AWAITING_RELEASE), 1000, "Timed out");
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.DISCONNECTED), 1000, "Timed out");
         waitUntil(() -> dl2.getAx25StateHandler().getState(call1).getState().equals(AX25State.State.DISCONNECTED), 1000, "Timed out");
 
         Assert.assertEquals(events.size(), 2);
-        Assert.assertEquals(events.get(0), DataLinkPrimitive.newDisconnectIndication(call2));
-        Assert.assertEquals(events.get(1), DataLinkPrimitive.newDisconnectConfirmation(call1));
+        Assert.assertEquals(events.get(0), DataLinkPrimitive.newDisconnectIndication(call2, call1));
+        Assert.assertEquals(events.get(1), DataLinkPrimitive.newDisconnectConfirmation(call1, call2));
     }
 
     @Test
     public void sendManyIFrames() {
         List<DataLinkPrimitive> events = new ArrayList<>();
-        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2));
+        dl1.sendDataLinkEvent(DataLinkPrimitive.newConnectRequest(call2, call1));
         waitUntil(() -> dl1.getAx25StateHandler().getState(call2).getState().equals(AX25State.State.CONNECTED), 1000, "Timed out");
 
         dl2.addDataLinkListener("test-listener-1", events::add);
         for (int i = 0; i < 10; i++) {
-            dl1.sendDataLinkEvent(DataLinkPrimitive.newDataRequest(call2, AX25Packet.Protocol.NO_LAYER3, Util.ascii("Test " + i)));
+            dl1.sendDataLinkEvent(DataLinkPrimitive.newDataRequest(call2, call1, AX25Packet.Protocol.NO_LAYER3, Util.ascii("Test " + i)));
         }
 
         waitUntil(() -> events.size() >= 10, 5000, "Timed out");
@@ -147,7 +147,7 @@ public class DataLinkTest {
                 AX25StateEvent.Type.AX25_UA));
         stateMachine.poll();
         Assert.assertEquals(stateMachine.getState(call2).getState(), AX25State.State.CONNECTED);
-        Assert.assertEquals(dataLinkEvents.poll(), DataLinkPrimitive.newConnectConfirmation(call2));
+        Assert.assertEquals(dataLinkEvents.poll(), DataLinkPrimitive.newConnectConfirmation(call2, call1));
 
         // queue up 7 iframes with no ack
         for (int i = 0; i < 7; i++) {

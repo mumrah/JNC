@@ -3,6 +3,7 @@ package net.tarpn.datalink;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,8 +38,6 @@ import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,9 +98,9 @@ public class DataLink {
                 clock
         );
 
-        String level = config.getString("log.level", "info");
-        Level dataLinkLevel = Level.getLevel(level.toUpperCase());
-        Configurator.setLevel(DataLinkManager.class.getName(), dataLinkLevel);
+        //String level = config.getString("log.level", "info");
+       // Level dataLinkLevel = Level.getLevel(level.toUpperCase());
+        //Configurator.setLevel(DataLinkManager.class.getName(), dataLinkLevel);
 
         try {
             port.open();
@@ -116,7 +115,7 @@ public class DataLink {
                 LOG.info("Sending automatic ID message on " + port);
                 dataLink.getAx25StateHandler().getEventQueue().add(
                         AX25StateEvent.createUnitDataEvent(
-                                AX25Call.create("ID"),
+                                AX25Call.create("ID", 0),
                                 Protocol.NO_LAYER3,
                                 config.getIdMessage().getBytes(StandardCharsets.US_ASCII)));
             }, 5, config.getIdInterval(), TimeUnit.SECONDS);
@@ -343,12 +342,12 @@ public class DataLink {
      * A "fake" packet which just contains the payload, no source or destination information.
      * This is used for things like responding to KISS commands.
      */
-    private static class PayloadOnlyPacket implements Packet {
+    public static class PayloadOnlyPacket implements Packet {
 
         private final String id;
         private final byte[] payload;
 
-        PayloadOnlyPacket(String id, byte[] payload) {
+        public PayloadOnlyPacket(String id, byte[] payload) {
             this.id = id;
             this.payload = payload;
         }

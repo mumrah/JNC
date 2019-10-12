@@ -80,7 +80,7 @@ public class ConnectedStateHandler implements StateHandler {
               Command.COMMAND,
               state.getSendStateByte(),
               state.getReceiveStateByte(),
-              false,
+              true,
               pendingIFrame.getProtocol(),
               pendingIFrame.getInfo());
           outgoingPackets.accept(iFrame);
@@ -114,10 +114,10 @@ public class ConnectedStateHandler implements StateHandler {
         outgoingPackets.accept(ua);
         StateHelper.clearExceptionConditions(state);
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.F));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.F));
         if(state.getSendState() == state.getAcknowledgeState()) {
           state.clearIFrames();
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         }
         state.reset();
         newState = State.CONNECTED;
@@ -128,7 +128,7 @@ public class ConnectedStateHandler implements StateHandler {
         boolean finalFlag = ((UFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, finalFlag);
         outgoingPackets.accept(ua);
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
         newState = State.DISCONNECTED;
@@ -136,7 +136,7 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case AX25_UA: {
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.C));
         StateHelper.establishDataLink(state, outgoingPackets);
         // Clear layer 3
         newState = State.AWAITING_CONNECTION;
@@ -144,8 +144,8 @@ public class ConnectedStateHandler implements StateHandler {
       }
       case AX25_DM: {
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.E));
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.E));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         state.clearIFrames();
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
@@ -239,7 +239,7 @@ public class ConnectedStateHandler implements StateHandler {
           }
         } else {
           state.sendDataLinkPrimitive(DataLinkPrimitive
-              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.S));
+              .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.S));
           // Discard this frame
           newState = State.CONNECTED;
         }

@@ -17,7 +17,8 @@ import net.tarpn.packet.impl.ax25.UIFrame;
 public class StateHelper {
 
   public static void nrErrorRecovery(AX25State state, Consumer<AX25Packet> packetConsumer) {
-    state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(state.getRemoteNodeCall(), ErrorType.J));
+    state.sendDataLinkPrimitive(DataLinkPrimitive.newErrorResponse(
+            state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.J));
     establishDataLink(state, packetConsumer);
     // clear layer 3 init
   }
@@ -87,7 +88,7 @@ public class StateHelper {
     } else {
       if(sFrame.getCommand().equals(Command.RESPONSE) && sFrame.isPollOrFinalSet()) {
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.A));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.A));
 
       }
     }
@@ -99,7 +100,7 @@ public class StateHelper {
       state.sendDataLinkPrimitive(DataLinkPrimitive.newUnitDataIndication(uiFrame));
     } else {
       state.sendDataLinkPrimitive(DataLinkPrimitive
-          .newErrorResponse(state.getRemoteNodeCall(), ErrorType.Q));
+          .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.Q));
 
     }
   }

@@ -81,12 +81,12 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_UA: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall(), state.getLocalNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
           state.sendDataLinkPrimitive(DataLinkPrimitive
-              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.D));
+              .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.D));
           newState = State.AWAITING_RELEASE;
         }
         break;
@@ -94,7 +94,7 @@ public class AwaitingReleaseStateHandler implements StateHandler {
       case AX25_DM: {
         UFrame uFrame = (UFrame)packet;
         if(uFrame.isPollFinalSet()) {
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall(), state.getLocalNodeCall()));
           state.getT1Timer().cancel();
           newState = State.DISCONNECTED;
         } else {
@@ -113,8 +113,8 @@ public class AwaitingReleaseStateHandler implements StateHandler {
           newState = State.AWAITING_RELEASE;
         } else {
           state.sendDataLinkPrimitive(DataLinkPrimitive
-              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.H));
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall()));
+              .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.H));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectConfirmation(state.getRemoteNodeCall(), state.getLocalNodeCall()));
           newState = State.DISCONNECTED;
         }
         break;

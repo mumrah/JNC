@@ -17,7 +17,7 @@ should be dropped.
 
 
 
-
+socat -d -d PTY,raw,echo=1,link=/tmp/vmodem0 PTY,raw,echo=0,link=/tmp/vmodem1
 
 
 ```

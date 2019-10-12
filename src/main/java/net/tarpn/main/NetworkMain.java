@@ -1,10 +1,7 @@
 package net.tarpn.main;
 
 import net.tarpn.config.impl.Configs;
-import net.tarpn.network.NetworkManager;
 import net.tarpn.network.NetworkManager2;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +12,8 @@ public class NetworkMain {
     Configs configs = Configs.read(args[0]);
 
     String level = configs.getNodeConfig().getString("log.level", "info");
-    Level rootLevel = Level.getLevel(level.toUpperCase());
-    Configurator.setRootLevel(rootLevel);
+    //Level rootLevel = Level.getLevel(level.toUpperCase());
+    //Configurator.setRootLevel(rootLevel);
 
     NetworkManager2 networkManager = NetworkManager2.create(configs.getNetRomConfig());
     configs.getPortConfigs().forEach(

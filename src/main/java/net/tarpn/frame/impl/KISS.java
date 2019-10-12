@@ -31,7 +31,7 @@ public class KISS {
     }
 
     public boolean equalsTo(byte other) {
-      return other == (byte)value;
+      return (other & 0xFF) == (value & 0xFF);
     }
   }
 

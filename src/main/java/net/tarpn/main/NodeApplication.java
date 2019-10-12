@@ -1,6 +1,5 @@
 package net.tarpn.main;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import net.tarpn.network.NetworkManager;
@@ -27,7 +26,7 @@ public class NodeApplication {
     if(commandEquals(command, "C", "CONNECT")) {
       String address = tokens[1];
       // TODO lookup call from alias in routing table
-      AX25Call call = AX25Call.fromString(address);
+      AX25Call call = AX25Call.create(address);
       socket = network.open(call);
       int attempts = 0;
       LOG.debug("Attempting to connecting to " + call);

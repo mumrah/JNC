@@ -104,10 +104,10 @@ public class TimerRecoveryStateHandler implements StateHandler {
           LOG.warn("L2 retries exceeded, disconnecting.");
           if(state.getAcknowledgeState() == state.getSendState()) {
             state.sendDataLinkPrimitive(DataLinkPrimitive
-                .newErrorResponse(state.getRemoteNodeCall(), ErrorType.U));
+                .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.U));
           } else {
             state.sendDataLinkPrimitive(DataLinkPrimitive
-                .newErrorResponse(state.getRemoteNodeCall(), ErrorType.I));
+                .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.I));
           }
           state.internalDisconnectRequest();
           state.clearIFrames(); // TODO check on these
@@ -124,10 +124,10 @@ public class TimerRecoveryStateHandler implements StateHandler {
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, isFinalSet);
         outgoingPackets.accept(ua);
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.F));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.F));
         if(!ByteUtil.equals(state.getSendStateByte(), state.getAcknowledgeStateByte())) {
           state.clearIFrames();
-          state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall()));
+          state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         }
         state.reset();
         state.getT3Timer().start();
@@ -196,7 +196,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
         boolean isFinalSet = ((UnnumberedFrame) packet).isPollFinalSet();
         UFrame ua = UFrame.create(packet.getSourceCall(), packet.getDestCall(), Command.RESPONSE, ControlType.UA, isFinalSet);
         outgoingPackets.accept(ua);
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
         newState = State.DISCONNECTED;
@@ -204,7 +204,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
       }
       case AX25_UA: {
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.C));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.C));
         StateHelper.establishDataLink(state, outgoingPackets);
         // clear layer 3
         newState = State.AWAITING_CONNECTION;
@@ -228,8 +228,8 @@ public class TimerRecoveryStateHandler implements StateHandler {
       }
       case AX25_DM: {
         state.sendDataLinkPrimitive(DataLinkPrimitive
-            .newErrorResponse(state.getRemoteNodeCall(), ErrorType.E));
-        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall()));
+            .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.E));
+        state.sendDataLinkPrimitive(DataLinkPrimitive.newDisconnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         state.clearIFrames();
         state.getT1Timer().cancel();
         state.getT3Timer().cancel();
@@ -285,7 +285,7 @@ public class TimerRecoveryStateHandler implements StateHandler {
           }
         } else {
           state.sendDataLinkPrimitive(DataLinkPrimitive
-              .newErrorResponse(state.getRemoteNodeCall(), ErrorType.S));
+              .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.S));
           // Discard this frame
           newState = State.TIMER_RECOVERY;
         }

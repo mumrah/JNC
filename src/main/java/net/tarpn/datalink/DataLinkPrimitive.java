@@ -15,79 +15,85 @@ import java.util.Objects;
 public class DataLinkPrimitive {
 
   private final AX25Call remoteCall;
+  private final AX25Call localCall;
   private final Type type;
   private final boolean isConfirmation;
   private final HasInfo linkInfo;
   private final ErrorType error;
   private int port = -1;
 
-  private DataLinkPrimitive(AX25Call remoteCall, Type type, boolean isConfirmation,
+  private DataLinkPrimitive(AX25Call remoteCall, AX25Call localCall, Type type, boolean isConfirmation,
                             HasInfo linkInfo, ErrorType error) {
     this.remoteCall = remoteCall;
+    this.localCall = localCall;
     this.type = type;
     this.isConfirmation = isConfirmation;
     this.linkInfo = linkInfo;
     this.error = error;
   }
 
-  public DataLinkPrimitive copyOf(AX25Call newCall) {
-    return new DataLinkPrimitive(newCall, this.type, this.isConfirmation, this.linkInfo, this.error);
+  public DataLinkPrimitive copyOf(AX25Call newRemoteCall) {
+    return new DataLinkPrimitive(newRemoteCall, this.localCall, this.type, this.isConfirmation, this.linkInfo, this.error);
   }
 
-  public static DataLinkPrimitive newConnectRequest(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
+  public static DataLinkPrimitive newConnectRequest(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectRequest(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
+  public static DataLinkPrimitive newDisconnectRequest(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
+  public static DataLinkPrimitive newDataRequest(AX25Call destCall, AX25Call localCall, Protocol protocol, byte[] data) {
     //InternalInfo iFrame = new InternalInfo(protocol, data, FrameType.I);
     LinkInfo iFrame = new LinkInfo(protocol, data);
-    return new DataLinkPrimitive(destCall, Type.DL_DATA, false, iFrame, ErrorType.NONE);
+    return new DataLinkPrimitive(destCall, localCall, Type.DL_DATA, false, iFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newUnitDataRequest(AX25Call destCall, Protocol protocol, byte[] data) {
+  public static DataLinkPrimitive newUnitDataRequest(AX25Call destCall, AX25Call localCall, Protocol protocol, byte[] data) {
     //InternalInfo uiFrame = new InternalInfo(protocol, data, FrameType.UI);
     LinkInfo uiFrame = new LinkInfo(protocol, data);
-    return new DataLinkPrimitive(destCall, Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
+    return new DataLinkPrimitive(destCall, localCall, Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newConnectIndication(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
+  public static DataLinkPrimitive newConnectIndication(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_CONNECT, false, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectIndication(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
+  public static DataLinkPrimitive newDisconnectIndication(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_DISCONNECT, false, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newConnectConfirmation(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_CONNECT, true, null, ErrorType.NONE);
+  public static DataLinkPrimitive newConnectConfirmation(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_CONNECT, true, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDisconnectConfirmation(AX25Call remoteCall) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_DISCONNECT, true, null, ErrorType.NONE);
+  public static DataLinkPrimitive newDisconnectConfirmation(AX25Call remoteCall, AX25Call localCall) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_DISCONNECT, true, null, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newDataIndication(AX25Call remoteCall, Protocol protocol, byte[] info) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_DATA, false, new LinkInfo(protocol, info), ErrorType.NONE);
+  public static DataLinkPrimitive newDataIndication(AX25Call remoteCall, AX25Call localCall, Protocol protocol, byte[] info) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_DATA, false, new LinkInfo(protocol, info), ErrorType.NONE);
   }
 
   public static DataLinkPrimitive newDataIndication(IFrame iFrame) {
-    return new DataLinkPrimitive(iFrame.getSourceCall(), Type.DL_DATA, false, iFrame, ErrorType.NONE);
+    return new DataLinkPrimitive(iFrame.getSourceCall(), iFrame.getDestCall(), Type.DL_DATA, false, iFrame, ErrorType.NONE);
   }
 
   public static DataLinkPrimitive newUnitDataIndication(UIFrame uiFrame) {
-    return new DataLinkPrimitive(uiFrame.getSourceCall(), Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
+    return new DataLinkPrimitive(uiFrame.getSourceCall(), uiFrame.getDestCall(), Type.DL_UNIT_DATA, false, uiFrame, ErrorType.NONE);
   }
 
-  public static DataLinkPrimitive newErrorResponse(AX25Call remoteCall, ErrorType error) {
-    return new DataLinkPrimitive(remoteCall, Type.DL_ERROR, false, null, error);
+  public static DataLinkPrimitive newErrorResponse(AX25Call remoteCall, AX25Call localCall, ErrorType error) {
+    return new DataLinkPrimitive(remoteCall, localCall, Type.DL_ERROR, false, null, error);
   }
 
   public AX25Call getRemoteCall() {
     return remoteCall;
+  }
+
+  public AX25Call getLocalCall() {
+    return localCall;
   }
 
   public Type getType() {
@@ -118,10 +124,11 @@ public class DataLinkPrimitive {
   public String toString() {
     return "DataLinkPrimitive{" +
         "remoteCall=" + remoteCall +
-        ", port=" + port +
+        ", localCall=" + localCall +
         ", type=" + type +
-        ", isConfirmation=" + isConfirmation +
         ", info=" + getLinkInfo() +
+        ", port=" + port +
+        ", isConfirmation=" + isConfirmation +
         ", error=" + getError() +
         '}';
   }
@@ -133,6 +140,7 @@ public class DataLinkPrimitive {
     DataLinkPrimitive that = (DataLinkPrimitive) o;
     return isConfirmation == that.isConfirmation &&
             Objects.equals(remoteCall, that.remoteCall) &&
+            Objects.equals(localCall, that.localCall) &&
             type == that.type &&
             Objects.equals(linkInfo, that.linkInfo) &&
             error == that.error;
@@ -140,7 +148,7 @@ public class DataLinkPrimitive {
 
   @Override
   public int hashCode() {
-    return Objects.hash(remoteCall, type, isConfirmation, linkInfo, error);
+    return Objects.hash(remoteCall, localCall, type, isConfirmation, linkInfo, error);
   }
 
 

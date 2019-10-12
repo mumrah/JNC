@@ -39,8 +39,6 @@ import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
 import net.tarpn.packet.impl.ax25.AX25StateEvent;
 import net.tarpn.packet.impl.ax25.AX25StateMachine;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +65,6 @@ public class DataLinkManager {
   private final Object portLock = new Object();
   private final ScheduledExecutorService executorService;
 
-  private final Map<AX25Call, DataLinkSession> attachedSessions;
   private final Map<AX25Call, Consumer<DataLinkPrimitive>> linkPrimitiveConsumers;
 
   private IOException fault;
@@ -83,7 +80,6 @@ public class DataLinkManager {
     this.dataPort = dataPort;
     this.outboundPackets = new ConcurrentLinkedQueue<>();
     this.pCapDumpFrameHandler = new PCapDumpFrameHandler();
-    this.attachedSessions = new HashMap<>();
     this.linkPrimitiveConsumers = new HashMap<>();
     this.ax25StateHandler = new AX25StateMachine(portConfig, outboundPackets::add, linkPrimitive -> {
       dataLinkEvents.accept(linkPrimitive);
@@ -129,8 +125,8 @@ public class DataLinkManager {
     );
 
     String level = config.getString("log.level", "info");
-    Level dataLinkLevel = Level.getLevel(level.toUpperCase());
-    Configurator.setLevel(DataLinkManager.class.getName(), dataLinkLevel);
+    //Level dataLinkLevel = Level.getLevel(level.toUpperCase());
+    //Configurator.setLevel(DataLinkManager.class.getName(), dataLinkLevel);
 
     try {
       port.open();
@@ -144,7 +140,7 @@ public class DataLinkManager {
       LOG.info("Sending automatic ID message on " + port);
      manager.getAx25StateHandler().getEventQueue().add(
           AX25StateEvent.createUnitDataEvent(
-              AX25Call.create("ID"),
+              AX25Call.create("ID", 0),
               Protocol.NO_LAYER3,
               config.getIdMessage().getBytes(StandardCharsets.US_ASCII)));
     }, 5, config.getIdInterval(), TimeUnit.SECONDS);
@@ -224,13 +220,6 @@ public class DataLinkManager {
       default:
         break;
     }
-  }
-
-  public DataLinkSession attach(AX25Call remoteCall, Consumer<DataLinkPrimitive> sessionConsumer) {
-    return attachedSessions.computeIfAbsent(remoteCall, newSessionId -> {
-      linkPrimitiveConsumers.put(remoteCall, sessionConsumer);
-      return new DataLinkSession(remoteCall, this);
-    });
   }
 
   public AX25StateMachine getAx25StateHandler() {

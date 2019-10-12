@@ -12,7 +12,7 @@ public class NodeConfigImpl extends BaseConfig implements NodeConfig {
 
   @Override
   public AX25Call getNodeCall() {
-    return AX25Call.fromString(getString("node.call"));
+    return AX25Call.create(getString("node.call"));
   }
 
   @Override

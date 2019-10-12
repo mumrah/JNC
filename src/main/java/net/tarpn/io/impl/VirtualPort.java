@@ -83,7 +83,23 @@ public class VirtualPort implements DataPort {
 
   @Override
   public OutputStream getOutputStream() {
-    return outputStream;
+    return new FilterOutputStream(outputStream) {
+      @Override
+      public void write(byte[] b) throws IOException {
+        try {
+          Thread.sleep(200);
+          super.write(b);
+          super.flush();
+        } catch (InterruptedException e) {
+          throw new IOException("Got interrupted while delaying");
+        }
+      }
+
+      @Override
+      public void flush() throws IOException {
+        // No op
+      }
+    };
   }
 
   @Override

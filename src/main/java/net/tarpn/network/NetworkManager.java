@@ -63,7 +63,7 @@ public class NetworkManager {
     this.router = new NetRomRoutingTable(netromConfig, portNum -> dataPorts.get(portNum).getPortConfig(), neighbor -> {});
 
     NetRomRouter packetRouter = netRomPacket ->
-        route(DataLinkPrimitive.newDataRequest(netRomPacket.getDestNode(), Protocol.NETROM, netRomPacket.getPayload()));
+        route(DataLinkPrimitive.newDataRequest(netRomPacket.getDestNode(), netRomPacket.getOriginNode(), Protocol.NETROM, netRomPacket.getPayload()));
     this.circuitManager = new NetRomCircuitManager(netromConfig, packetRouter, event -> {
       // Every network event comes in here
       LOG.info("Got L3 event: " + event);
@@ -118,7 +118,7 @@ public class NetworkManager {
       DataLinkManager portManager = dataPorts.get(routePort);
       AX25State state = portManager.getAx25StateHandler().getState(route);
       if(state.getState().equals(State.DISCONNECTED)) {
-        portManager.acceptDataLinkPrimitive(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall()));
+        portManager.acceptDataLinkPrimitive(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall(), netromConfig.getNodeCall()));
       }
       // Change the dest address to the neighbor and send it
       DataLinkPrimitive readdressed = level2Primitive.copyOf(neighbor.getNodeCall());
@@ -168,7 +168,7 @@ public class NetworkManager {
       for(DataLinkManager portManager : dataPorts.values()) {
         LOG.info("Sending automatic NODES message on " + portManager.getDataPort() + ": " + nodes);
         portManager.getAx25StateHandler().getEventQueue().add(
-            AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES"), Protocol.NETROM, nodesData));
+            AX25StateEvent.createUnitDataEvent(AX25Call.create("NODES", 0), Protocol.NETROM, nodesData));
         //Thread.sleep(2000); // Slight delay between broadcasts
       }
     }, 15, netromConfig.getNodesInterval(), TimeUnit.SECONDS);

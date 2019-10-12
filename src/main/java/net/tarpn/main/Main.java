@@ -7,7 +7,6 @@ import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;
 import net.tarpn.network.NetworkManager;
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
 
 public class Main {
   public static void main(String[] args) throws IOException {
@@ -16,8 +15,7 @@ public class Main {
 
     String level = config.getNodeConfig().getString("log.level", "info");
     Level rootLevel = Level.getLevel(level.toUpperCase());
-    Configurator.setRootLevel(rootLevel);
-
+    //Configurator.setRootLevel(rootLevel);
     if(config.getNodeConfig().getBoolean("network.enabled", true)) {
       NetworkManager networkManager = NetworkManager.create(config.getNetRomConfig());
       config.getPortConfigs().forEach(
