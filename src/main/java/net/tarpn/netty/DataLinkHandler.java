@@ -3,6 +3,7 @@ package net.tarpn.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import net.tarpn.datalink.DataLinkPrimitive;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.util.Util;
 import org.slf4j.Logger;
@@ -11,14 +12,21 @@ import org.slf4j.MDC;
 
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class DataLinkHandler extends MessageToMessageDecoder<DataLinkPrimitive> {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataLinkHandler.class);
 
+    Map<AX25Call, Queue<DataLinkPrimitive>> incomingL2Events;
     Queue<DataLinkPrimitive> l2Events = new ArrayDeque<>();
+
+    public DataLinkHandler(Map<AX25Call, Queue<DataLinkPrimitive>> incomingL2Events) {
+        this.incomingL2Events = incomingL2Events;
+    }
 
     public void pushL2Event(DataLinkPrimitive l2Event) {
         l2Events.offer(l2Event);
@@ -28,6 +36,7 @@ public class DataLinkHandler extends MessageToMessageDecoder<DataLinkPrimitive> 
     protected void decode(ChannelHandlerContext ctx, DataLinkPrimitive msg, List<Object> out) throws Exception {
 
         LOG.info("DL: " + msg);
+        incomingL2Events.computeIfAbsent(msg.getRemoteCall(), __ -> new ArrayDeque<>()).offer(msg);
         switch (msg.getType()) {
             case DL_CONNECT:
                 //ctx.channel().eventLoop().register();

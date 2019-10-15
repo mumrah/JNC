@@ -1,9 +1,7 @@
 package net.tarpn.netty;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.flow.FlowControlHandler;
 import net.tarpn.config.PortConfig;
 import net.tarpn.config.impl.PortConfigImpl;
 import net.tarpn.datalink.DataLinkPrimitive;
@@ -14,9 +12,7 @@ import org.apache.commons.configuration2.MapConfiguration;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,10 +54,10 @@ public class AX25PacketDecoderTest {
         config2.put("node.call", call2.toString());
         PortConfig portConfig2 = new PortConfigImpl(0, new MapConfiguration(config2));
 
-        LocalServer server1 = new LocalServer();
+        Node server1 = new Node();
         server1.run(portConfig1);
 
-        LocalServer server2 = new LocalServer();
+        Node server2 = new Node();
         server1.run(portConfig2);
     }
 
@@ -87,7 +83,7 @@ public class AX25PacketDecoderTest {
             .addLast(new AX25PacketEncoder())
             .addLast(new AX25PacketDecoder())
             .addLast(new AX25Handler(portConfig1))
-            .addLast(new DataLinkHandler());
+            .addLast(new DataLinkHandler(null));
         ch1.attr(Attributes.PortNumber).set(1);
         ch1.attr(Attributes.NodeCall).set(call1);
 
@@ -100,7 +96,7 @@ public class AX25PacketDecoderTest {
             .addLast(new AX25PacketEncoder())
             .addLast(new AX25PacketDecoder())
             .addLast(new AX25Handler(portConfig2))
-            .addLast(new DataLinkHandler());
+            .addLast(new DataLinkHandler(null));
         ch2.attr(Attributes.PortNumber).set(2);
         ch2.attr(Attributes.NodeCall).set(call2);
 

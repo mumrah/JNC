@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// TODO no need for this class here, move to AX25StateHadler
 public class AX25 {
 
     public static final Map<AX25State.State, StateHandler> handlers = new HashMap<>();
@@ -20,6 +21,4 @@ public class AX25 {
         handlers.put(AX25State.State.TIMER_RECOVERY, new TimerRecoveryStateHandler());
         handlers.put(AX25State.State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
     }
-
-
 }

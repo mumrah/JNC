@@ -1,7 +1,8 @@
 package net.tarpn.main;
 
+import net.tarpn.config.Configs;
 import net.tarpn.config.PortConfig;
-import net.tarpn.config.impl.Configs;
+import net.tarpn.config.impl.ConfigsImpl;
 import net.tarpn.datalink.DataLink;
 import net.tarpn.io.impl.PortFactory;
 

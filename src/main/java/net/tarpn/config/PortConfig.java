@@ -7,6 +7,10 @@ public interface PortConfig extends Configuration, NodeConfig {
 
     String getPortType();
 
+    default String getPortDescription() {
+        return getString("port.description");
+    }
+
     String getSerialDevice();
 
     int getSerialSpeed();

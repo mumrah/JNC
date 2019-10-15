@@ -2,6 +2,7 @@ package net.tarpn.netty.serial;
 
 import com.fazecast.jSerialComm.SerialPort;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.oio.OioByteStreamChannel;
 
@@ -44,6 +45,7 @@ public class SerialChannel extends OioByteStreamChannel {
     public SerialChannel() {
         super(null);
         config = new DefaultSerialChannelConfig(this);
+        config.setWaitTimeMillis(1000);
     }
 
     @Override
@@ -66,19 +68,18 @@ public class SerialChannel extends OioByteStreamChannel {
         SerialDeviceAddress remote = (SerialDeviceAddress) remoteAddress;
         SerialPort port = SerialPort.getCommPort(remote.value());
         port.setBaudRate(config().getBaudrate());
+        // TODO configure these timeouts
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 0);
+        port.openPort(100);
 
-        // TODO timeouts
         deviceAddress = remote;
         serialPort = port;
-        serialPort.openPort();
-        while (true) {
-            if (serialPort.getInputStream() != null) {
-                break;
-            }
-        }
     }
 
     protected void doInit() throws Exception {
+        if (!serialPort.isOpen()) {
+            throw new Exception("Serial Port " + serialPort.getDescriptivePortName() + " is not open");
+        }
         // TODO other settings
         FilterInputStream inputStream = new FilterInputStream(serialPort.getInputStream()) {
 
@@ -170,7 +171,7 @@ public class SerialChannel extends OioByteStreamChannel {
                 final boolean wasActive = isActive();
                 doConnect(remoteAddress, localAddress);
 
-                int waitTime = config().getWaitTimeMillis();
+                int waitTime = config().getOption(SerialChannelOption.WAIT_TIME);
                 if (waitTime > 0) {
                     eventLoop().schedule(() -> {
                         try {

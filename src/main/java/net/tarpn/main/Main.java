@@ -1,7 +1,9 @@
 package net.tarpn.main;
 
 import java.io.IOException;
-import net.tarpn.config.impl.Configs;
+
+import net.tarpn.config.Configs;
+import net.tarpn.config.impl.ConfigsImpl;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.io.DataPort;
 import net.tarpn.io.impl.PortFactory;

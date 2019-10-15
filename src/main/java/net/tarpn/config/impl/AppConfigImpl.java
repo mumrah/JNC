@@ -7,7 +7,7 @@ public class AppConfigImpl extends NodeConfigImpl implements AppConfig {
 
     private final String appName;
 
-    AppConfigImpl(String appName, Configuration delegate) {
+    public AppConfigImpl(String appName, Configuration delegate) {
         super(delegate);
         this.appName = appName;
     }

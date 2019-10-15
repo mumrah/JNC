@@ -17,4 +17,4 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
-mainClassName = 'net.tarpn.main.DataLinkMain'
+mainClassName = 'net.tarpn.netty.Node'

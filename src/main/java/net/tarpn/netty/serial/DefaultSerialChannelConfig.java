@@ -3,6 +3,11 @@ package net.tarpn.netty.serial;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
 
+import java.util.Map;
+
+import static net.tarpn.netty.serial.SerialChannelOption.WAIT_TIME;
+
+
 public class DefaultSerialChannelConfig extends DefaultChannelConfig implements SerialChannelConfig {
     private volatile int baudrate = 115200;
     private volatile boolean dtr;
@@ -17,6 +22,31 @@ public class DefaultSerialChannelConfig extends DefaultChannelConfig implements 
         super(channel);
         setAllocator(new PreferHeapByteBufAllocator(getAllocator()));
     }
+
+    @Override
+    public Map<ChannelOption<?>, Object> getOptions() {
+        return getOptions(super.getOptions(), WAIT_TIME);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getOption(ChannelOption<T> option) {
+        if (option == WAIT_TIME) {
+            return (T) Integer.valueOf(getWaitTimeMillis());
+        }
+        return super.getOption(option);
+    }
+
+    @Override
+    public <T> boolean setOption(ChannelOption<T> option, T value) {
+        validate(option, value);
+
+        if (option == WAIT_TIME) {
+            setWaitTimeMillis((Integer) value);
+        }
+        return true;
+    }
+
 
     @Override
     public SerialChannelConfig setBaudrate(int baudrate) {

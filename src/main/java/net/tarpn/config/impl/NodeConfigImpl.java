@@ -6,7 +6,7 @@ import org.apache.commons.configuration2.Configuration;
 
 public class NodeConfigImpl extends BaseConfig implements NodeConfig {
 
-  NodeConfigImpl(Configuration delegate) {
+  public NodeConfigImpl(Configuration delegate) {
     super(delegate);
   }
 

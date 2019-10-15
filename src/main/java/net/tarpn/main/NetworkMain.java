@@ -1,6 +1,7 @@
 package net.tarpn.main;
 
-import net.tarpn.config.impl.Configs;
+import net.tarpn.config.Configs;
+import net.tarpn.config.impl.ConfigsImpl;
 import net.tarpn.network.NetworkManager2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

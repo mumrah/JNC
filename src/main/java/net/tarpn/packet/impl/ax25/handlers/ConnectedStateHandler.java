@@ -80,7 +80,7 @@ public class ConnectedStateHandler implements StateHandler {
               Command.COMMAND,
               state.getSendStateByte(),
               state.getReceiveStateByte(),
-              true,
+              false,
               pendingIFrame.getProtocol(),
               pendingIFrame.getInfo());
           outgoingPackets.accept(iFrame);

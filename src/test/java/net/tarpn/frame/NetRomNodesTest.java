@@ -3,7 +3,9 @@ package net.tarpn.frame;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import net.tarpn.config.impl.Configs;
+
+import net.tarpn.config.Configs;
+import net.tarpn.config.impl.ConfigsImpl;
 import net.tarpn.network.netrom.NetRomNodes;
 import net.tarpn.network.netrom.NetRomRoutingTable;
 import net.tarpn.packet.impl.AX25PacketReader;
@@ -20,7 +22,7 @@ public class NetRomNodesTest {
         //"data/doug-nodes.bin"
     };
 
-    Configs configs = Configs.read("conf/sample.ini");
+    Configs configs = ConfigsImpl.read("conf/sample.ini");
     NetRomRoutingTable router = new NetRomRoutingTable(configs.getNetRomConfig(),
             portNum -> configs.getPortConfigs().get(portNum), neighbor -> {});
 

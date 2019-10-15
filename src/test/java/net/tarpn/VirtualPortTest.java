@@ -1,7 +1,8 @@
 package net.tarpn;
 
 import net.tarpn.app.*;
-import net.tarpn.config.impl.Configs;
+import net.tarpn.config.Configs;
+import net.tarpn.config.impl.ConfigsImpl;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkManager;
 import net.tarpn.io.socket.SocketDataPortServer;
@@ -28,7 +29,7 @@ public class VirtualPortTest {
 
     @Test
     public void test() throws Exception {
-        Configs configs = Configs.read(ClassLoader.getSystemResourceAsStream("loopback1.ini"));
+        Configs configs = ConfigsImpl.read(ClassLoader.getSystemResourceAsStream("loopback1.ini"));
         PortConfig portConfig1 = configs.getPortConfigs().get(99);
 
         //DataPort port1 = PortFactory.createPortFromConfig(portConfig1);
@@ -43,7 +44,7 @@ public class VirtualPortTest {
         //networkManager1.start();
 
 
-        configs = Configs.read(ClassLoader.getSystemResourceAsStream("loopback2.ini"));
+        configs = ConfigsImpl.read(ClassLoader.getSystemResourceAsStream("loopback2.ini"));
         PortConfig portConfig2 = configs.getPortConfigs().get(100);
         //DataPort port2 = PortFactory.createPortFromConfig(portConfig2);
         //DataLinkManager dataLinkManager2 = DataLinkManager.create(portConfig2, port2, l2events2::add, System.err::println);
