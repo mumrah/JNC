@@ -7,6 +7,7 @@ import net.tarpn.config.Configs;
 import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.netty.ax25.DataLinkChannel;
 import net.tarpn.netty.ax25.DataLinkMultiplexer;
+import net.tarpn.netty.ax25.Multiplexer;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import org.slf4j.Logger;
@@ -21,11 +22,13 @@ public class SysopApplicationHandler implements Application {
     private static final Logger LOG = LoggerFactory.getLogger(SysopApplicationHandler.class);
 
     private final Configs configs;
+    private final Multiplexer multiplexer;
     private DataLinkChannel channel;
     private AX25Call remoteCall;
 
-    public SysopApplicationHandler(Configs configs) {
+    public SysopApplicationHandler(Configs configs, Multiplexer multiplexer) {
         this.configs = configs;
+        this.multiplexer = multiplexer;
     }
 
     @Override
@@ -39,7 +42,7 @@ public class SysopApplicationHandler implements Application {
 
     @Override
     public void onDisconnect(Context context) {
-
+        context.close();
     }
 
     @Override
@@ -58,12 +61,12 @@ public class SysopApplicationHandler implements Application {
         if (channel == null) {
             // when connected, pass data through as info frames
             if (command.equals("?") || command.equalsIgnoreCase("HELP")) {
-                context.write("HELP: here is some help output.\r\n");
+                context.write("HELP: here is some help output.");
                 context.flush();
             } else if (command.equalsIgnoreCase("C") || command.equalsIgnoreCase("CONNECT")) {
                 int port = Integer.parseInt(tokens[1]);
                 AX25Call remoteCall = AX25Call.create(tokens[2]);
-                this.channel = DataLinkMultiplexer.connect(port, remoteCall, primitive -> {
+                this.channel = multiplexer.connect(port, remoteCall, primitive -> {
                     // Handle DL events and write to application output
                     switch (primitive.getType()) {
                         case DL_CONNECT:

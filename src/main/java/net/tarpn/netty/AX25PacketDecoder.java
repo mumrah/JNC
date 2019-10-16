@@ -19,10 +19,10 @@ public class AX25PacketDecoder extends MessageToMessageDecoder<KISSFrame> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, KISSFrame msg, List<Object> out) throws Exception {
-        LOG.info("Decode AX25: " + msg);
-
         if (msg.getKissCommand().equals(KISS.Command.Data)) {
             AX25Packet packet = AX25PacketReader.parse(msg.getData());
+            int port = ctx.channel().attr(Attributes.PortNumber).get();
+            LOG.info("> " + packet.toLogString(port));
             out.add(packet);
         } else {
             LOG.warn("Unexpected KISS: " + msg);

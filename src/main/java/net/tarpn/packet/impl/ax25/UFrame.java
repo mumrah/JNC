@@ -65,6 +65,11 @@ public class UFrame extends BaseAX25Packet implements AX25Packet.UnnumberedFrame
   }
 
   @Override
+  public String toLogString(int port) {
+    return getSource() + ">" + getDestination() + " Port=" + port + " " + getControlType() + " P/F=" + (isPollFinalSet() ? 1 : 0);
+  }
+
+  @Override
   public FrameType getFrameType() {
     return FrameType.U;
   }

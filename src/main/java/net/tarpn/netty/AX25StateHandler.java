@@ -1,32 +1,48 @@
 package net.tarpn.netty;
 
-import io.netty.channel.*;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.internal.TypeParameterMatcher;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.netty.ax25.DataLinkMultiplexer;
+import net.tarpn.netty.app.Application;
+import net.tarpn.netty.app.SysopApplicationHandler;
+import net.tarpn.netty.ax25.Multiplexer;
 import net.tarpn.netty.ax25.PortChannel;
 import net.tarpn.packet.impl.ax25.*;
-import net.tarpn.packet.impl.ax25.handlers.StateHandler;
+import net.tarpn.packet.impl.ax25.handlers.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 // Check out IdleStateHandler
 public class AX25StateHandler extends ChannelInboundHandlerAdapter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AX25Handler.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AX25StateHandler.class);
 
+    private final Map<AX25State.State, StateHandler> handlers = new HashMap<>();
+    private final Map<AX25Call, AX25State> sessions = new ConcurrentHashMap<>();
+    private final Queue<AX25StateEvent> internalStateEvents = new ArrayDeque<>();
     private final PortConfig portConfig;
+    private final Multiplexer multiplexer;
+
     private PortChannel portChannel;
 
-    Queue<AX25StateEvent> internalStateEvents = new ArrayDeque<>();
-
-    public AX25StateHandler(PortConfig portConfig) {
+    public AX25StateHandler(PortConfig portConfig, Multiplexer multiplexer) {
         this.portConfig = portConfig;
+        this.multiplexer = multiplexer;
+        this.handlers.put(AX25State.State.DISCONNECTED, new DisconnectedStateHandler());
+        this.handlers.put(AX25State.State.CONNECTED, new ConnectedStateHandler());
+        this.handlers.put(AX25State.State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
+        this.handlers.put(AX25State.State.TIMER_RECOVERY, new TimerRecoveryStateHandler());
+        this.handlers.put(AX25State.State.AWAITING_RELEASE, new AwaitingReleaseStateHandler());
     }
 
     /**
@@ -36,7 +52,7 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         TypeParameterMatcher matcher = TypeParameterMatcher.get(AX25Packet.class);
         if (matcher.match(msg)) {
-            LOG.info("AX25 read: " + msg);
+            LOG.debug("AX25 read: " + msg);
             AX25StateEvent event = toEvent((AX25Packet) msg);
             if (event != null) {
                 processStateEvent(ctx, event);
@@ -65,6 +81,14 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
         if (ctx.channel().isActive()) {
             initialize(ctx);
         }
+
+        portChannel = multiplexer.bind(portConfig.getPortNumber(), datalinkPrimitive -> {
+            AX25StateEvent event = toEvent(datalinkPrimitive);
+            if (event != null) {
+                processStateEvent(ctx, event);
+            }
+        });
+
         super.channelRegistered(ctx);
     }
 
@@ -82,14 +106,6 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
         // before channelActive() event is fired.  If a user adds this handler
         // after the channelActive() event, initialize() will be called by beforeAdd().
         initialize(ctx);
-
-        portChannel = DataLinkMultiplexer.bind(portConfig.getPortNumber(), datalinkPrimitive -> {
-            AX25StateEvent event = toEvent(datalinkPrimitive);
-            if (event != null) {
-                processStateEvent(ctx, event);
-            }
-        });
-
         super.channelActive(ctx);
     }
 
@@ -115,7 +131,7 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
      * @param stateEvent
      */
     private void processStateEvent(ChannelHandlerContext ctx, AX25StateEvent stateEvent) {
-        AX25State state = AX25.sessions.computeIfAbsent(stateEvent.getRemoteCall(),
+        AX25State state = sessions.computeIfAbsent(stateEvent.getRemoteCall(),
                 ax25Call -> new AX25State(
                         stateEvent.getRemoteCall().toString(),
                         stateEvent.getRemoteCall(),
@@ -124,24 +140,24 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
                         internalStateEvent -> {
                             // These are events like IFRAME_READY, T1_TIMER, and T3_TIMER
                             // See AX25StateEvent.Type for a full list
-                            LOG.info("Internal State: " + internalStateEvent);
+                            //LOG.info("Internal State: " + internalStateEvent);
                             internalStateEvents.add(internalStateEvent);
                             flushStateEvents(ctx);
 
                         },
                         inboundL2 -> {
-                            LOG.info("Inbound L2: " + inboundL2);
+                            //LOG.info("Inbound L2: " + inboundL2);
                             portChannel.write(inboundL2);
                         }
                 )
         );
-        StateHandler handler = AX25.handlers.get(state.getState());
-        LOG.info("State Before " + stateEvent.getRemoteCall() + ": " + state.getState());
+        StateHandler handler = handlers.get(state.getState());
+        //LOG.info("State Before " + stateEvent.getRemoteCall() + ": " + state.getState());
         AX25State.State newState = handler.onEvent(state, stateEvent, outgoing -> {
             // AX25 packet needs to get written out. This is typically things related
             // to connected mode operation (SABM, UA, RR, etc)
             if (ctx.channel().isWritable()) {
-                LOG.info("Outgoing immediately: " + outgoing);
+                //LOG.info("Outgoing immediately: " + outgoing);
                 ctx.writeAndFlush(outgoing);
             } else {
                 // TODO does this ever happen?
@@ -149,7 +165,7 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
             }
         });
         state.setState(newState);
-        LOG.info("State After  " + stateEvent.getRemoteCall() + ": " + state.getState());
+        //LOG.info("State After  " + stateEvent.getRemoteCall() + ": " + state.getState());
         flushStateEvents(ctx);
     }
 
@@ -161,7 +177,7 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
     private void flushStateEvents(ChannelHandlerContext ctx) {
         AX25StateEvent internalEvent;
         while ((internalEvent = internalStateEvents.poll()) != null) {
-            LOG.info("Internal AX.25 Event: " + internalEvent);
+            //LOG.info("Internal AX.25 Event: " + internalEvent);
             // State event, needs to reprocess
             processStateEvent(ctx, internalEvent);
         }

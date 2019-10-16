@@ -66,8 +66,8 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
             }
 
             @Override
-            public SocketAddress remoteAddress() {
-                return ctx.channel().remoteAddress();
+            public String remoteAddress() {
+                return ctx.channel().remoteAddress().toString();
             }
         };
     }

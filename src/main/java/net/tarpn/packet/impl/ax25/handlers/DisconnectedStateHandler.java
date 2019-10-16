@@ -88,6 +88,7 @@ public class DisconnectedStateHandler implements StateHandler {
         state.sendDataLinkPrimitive(DataLinkPrimitive.newConnectIndication(state.getRemoteNodeCall(), state.getLocalNodeCall()));
         // Set TIV (T initial value?)
         state.getT3Timer().start();
+        /*
         if(!state.getWelcomeMessage().isEmpty()) {
           state.pushIFrame(
               IFrame.create(
@@ -102,6 +103,7 @@ public class DisconnectedStateHandler implements StateHandler {
         } else {
           // TODO warn, no welcome message defined
         }
+        */
         newState = State.CONNECTED;
         break;
       }

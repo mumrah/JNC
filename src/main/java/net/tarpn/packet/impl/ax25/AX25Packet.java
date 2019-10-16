@@ -14,7 +14,12 @@ public interface AX25Packet extends Packet {
   }
 
   AX25Call getDestCall();
+
   AX25Call getSourceCall();
+
+  default String toLogString(int port) {
+    return toString();
+  }
 
   default Command getCommand() {
     boolean destC = getDestCall().isCommandFlagSet();

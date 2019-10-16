@@ -14,7 +14,7 @@ public class KISSFrameEncoder extends MessageToByteEncoder<KISSFrame> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, KISSFrame msg, ByteBuf out) throws Exception {
-        LOG.info("KISS write: " + msg);
+        LOG.trace("KISS write: " + msg);
         out.writeByte(KISS.Protocol.FEND.asByte());
         out.writeByte(((msg.getPort() << 4) & 0xF0) | (msg.getKissCommand().asByte() & 0x0F));
         for (int i = 0; i < msg.getData().length; i++) {

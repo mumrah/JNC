@@ -18,7 +18,8 @@ public class AX25PacketEncoder extends MessageToMessageEncoder<AX25Packet> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, AX25Packet msg, List<Object> out) throws Exception {
-        LOG.info("Encode AX25: " + msg);
+        int port = ctx.channel().attr(Attributes.PortNumber).get();
+        LOG.info("< " + msg.toLogString(port));
         out.add(new KISSFrame(0, KISS.Command.Data, msg.getPayload()));
     }
 }

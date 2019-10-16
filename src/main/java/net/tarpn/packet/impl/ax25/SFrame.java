@@ -73,6 +73,11 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
   }
 
   @Override
+  public String toLogString(int port) {
+    return getSource() + ">" + getDestination() + " Port=" + port + " " + getControlType() + " N(R)=" + getReceiveSequenceNumber();
+  }
+
+  @Override
   public FrameType getFrameType() {
     return FrameType.S;
   }

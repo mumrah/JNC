@@ -18,7 +18,7 @@ public class KISSFrameDecoder extends ByteToMessageDecoder {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        LOG.info("KISS read");
+        LOG.trace("KISS read");
 
         int len = in.readableBytes();
         byte b;

@@ -18,18 +18,23 @@ import net.tarpn.config.Configs;
 import net.tarpn.config.PortConfig;
 import net.tarpn.netty.app.ApplicationInboundHandlerAdaptor;
 import net.tarpn.netty.app.SysopApplicationHandler;
+import net.tarpn.netty.ax25.DataLinkMultiplexer;
 import net.tarpn.netty.serial.SerialChannel;
 import net.tarpn.netty.serial.SerialChannelOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Node {
 
+    private static final Logger LOG = LoggerFactory.getLogger(Node.class);
+
     private final OioEventLoopGroup oioGroup = new OioEventLoopGroup();
     private final EventLoopGroup nioGroup = new NioEventLoopGroup();
 
-    private ChannelFuture createSerialPort(PortConfig portConfig) {
+    private ChannelFuture createSerialPort(PortConfig portConfig, DataLinkMultiplexer multiplexer) {
         Bootstrap b = new Bootstrap();
         b.group(oioGroup)
                 .channel(SerialChannel.class)
@@ -42,7 +47,7 @@ public class Node {
                                 .addLast(new KISSFrameDecoder())
                                 .addLast(new AX25PacketEncoder())
                                 .addLast(new AX25PacketDecoder())
-                                .addLast(new AX25StateHandler(portConfig));
+                                .addLast(new AX25StateHandler(portConfig, multiplexer));
                         ch.attr(Attributes.PortNumber).set(portConfig.getPortNumber());
                         ch.attr(Attributes.NodeCall).set(portConfig.getNodeCall());
                     }
@@ -50,7 +55,7 @@ public class Node {
         return b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice()));
     }
 
-    private ChannelFuture createTelnetPort(Configs allConfigs) {
+    private ChannelFuture createTelnetPort(Configs allConfigs, DataLinkMultiplexer multiplexer) {
         // Telnet server
         ServerBootstrap b = new ServerBootstrap();
         b.group(nioGroup)
@@ -65,7 +70,7 @@ public class Node {
                         p.addLast(new StringDecoder());
                         p.addLast(new StringEncoder());
                         p.addLast(new IdleStateHandler(30, 60, 0));
-                        p.addLast(new ApplicationInboundHandlerAdaptor(new SysopApplicationHandler(allConfigs)));
+                        p.addLast(new ApplicationInboundHandlerAdaptor(new SysopApplicationHandler(allConfigs, multiplexer)));
                     }
                 });
         return b.bind(allConfigs.getNodeConfig().getInt("tcp.port"));
@@ -74,21 +79,22 @@ public class Node {
     public static void main(String[] args) throws Exception {
         System.setProperty("io.netty.noUnsafe", "true");
 
-        Configs k4dbz = Configs.read("src/dist/conf/k4dbz.ini");
-        Configs kn4orb = Configs.read("src/dist/conf/kn4orb.ini");
+        Configs configs = Configs.read(args[0]);
 
         List<ChannelFuture> futures = new ArrayList<>();
 
         Node node = new Node();
-        k4dbz.getPortConfigs().forEach((portNum, portConfig) -> {
-            futures.add(node.createSerialPort(portConfig));
-        });
-        futures.add(node.createTelnetPort(k4dbz));
+        {
+            DataLinkMultiplexer multiplexer = new DataLinkMultiplexer();
+            SysopApplicationHandler sysop = new SysopApplicationHandler(configs, multiplexer);
+            configs.getPortConfigs().forEach((portNum, portConfig) -> {
+                futures.add(node.createSerialPort(portConfig, multiplexer)
+                        .addListener(future -> multiplexer.attach(portNum, sysop)
+                ));
+            });
+            futures.add(node.createTelnetPort(configs, multiplexer));
+        }
 
-        kn4orb.getPortConfigs().forEach((portNum, portConfig) -> {
-            futures.add(node.createSerialPort(portConfig));
-        });
-        futures.add(node.createTelnetPort(kn4orb));
         futures.forEach(channelFuture -> {
             try {
                 channelFuture.sync();
