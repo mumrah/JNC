@@ -1,7 +1,9 @@
 package net.tarpn.netty;
 
+import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import io.netty.util.internal.TypeParameterMatcher;
 import net.tarpn.config.PortConfig;
 import net.tarpn.datalink.DataLinkPrimitive;
@@ -23,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 // Check out IdleStateHandler
-public class AX25StateHandler extends ChannelInboundHandlerAdapter {
+public class AX25StateHandler extends ChannelDuplexHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(AX25StateHandler.class);
 
@@ -31,13 +33,11 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
     private final Map<AX25Call, AX25State> sessions = new ConcurrentHashMap<>();
     private final Queue<AX25StateEvent> internalStateEvents = new ArrayDeque<>();
     private final PortConfig portConfig;
-    private final Multiplexer multiplexer;
 
-    private PortChannel portChannel;
+    //private PortChannel portChannel;
 
-    public AX25StateHandler(PortConfig portConfig, Multiplexer multiplexer) {
+    public AX25StateHandler(PortConfig portConfig) {
         this.portConfig = portConfig;
-        this.multiplexer = multiplexer;
         this.handlers.put(AX25State.State.DISCONNECTED, new DisconnectedStateHandler());
         this.handlers.put(AX25State.State.CONNECTED, new ConnectedStateHandler());
         this.handlers.put(AX25State.State.AWAITING_CONNECTION, new AwaitingConnectionStateHandler());
@@ -62,6 +62,20 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        TypeParameterMatcher matcher = TypeParameterMatcher.get(DataLinkPrimitive.class);
+        if (matcher.match(msg)) {
+            DataLinkPrimitive dl = (DataLinkPrimitive) msg;
+            AX25StateEvent event = toEvent(dl);
+            if (event != null) {
+                processStateEvent(ctx, event);
+            }
+        } else {
+            ctx.write(msg);
+        }
+    }
+
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
@@ -82,21 +96,21 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
             initialize(ctx);
         }
 
-        portChannel = multiplexer.bind(portConfig.getPortNumber(), datalinkPrimitive -> {
+        /*portChannel = multiplexer.bind(portConfig.getPortNumber(), datalinkPrimitive -> {
             AX25StateEvent event = toEvent(datalinkPrimitive);
             if (event != null) {
                 processStateEvent(ctx, event);
             }
-        });
+        });*/
 
         super.channelRegistered(ctx);
     }
 
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        if (portChannel != null) {
+        /*if (portChannel != null) {
             portChannel.close();
-        }
+        }*/
         super.channelUnregistered(ctx);
     }
 
@@ -147,7 +161,8 @@ public class AX25StateHandler extends ChannelInboundHandlerAdapter {
                         },
                         inboundL2 -> {
                             //LOG.info("Inbound L2: " + inboundL2);
-                            portChannel.write(inboundL2);
+                            //portChannel.write(inboundL2);
+                            ctx.fireChannelRead(inboundL2);
                         }
                 )
         );

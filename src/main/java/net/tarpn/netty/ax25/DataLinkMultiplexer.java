@@ -112,7 +112,11 @@ public class DataLinkMultiplexer implements Multiplexer {
                             break;
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    try {
+                        application.onError(appContext, e);
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
                 }
             };
 

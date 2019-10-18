@@ -26,6 +26,11 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
     }
 
     @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        application.onDisconnect(adaptContext(ctx));
+    }
+
+    @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         ctx.flush();
     }
@@ -41,7 +46,7 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
             IdleStateEvent e = (IdleStateEvent) evt;
             if (e.state() == IdleState.READER_IDLE) {
                 ctx.writeAndFlush("Bye!\r\n");
-                ctx.close();
+                application.onDisconnect(adaptContext(ctx));
             } else if (e.state() == IdleState.WRITER_IDLE) {
                 ctx.writeAndFlush("KeepAlive\r\n");
             }
@@ -52,7 +57,7 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
         return new Context() {
             @Override
             public void write(String msg) {
-                ctx.write(msg + "\r\n");
+                ctx.write(msg + "\r\n$ ");
             }
 
             @Override

@@ -20,7 +20,7 @@ public class AX25Call {
   private boolean last;
 
   AX25Call(String call, int ssid, int rr, boolean cFlag, boolean last) {
-    this.call = call;
+    this.call = call.toUpperCase();
     this.ssid = ssid;
     this.rr = rr;
     this.cFlag = cFlag;
@@ -129,8 +129,7 @@ public class AX25Call {
       return false;
     }
     AX25Call ax25Call = (AX25Call) o;
-    return ssid == ax25Call.ssid &&
-        Objects.equals(getCall(), ax25Call.getCall());
+    return ssid == ax25Call.ssid && getCall().equalsIgnoreCase(ax25Call.getCall());
   }
 
   @Override

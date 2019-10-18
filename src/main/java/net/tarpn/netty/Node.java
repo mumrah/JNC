@@ -18,7 +18,9 @@ import net.tarpn.config.Configs;
 import net.tarpn.config.PortConfig;
 import net.tarpn.netty.app.ApplicationInboundHandlerAdaptor;
 import net.tarpn.netty.app.SysopApplicationHandler;
+import net.tarpn.netty.ax25.AX25Address;
 import net.tarpn.netty.ax25.DataLinkMultiplexer;
+import net.tarpn.netty.ax25.DataLinkMultiplexer2;
 import net.tarpn.netty.serial.SerialChannel;
 import net.tarpn.netty.serial.SerialChannelOption;
 import org.slf4j.Logger;
@@ -34,7 +36,7 @@ public class Node {
     private final OioEventLoopGroup oioGroup = new OioEventLoopGroup();
     private final EventLoopGroup nioGroup = new NioEventLoopGroup();
 
-    private ChannelFuture createSerialPort(PortConfig portConfig, DataLinkMultiplexer multiplexer) {
+    private ChannelFuture createSerialPort(PortConfig portConfig, DataLinkMultiplexer2 multiplexer) {
         Bootstrap b = new Bootstrap();
         b.group(oioGroup)
                 .channel(SerialChannel.class)
@@ -47,7 +49,8 @@ public class Node {
                                 .addLast(new KISSFrameDecoder())
                                 .addLast(new AX25PacketEncoder())
                                 .addLast(new AX25PacketDecoder())
-                                .addLast(new AX25StateHandler(portConfig, multiplexer));
+                                .addLast(new AX25StateHandler(portConfig))
+                                .addLast(new DataLinkHandler(portConfig, multiplexer));
                         ch.attr(Attributes.PortNumber).set(portConfig.getPortNumber());
                         ch.attr(Attributes.NodeCall).set(portConfig.getNodeCall());
                     }
@@ -55,7 +58,7 @@ public class Node {
         return b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice()));
     }
 
-    private ChannelFuture createTelnetPort(Configs allConfigs, DataLinkMultiplexer multiplexer) {
+    private ChannelFuture createTelnetPort(Configs allConfigs, DataLinkMultiplexer2 multiplexer) {
         // Telnet server
         ServerBootstrap b = new ServerBootstrap();
         b.group(nioGroup)
@@ -85,11 +88,19 @@ public class Node {
 
         Node node = new Node();
         {
-            DataLinkMultiplexer multiplexer = new DataLinkMultiplexer();
-            SysopApplicationHandler sysop = new SysopApplicationHandler(configs, multiplexer);
+            //DataLinkMultiplexer multiplexer = new DataLinkMultiplexer();
+            DataLinkMultiplexer2 multiplexer = new DataLinkMultiplexer2();
+
+
+            //SysopApplicationHandler sysop = new SysopApplicationHandler(configs, multiplexer);
             configs.getPortConfigs().forEach((portNum, portConfig) -> {
                 futures.add(node.createSerialPort(portConfig, multiplexer)
-                        .addListener(future -> multiplexer.attach(portNum, sysop)
+                        .addListener(future -> {
+                            //multiplexer.attach(portNum, sysop);
+                            multiplexer.listen(new AX25Address(portNum, portConfig.getNodeCall()), () ->
+                                    new SysopApplicationHandler(configs, multiplexer)
+                            );
+                        }
                 ));
             });
             futures.add(node.createTelnetPort(configs, multiplexer));
