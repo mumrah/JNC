@@ -4,7 +4,6 @@ import net.tarpn.config.Configs;
 import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.netty.ax25.AX25Address;
 import net.tarpn.netty.ax25.DataLinkChannel;
-import net.tarpn.netty.ax25.DataLinkMultiplexer2;
 import net.tarpn.netty.ax25.Multiplexer;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
@@ -18,7 +17,6 @@ import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -28,11 +26,11 @@ public class SysopApplicationHandler implements Application {
     private static final Logger LOG = LoggerFactory.getLogger(SysopApplicationHandler.class);
 
     private final Configs configs;
-    private final DataLinkMultiplexer2 multiplexer;
+    private final Multiplexer multiplexer;
     private DataLinkChannel channel;
     private AX25Call remoteCall;
 
-    public SysopApplicationHandler(Configs configs, DataLinkMultiplexer2 multiplexer) {
+    public SysopApplicationHandler(Configs configs, Multiplexer multiplexer) {
         this.configs = configs;
         this.multiplexer = multiplexer;
     }
@@ -49,6 +47,13 @@ public class SysopApplicationHandler implements Application {
 
     @Override
     public void onDisconnect(Context context) {
+        if (this.channel != null) {
+            DataLinkPrimitive discReq = DataLinkPrimitive.newDisconnectRequest(remoteCall, configs.getNodeConfig().getNodeCall());
+            this.channel.write(discReq);
+            this.channel.close();
+            this.channel = null;
+            this.remoteCall = null;
+        }
         context.close();
     }
 
@@ -65,17 +70,26 @@ public class SysopApplicationHandler implements Application {
         String[] tokens = message.trim().toLowerCase().split("\\s+");
         String command = tokens[0];
 
+        if (message.trim().isEmpty()) {
+            // enable shell-like behavior for empty commands
+            context.write("\b");
+            return;
+        }
+
         if (channel == null) {
+            // not connected anywhere, handle local commands
             handleNodeCommand(context, tokens);
             context.flush();
         } else {
+            // we're connected, so relay the input
             if (command.equalsIgnoreCase("B") || command.equalsIgnoreCase("BYE")) {
                 // disconnect the data link
                 DataLinkPrimitive discReq = DataLinkPrimitive.newDisconnectRequest(remoteCall, configs.getNodeConfig().getNodeCall());
                 this.channel.write(discReq);
             } else {
+                // TODO what about non-string data?
                 DataLinkPrimitive info = DataLinkPrimitive.newDataRequest(remoteCall, configs.getNodeConfig().getNodeCall(),
-                        AX25Packet.Protocol.NO_LAYER3, message.getBytes(StandardCharsets.US_ASCII));
+                        AX25Packet.Protocol.NO_LAYER3, message.getBytes(StandardCharsets.UTF_8));
                 this.channel.write(info);
             }
         }
@@ -149,6 +163,14 @@ public class SysopApplicationHandler implements Application {
             DataLinkPrimitive connectReq = DataLinkPrimitive.newConnectRequest(remoteCall, configs.getNodeConfig().getNodeCall());
             SysopApplicationHandler.this.channel.write(connectReq);
         }
+
+        @Override
+        public String toString() {
+            return "ConnectCommand{" +
+                    "port=" + port +
+                    ", remoteCallsign='" + remoteCallsign + '\'' +
+                    '}';
+        }
     }
 
     @CommandLine.Command(description = "Show help", name = "help")
@@ -200,6 +222,13 @@ public class SysopApplicationHandler implements Application {
                 }
             }
         }
+
+        @Override
+        public String toString() {
+            return "HelpCommand{" +
+                    "subCommand='" + subCommand + '\'' +
+                    '}';
+        }
     }
 
     @CommandLine.Command(description = "List configured ports", name = "ports")
@@ -217,6 +246,11 @@ public class SysopApplicationHandler implements Application {
                 context.write(portNum + ": " + portConfig.getPortDescription());
             });
         }
+
+        @Override
+        public String toString() {
+            return "PortsCommand{}";
+        }
     }
 
     @CommandLine.Command(description = "Disconnect from Node", name = "bye")
@@ -233,6 +267,11 @@ public class SysopApplicationHandler implements Application {
             context.flush();
             context.close();
         }
+
+        @Override
+        public String toString() {
+            return "ByeCommand{}";
+        }
     }
 
 
@@ -242,7 +281,7 @@ public class SysopApplicationHandler implements Application {
             @Override
             public void flush() {
                 super.flush();
-                context.write(baos.toString(StandardCharsets.US_ASCII));
+                context.write(baos.toString(StandardCharsets.UTF_8));
             }
         };
     }
@@ -272,7 +311,13 @@ public class SysopApplicationHandler implements Application {
                 context.write(e.getMessage());
             }
         } catch (CommandLine.ExecutionException e) {
-            context.write(e.getCommandLine().getCommandName() + " had an error: " + e.getMessage());
+            final Throwable actual;
+            if (e.getCause() instanceof UncheckedIOException) {
+                actual = e.getCause().getCause();
+            } else {
+                actual = e.getCause();
+            }
+            context.write(e.getCommandLine().getCommandName() + " had an error: " + actual.getMessage());
         }
     }
 }

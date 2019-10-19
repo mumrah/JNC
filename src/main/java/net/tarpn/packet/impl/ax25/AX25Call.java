@@ -27,6 +27,13 @@ public class AX25Call {
     this.last = last;
   }
 
+  public boolean callMatches(AX25Call other) {
+    if (other == null) {
+      return false;
+    }
+    return other.call.equalsIgnoreCase(this.call);
+  }
+
   public static AX25Call create(String callWithSSID) {
     String[] tokens = callWithSSID.split("-");
     try {

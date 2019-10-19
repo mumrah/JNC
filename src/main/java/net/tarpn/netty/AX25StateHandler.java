@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
@@ -132,8 +133,19 @@ public class AX25StateHandler extends ChannelDuplexHandler {
      * @throws Exception
      */
     private void initialize(ChannelHandlerContext ctx) throws Exception {
+        // Check pending internal events that ned processing
         ctx.executor().scheduleAtFixedRate(
                 () -> flushStateEvents(ctx),1000, 1000, TimeUnit.MILLISECONDS);
+
+        // Schedule ID broadcast for FCC rules
+        ctx.executor().scheduleAtFixedRate(() -> {
+            AX25StateEvent idStateEvent = AX25StateEvent.createUnitDataEvent(
+                    AX25Call.create("ID", 0),
+                    AX25Packet.Protocol.NO_LAYER3,
+                    portConfig.getIdMessage().getBytes(StandardCharsets.US_ASCII));
+
+            internalStateEvents.add(idStateEvent);
+        }, 5, portConfig.getIdInterval(), TimeUnit.SECONDS);
     }
 
     /**

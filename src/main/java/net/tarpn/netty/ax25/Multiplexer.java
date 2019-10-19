@@ -1,13 +1,18 @@
 package net.tarpn.netty.ax25;
 
+
 import net.tarpn.datalink.DataLinkPrimitive;
-import net.tarpn.packet.impl.ax25.AX25Call;
+import net.tarpn.netty.app.Application;
 
 import java.io.IOException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public interface Multiplexer {
-    PortChannel bind(int port, Consumer<DataLinkPrimitive> dataLinkConsumer) throws IOException;
+    PortChannel bind(AX25Address localAddress, Consumer<DataLinkPrimitive> dataLinkConsumer) throws IOException;
 
-    DataLinkChannel connect(int port, AX25Call remoteCall, Consumer<DataLinkPrimitive> l3Consumer) throws IOException;
+    DataLinkChannel connect(AX25Address localAddress, AX25Address remoteAddress,
+                            Consumer<DataLinkPrimitive> l3Consumer) throws IOException;
+
+    void listen(AX25Address listenAddress, Supplier<Application> onAccept) throws IOException;
 }

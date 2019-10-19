@@ -101,9 +101,9 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
   @Override
   public String toLogString(int port) {
     if (getProtocol().equals(Protocol.NO_LAYER3)) {
-      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + " :\n  " + getInfoAsASCII();
+      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + "\n\t" + getInfoAsASCII();
     } else {
-      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + " " + getProtocol() + "\n  " + getInfoAsASCII();
+      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + " " + getProtocol() + "\n\t" + getInfoAsASCII();
     }
   }
 

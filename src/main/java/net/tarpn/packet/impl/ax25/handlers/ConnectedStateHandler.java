@@ -68,7 +68,7 @@ public class ConnectedStateHandler implements StateHandler {
           break;
         }
         if(state.windowExceeded()) {
-          LOG.warn("IFrame window is full, waiting a bit and retrying. Pending IFrames: " + state.peekIFrames());
+          LOG.warn("Cannot send " + pendingIFrame + ". The window is, waiting a bit and retrying. Pending IFrames: " + state.peekIFrames() + ", State: " + state);
           // one-shot timer to delay the re-sending a bit
           Timer.create(200, () ->
               state.pushIFrame(pendingIFrame)

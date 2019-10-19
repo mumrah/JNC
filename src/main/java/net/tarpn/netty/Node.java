@@ -20,7 +20,7 @@ import net.tarpn.netty.app.ApplicationInboundHandlerAdaptor;
 import net.tarpn.netty.app.SysopApplicationHandler;
 import net.tarpn.netty.ax25.AX25Address;
 import net.tarpn.netty.ax25.DataLinkMultiplexer;
-import net.tarpn.netty.ax25.DataLinkMultiplexer2;
+import net.tarpn.netty.ax25.Multiplexer;
 import net.tarpn.netty.serial.SerialChannel;
 import net.tarpn.netty.serial.SerialChannelOption;
 import org.slf4j.Logger;
@@ -36,11 +36,13 @@ public class Node {
     private final OioEventLoopGroup oioGroup = new OioEventLoopGroup();
     private final EventLoopGroup nioGroup = new NioEventLoopGroup();
 
-    private ChannelFuture createSerialPort(PortConfig portConfig, DataLinkMultiplexer2 multiplexer) {
+    private ChannelFuture createSerialPort(Configs configs, PortConfig portConfig, Multiplexer multiplexer) {
         Bootstrap b = new Bootstrap();
         b.group(oioGroup)
                 .channel(SerialChannel.class)
-                .option(SerialChannelOption.WAIT_TIME, 3000)
+                .option(SerialChannelOption.WAIT_TIME_MS, 3000)
+                .option(SerialChannelOption.BAUD_RATE, portConfig.getSerialSpeed())
+                .option(SerialChannelOption.READ_TIMEOUT_MS, 100)
                 .handler(new ChannelInitializer<SerialChannel>() {
                     @Override
                     protected void initChannel(SerialChannel ch) {
@@ -49,16 +51,34 @@ public class Node {
                                 .addLast(new KISSFrameDecoder())
                                 .addLast(new AX25PacketEncoder())
                                 .addLast(new AX25PacketDecoder())
+                                .addLast(new AX25PacketFilter(portConfig))
                                 .addLast(new AX25StateHandler(portConfig))
                                 .addLast(new DataLinkHandler(portConfig, multiplexer));
                         ch.attr(Attributes.PortNumber).set(portConfig.getPortNumber());
                         ch.attr(Attributes.NodeCall).set(portConfig.getNodeCall());
                     }
                 });
-        return b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice()));
+        ChannelFuture channelFuture = b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice()));
+        channelFuture.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (future.isSuccess()) {
+                    LOG.info("Initialized port " + portConfig.getPortNumber());
+                    multiplexer.listen(new AX25Address(portConfig.getPortNumber(), portConfig.getNodeCall()), () ->
+                            new SysopApplicationHandler(configs, multiplexer)
+                    );
+                } else {
+                    future.channel().close().sync();
+                    Thread.sleep(1000);
+                    LOG.info("Retrying failed port " + portConfig.getPortNumber());
+                    b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice())).addListener(this);
+                }
+            }
+        });
+        return channelFuture;
     }
 
-    private ChannelFuture createTelnetPort(Configs allConfigs, DataLinkMultiplexer2 multiplexer) {
+    private ChannelFuture createTelnetPort(Configs allConfigs, Multiplexer multiplexer) {
         // Telnet server
         ServerBootstrap b = new ServerBootstrap();
         b.group(nioGroup)
@@ -89,19 +109,11 @@ public class Node {
         Node node = new Node();
         {
             //DataLinkMultiplexer multiplexer = new DataLinkMultiplexer();
-            DataLinkMultiplexer2 multiplexer = new DataLinkMultiplexer2();
-
+            Multiplexer multiplexer = new DataLinkMultiplexer();
 
             //SysopApplicationHandler sysop = new SysopApplicationHandler(configs, multiplexer);
             configs.getPortConfigs().forEach((portNum, portConfig) -> {
-                futures.add(node.createSerialPort(portConfig, multiplexer)
-                        .addListener(future -> {
-                            //multiplexer.attach(portNum, sysop);
-                            multiplexer.listen(new AX25Address(portNum, portConfig.getNodeCall()), () ->
-                                    new SysopApplicationHandler(configs, multiplexer)
-                            );
-                        }
-                ));
+                futures.add(node.createSerialPort(configs, portConfig, multiplexer));
             });
             futures.add(node.createTelnetPort(configs, multiplexer));
         }

@@ -2,7 +2,6 @@ package net.tarpn.netty.serial;
 
 import com.fazecast.jSerialComm.SerialPort;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.oio.OioByteStreamChannel;
 
@@ -68,9 +67,8 @@ public class SerialChannel extends OioByteStreamChannel {
         SerialDeviceAddress remote = (SerialDeviceAddress) remoteAddress;
         SerialPort port = SerialPort.getCommPort(remote.value());
         port.setBaudRate(config().getBaudrate());
-        // TODO configure these timeouts
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 0);
-        port.openPort(100);
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, config().getReadTimeout(), 0);
+        port.openPort();
 
         deviceAddress = remote;
         serialPort = port;
@@ -171,7 +169,7 @@ public class SerialChannel extends OioByteStreamChannel {
                 final boolean wasActive = isActive();
                 doConnect(remoteAddress, localAddress);
 
-                int waitTime = config().getOption(SerialChannelOption.WAIT_TIME);
+                int waitTime = config().getOption(SerialChannelOption.WAIT_TIME_MS);
                 if (waitTime > 0) {
                     eventLoop().schedule(() -> {
                         try {

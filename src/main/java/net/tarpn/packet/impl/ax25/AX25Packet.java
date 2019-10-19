@@ -127,6 +127,14 @@ public interface AX25Packet extends Packet {
           .replace("\b", "\\b")
           .replace("\f", "\\f");
     }
+    default String getInfoAsUTF8() {
+      return new String(getInfo(), StandardCharsets.UTF_8)
+              .replace("\r", "\\r")
+              .replace("\n", "\\n")
+              .replace("\t", "\\t")
+              .replace("\b", "\\b")
+              .replace("\f", "\\f");
+    }
   }
 
   enum FrameType {

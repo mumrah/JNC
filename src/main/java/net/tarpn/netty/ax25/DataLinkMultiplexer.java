@@ -6,43 +6,36 @@ import net.tarpn.netty.app.Context;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
 import net.tarpn.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-/**
- * This class is the nexus between layer 2 and layer 3
- *
- * The ports bind to this class so DL events can be written to them
- *
- * <pre>
- *     multiplexer.bind(1, ax25Handler);
- * </pre>
- *
- * And higher layer components can attach so they can receive DL events for a remote call
- *
- * <pre>
- *     multiplexer.attach(1, remoteCall, appHandler);
- * </pre>
- *
- */
 public class DataLinkMultiplexer implements Multiplexer {
-    private final Map<Integer, MultiplexedPort> knownPorts = new HashMap<>();
 
-    public PortChannel bind(int port, Consumer<DataLinkPrimitive> dataLinkConsumer) throws IOException {
-        if (knownPorts.containsKey(port)) {
-            throw new PortInUseException(port);
+    private static final Logger LOG = LoggerFactory.getLogger(DataLinkMultiplexer.class);
+
+    Map<AX25Address, MultiplexedPort> dataPorts = new HashMap<>();
+
+    // This channel is opened in the SerialChannel pipeline
+    @Override
+    public PortChannel bind(AX25Address localAddress, Consumer<DataLinkPrimitive> dataLinkConsumer) throws IOException {
+        if (dataPorts.containsKey(localAddress)) {
+            throw new PortInUseException(localAddress);
         } else {
-            MultiplexedPort mp = new MultiplexedPort(port);
+            LOG.info("Binding to " + localAddress);
+            MultiplexedPort mp = new MultiplexedPort(localAddress);
             mp.attachPort(dataLinkConsumer);
-            knownPorts.put(port, mp);
+            dataPorts.put(localAddress, mp);
+            // Return a PortChannel that can be used to write to the port and to close it
             return new PortChannel() {
                 @Override
                 public int getPort() {
-                    return port;
+                    return localAddress.port;
                 }
 
                 @Override
@@ -52,144 +45,161 @@ public class DataLinkMultiplexer implements Multiplexer {
 
                 @Override
                 public void close() {
-                    mp.l3Consumers.keySet().forEach(mp::closeLayer3);
+                    for (AX25Call l3Consumer : mp.l3Consumers.keySet()) {
+                        mp.closeLayer3(l3Consumer);
+                    }
+                    dataPorts.remove(localAddress);
                 }
             };
         }
     }
 
-    // TODO figure this out ...
-    public DataLinkChannel attach(int port, Application application) throws IOException {
-        MultiplexedPort stream = knownPorts.get(port);
-        if (stream == null) {
-            throw new NoSuchPortException(port);
+    /**
+     * Connect a L3 consumer to a bound port. If the layer 2 port for the local address hasn't been bound, throw an
+     * error. If a layer 3 channel already exists for the remote address, also throw an error.
+     *
+     * Returns a DataLinkChannel that can be used for writing and closing the channel.
+     *
+     * @param localAddress
+     * @param remoteAddress
+     * @param l3Consumer
+     * @return
+     * @throws IOException
+     */
+    @Override
+    public DataLinkChannel connect(AX25Address localAddress, AX25Address remoteAddress, Consumer<DataLinkPrimitive> l3Consumer) throws IOException {
+        MultiplexedPort port = dataPorts.get(localAddress);
+        if (port == null) {
+            throw new NoSuchPortException(localAddress);
         } else {
-
-            // This consumer is for DL events coming _from_ the port
-            Consumer<DataLinkPrimitive> consumer = dl -> {
-                Context appContext = new Context() {
+            if (port.attachLayer3(remoteAddress.call, l3Consumer)) {
+                return new DataLinkChannel() {
                     @Override
-                    public void write(String msg) {
-                        msg = "(" + port + ") " + msg;
-                        stream.writeToPort(DataLinkPrimitive.newDataRequest(
-                                dl.getRemoteCall(),
-                                dl.getLocalCall(),
-                                AX25Packet.Protocol.NO_LAYER3,
-                                Util.ascii(msg)
-                        ));
+                    public AX25Call getRemoteCall() {
+                        return remoteAddress.call;
                     }
 
                     @Override
-                    public void flush() {
-                        // no op
+                    public AX25Call getLocalCall() {
+                        return localAddress.call;
+                    }
+
+                    @Override
+                    public void write(DataLinkPrimitive dl) {
+                        port.writeToPort(dl);
                     }
 
                     @Override
                     public void close() {
-                        stream.closeLayer3(dl.getRemoteCall());
-                    }
-
-                    @Override
-                    public String remoteAddress() {
-                        return dl.getRemoteCall().toString();
+                        port.closeLayer3(remoteAddress.call);
                     }
                 };
+            } else {
+                throw new PortInUseException(localAddress);
+            }
+        }
+    }
 
-                try {
-                    switch (dl.getType()) {
-                        case DL_CONNECT:
-                            application.onConnect(appContext);
-                            break;
-                        case DL_DISCONNECT:
-                            application.onDisconnect(appContext);
-                            break;
-                        case DL_DATA:
-                        case DL_UNIT_DATA:
-                            application.read(appContext, dl.getLinkInfo().getInfoAsASCII());
-                            break;
-                        case DL_ERROR:
-                            application.onError(appContext, new Exception(dl.getError().getMessage()));
-                            break;
-                    }
-                } catch (Exception e) {
+    /**
+     * Listen on a given address for incoming connections. Upon making a new connection,
+     * create a new instance of an application using the given supplier and pass the DL
+     * primitive up to the application.
+     *
+     * @param listenAddress
+     * @param onAccept
+     * @throws IOException
+     */
+    @Override
+    public void listen(AX25Address listenAddress, Supplier<Application> onAccept) throws IOException {
+        MultiplexedPort port = dataPorts.get(listenAddress);
+        if (port == null) {
+            throw new NoSuchPortException(listenAddress);
+
+        }
+
+        // Attach a catch-all consumer, accept connections from any source address
+        boolean attached = port.attachLayer3(AX25Call.WILDCARD, dl -> {
+            Consumer<DataLinkPrimitive> l3Consumer = port.l3Consumers.get(dl.getRemoteCall());
+            if (l3Consumer == null) {
+                // first time seeing this remote call on this port, set up new consumer
+                Application application = onAccept.get();
+                Consumer<DataLinkPrimitive> newL3Consumer = dl1 -> {
+                    // Adapt to the Context interface
+                    Context appContext = new Context() {
+                        @Override
+                        public void write(String msg) {
+                            // TODO don't actually do this. We should not adulterate messages passed to L3
+                            msg = port.localAddress + "} " + msg;
+                            port.writeToPort(DataLinkPrimitive.newDataRequest(
+                                    dl.getRemoteCall(),
+                                    dl.getLocalCall(),
+                                    AX25Packet.Protocol.NO_LAYER3,
+                                    Util.ascii(msg)
+                            ));
+                        }
+
+                        @Override
+                        public void flush() {
+                            // no op
+                        }
+
+                        @Override
+                        public void close() {
+                            port.closeLayer3(dl1.getRemoteCall());
+                        }
+
+                        @Override
+                        public String remoteAddress() {
+                            return dl1.getRemoteCall().toString();
+                        }
+                    };
+
                     try {
-                        application.onError(appContext, e);
-                    } catch (Exception e1) {
-                        e1.printStackTrace();
-                    }
-                }
-            };
-
-            if (stream.attachLayer3(AX25Call.WILDCARD, consumer)) {
-                return new DataLinkChannel() {
-                    @Override
-                    public AX25Call getRemoteCall() {
-                        return AX25Call.WILDCARD;
-                    }
-
-                    @Override
-                    public AX25Call getLocalCall() {
-                        return null;
-                    }
-
-                    @Override
-                    public void write(DataLinkPrimitive dl) {
-                        stream.writeToL3(dl);
-                    }
-
-                    @Override
-                    public void close() {
-                        stream.closeLayer3(AX25Call.WILDCARD);
+                        switch (dl1.getType()) {
+                            case DL_CONNECT:
+                                application.onConnect(appContext);
+                                break;
+                            case DL_DISCONNECT:
+                                application.onDisconnect(appContext);
+                                break;
+                            case DL_DATA:
+                            case DL_UNIT_DATA:
+                                application.read(appContext, dl1.getLinkInfo().getInfoAsASCII());
+                                break;
+                            case DL_ERROR:
+                                throw new DataLinkException(dl1.getError());
+                        }
+                    } catch (Exception e) {
+                        try {
+                            application.onError(appContext, e);
+                        } catch (Exception e1) {
+                            LOG.error("Something went wrong in our error handler", e1);
+                        }
                     }
                 };
-            } else {
-                throw new PortInUseException(port);
+                port.attachLayer3(dl.getRemoteCall(), newL3Consumer);
+                l3Consumer = newL3Consumer;
             }
-        }
-    }
+            l3Consumer.accept(dl);
+        });
 
-    public DataLinkChannel connect(int port, AX25Call remoteCall, Consumer<DataLinkPrimitive> l3Consumer) throws IOException {
-        MultiplexedPort stream = knownPorts.get(port);
-        if (stream == null) {
-            throw new NoSuchPortException(port);
+        // If we couldn't attach an l3 consumer at this address, then it's already been attached.
+        if (!attached) {
+            throw new PortInUseException(listenAddress);
         } else {
-            if (stream.attachLayer3(remoteCall, l3Consumer)) {
-                return new DataLinkChannel() {
-                    @Override
-                    public AX25Call getRemoteCall() {
-                        return remoteCall;
-                    }
-
-                    @Override
-                    public AX25Call getLocalCall() {
-                        return null;
-                    }
-
-                    @Override
-                    public void write(DataLinkPrimitive dl) {
-                        stream.writeToPort(dl);
-                    }
-
-                    @Override
-                    public void close() {
-                        stream.closeLayer3(remoteCall);
-                    }
-                };
-            } else {
-                throw new PortInUseException(port);
-            }
+            LOG.info("Listening at " + listenAddress);
         }
     }
 
     private class MultiplexedPort {
+        final AX25Address localAddress;
+        Consumer<DataLinkPrimitive> portConsumer;
 
-        private final int portNumber;
-        private Consumer<DataLinkPrimitive> portConsumer;
-        private Map<AX25Call, Consumer<DataLinkPrimitive>> l3Consumers;
+        // Map of remote address to l3 consumer
+        Map<AX25Call, Consumer<DataLinkPrimitive>> l3Consumers = new HashMap<>();
 
-        public MultiplexedPort(int portNumber) {
-            this.portNumber = portNumber;
-            this.l3Consumers = new HashMap<>();
+        public MultiplexedPort(AX25Address localAddress) {
+            this.localAddress = localAddress;
         }
 
         public void attachPort(Consumer<DataLinkPrimitive> portConsumer) {
@@ -213,26 +223,28 @@ public class DataLinkMultiplexer implements Multiplexer {
         public void writeToL3(DataLinkPrimitive msg) {
             Consumer<DataLinkPrimitive> l3 = l3Consumers.get(msg.getRemoteCall());
             if (l3 == null) {
-                l3 = l3Consumers.get(AX25Call.WILDCARD);
-                if (l3 != null) {
-                    attachLayer3(msg.getRemoteCall(), l3);
-                } else {
-                    l3 = __ -> { };
-                }
+                // If no specific handler has been register for this remote call, use the catch-all
+                l3 = l3Consumers.getOrDefault(AX25Call.WILDCARD, __ -> { });
             }
             l3.accept(msg);
         }
     }
 
     public static class PortInUseException extends IOException {
-        PortInUseException(int port) {
-            super("Port " + port + " is in use");
+        PortInUseException(AX25Address address) {
+            super("Address " + address + " is in use");
         }
     }
 
     public static class NoSuchPortException extends IOException {
-        NoSuchPortException(int port) {
-            super("No such port " + port);
+        NoSuchPortException(AX25Address address) {
+            super("No such port " + address.port);
+        }
+    }
+
+    public static class DataLinkException extends IOException {
+        DataLinkException(DataLinkPrimitive.ErrorType error) {
+            super("Got an error from layer 2: " + error.getMessage());
         }
     }
 }

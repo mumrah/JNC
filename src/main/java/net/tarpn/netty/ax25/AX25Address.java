@@ -30,6 +30,6 @@ public class AX25Address {
 
     @Override
     public String toString() {
-        return call + "," + port;
+        return call + ":" + port;
     }
 }

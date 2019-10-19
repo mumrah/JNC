@@ -5,7 +5,7 @@ import io.netty.channel.*;
 
 import java.util.Map;
 
-import static net.tarpn.netty.serial.SerialChannelOption.WAIT_TIME;
+import static net.tarpn.netty.serial.SerialChannelOption.*;
 
 
 public class DefaultSerialChannelConfig extends DefaultChannelConfig implements SerialChannelConfig {
@@ -25,14 +25,18 @@ public class DefaultSerialChannelConfig extends DefaultChannelConfig implements 
 
     @Override
     public Map<ChannelOption<?>, Object> getOptions() {
-        return getOptions(super.getOptions(), WAIT_TIME);
+        return getOptions(super.getOptions(), WAIT_TIME_MS, BAUD_RATE, READ_TIMEOUT_MS);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getOption(ChannelOption<T> option) {
-        if (option == WAIT_TIME) {
+        if (option == WAIT_TIME_MS) {
             return (T) Integer.valueOf(getWaitTimeMillis());
+        } else if (option == BAUD_RATE) {
+            return (T) Integer.valueOf(getBaudrate());
+        } else if (option == READ_TIMEOUT_MS) {
+            return (T) Integer.valueOf(getReadTimeout());
         }
         return super.getOption(option);
     }
@@ -41,8 +45,12 @@ public class DefaultSerialChannelConfig extends DefaultChannelConfig implements 
     public <T> boolean setOption(ChannelOption<T> option, T value) {
         validate(option, value);
 
-        if (option == WAIT_TIME) {
+        if (option == WAIT_TIME_MS) {
             setWaitTimeMillis((Integer) value);
+        } else if (option == BAUD_RATE) {
+            setBaudrate((Integer) value);
+        } else if (option == READ_TIMEOUT_MS) {
+            setReadTimeout((Integer) value);
         }
         return true;
     }
