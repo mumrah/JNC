@@ -1,5 +1,8 @@
 package net.tarpn.config;
 
+import java.util.Collections;
+import java.util.List;
+
 public interface PortConfig extends Configuration, NodeConfig {
     int getPortNumber();
 
@@ -16,6 +19,8 @@ public interface PortConfig extends Configuration, NodeConfig {
     int getSerialSpeed();
 
     String getSerialProtocol();
+
+    List<String> getKISSFlags();
 
     int getI2CBus();
 

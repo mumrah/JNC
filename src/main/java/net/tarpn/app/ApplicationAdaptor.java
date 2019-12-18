@@ -18,8 +18,8 @@ public class ApplicationAdaptor implements Consumer<NetworkPrimitive> {
 
     @Override
     public void accept(NetworkPrimitive event) {
-        Consumer<String> stringResponder = response -> networkConsumer.accept(
-                NetworkPrimitive.newData(event.getRemoteCall(), response.getBytes(StandardCharsets.UTF_8)));
+        Consumer<String> stringResponder = response -> networkConsumer.accept(null);
+                //NetworkPrimitive.newData(event.getRemoteCall(), response.getBytes(StandardCharsets.UTF_8)));
         try {
             switch (event.getType()) {
                 case NL_CONNECT:
@@ -32,7 +32,7 @@ public class ApplicationAdaptor implements Consumer<NetworkPrimitive> {
                     break;
                 case NL_INFO:
                     application.handle(Util.toEscapedASCII(event.getInfo()), stringResponder, () -> {
-                        networkConsumer.accept(NetworkPrimitive.newDisconnect(event.getRemoteCall()));
+                        //networkConsumer.accept(NetworkPrimitive.newDisconnect(event.getRemoteCall()));
                     });
                     break;
             }

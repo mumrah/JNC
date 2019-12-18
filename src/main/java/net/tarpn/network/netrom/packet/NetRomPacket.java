@@ -13,6 +13,8 @@ public interface NetRomPacket extends Packet {
     return getOriginNode().toString();
   }
 
+  String toLogString(int port);
+
   AX25Call getOriginNode();
   AX25Call getDestNode();
   byte getTTL();
@@ -29,7 +31,8 @@ public interface NetRomPacket extends Packet {
     DisconnectRequest(0x03),
     DisconnectAcknowledge(0x04),
     Information(0x05),
-    InformationAcknowledge(0x06);
+    InformationAcknowledge(0x06),
+    Unknown(-1);
 
     private final byte opNibble;
 
@@ -52,7 +55,7 @@ public interface NetRomPacket extends Packet {
           return type;
         }
       }
-      throw new IllegalArgumentException("Unknown opcode for Net/Rom " + Integer.toHexString(masked));
+      return Unknown;
     }
   }
 }

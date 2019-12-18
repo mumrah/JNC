@@ -21,7 +21,6 @@ public class DataLinkHandler extends ChannelInboundHandlerAdapter {
 
     private PortChannel portChannel;
 
-
     public DataLinkHandler(PortConfig portConfig, Multiplexer multiplexer) {
         this.multiplexer = multiplexer;
         this.portConfig = portConfig;
@@ -76,10 +75,10 @@ public class DataLinkHandler extends ChannelInboundHandlerAdapter {
             DataLinkPrimitive dl = (DataLinkPrimitive) msg;
             if (dl.getLinkInfo() != null && dl.getLinkInfo().getProtocol().equals(AX25Packet.Protocol.NETROM)) {
                 // Pass up to NET/ROM handler
-                //ctx.pipeline().addLast(new NetRomHandler());
-                //ctx.fireChannelRead(msg);
+                //ctx.pipeline().addLast(new NetRomDecoder());
+                ctx.fireChannelRead(msg);
             } else {
-                // Pass to Node Control handler
+                // Pass to Node Control handler, if it's configured
                 portChannel.write(dl);
             }
         } else {

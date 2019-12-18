@@ -70,10 +70,15 @@ public class NetRomConnectRequest extends BaseNetRomPacket {
         ", originUser=" + getOriginatingUser() +
         ", originNode=" + getOriginatingNode() +
         ", ttl=" + getTTL() +
-        ", idx=" + getCircuitIndex() +
-        ", id=" + getCircuitId() +
-        ", tx=" + getTxSeqNumber() +
-        ", rx=" + getRxSeqNumber() +
+        ", idx=" + (getCircuitIndex() & 0xff) +
+        ", id=" + (getCircuitId() & 0xff) +
+        ", tx=" + (getTxSeqNumber() & 0xff) +
+        ", rx=" + (getRxSeqNumber() & 0xff) +
         '}';
+  }
+
+  @Override
+  public String toLogString(int port) {
+    return super.toLogString(port) + " OriginUser=" + getOriginatingUser() + " OriginNode=" + getOriginatingNode();
   }
 }

@@ -145,10 +145,17 @@ public class AwaitingConnectionStateHandler implements StateHandler {
         }
         break;
       }
-      // The spec does not really say what to do if we get commands in this state, so let's ignore them
+      case AX25_FRMR: {
+        state.resetSRT();
+        state.getT1Timer().setTimeout(state.getSRT() * 2);
+        StateHelper.establishDataLink(state, outgoingPackets);
+        // TODO set layer 3 initialized
+        newState = State.AWAITING_CONNECTION;
+        break;
+      }
+        // The spec does not really say what to do if we get commands in this state, so let's ignore them
       case AX25_UNKNOWN:
       case AX25_INFO:
-      case AX25_FRMR:
       case AX25_RR:
       case AX25_RNR:
       case AX25_SREJ:

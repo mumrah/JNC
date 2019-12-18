@@ -7,6 +7,7 @@ import net.tarpn.netty.ax25.DataLinkChannel;
 import net.tarpn.netty.ax25.Multiplexer;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet;
+import net.tarpn.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -38,36 +39,34 @@ public class SysopApplicationHandler implements Application {
     @Override
     public void onConnect(Context context) throws Exception {
         // Send greeting for a new connection.
-        context.write("Welcome to " + configs.getNodeConfig().getNodeAlias() + "!");
+        /*context.write("Welcome to " + configs.getNodeConfig().getNodeAlias() + "!");
         context.write("You are connected to " + InetAddress.getLocalHost().getHostName());
         context.write("It is " + new Date() + " now.");
         context.write("\033[31;1;4mHello\033[0m");
         context.flush();
+        */
     }
 
     @Override
     public void onDisconnect(Context context) {
-        if (this.channel != null) {
-            DataLinkPrimitive discReq = DataLinkPrimitive.newDisconnectRequest(remoteCall, configs.getNodeConfig().getNodeCall());
-            this.channel.write(discReq);
-            this.channel.close();
-            this.channel = null;
-            this.remoteCall = null;
-        }
-        context.close();
+        LOG.info("We are disconnected");
     }
 
     @Override
     public void onError(Context context, Throwable t) {
-        LOG.error("We had an error", t);
-        context.write("We had an error: " + t.getMessage());
-        context.close();
+        LOG.error("We had an error: " + t.getMessage());
+        //context.write("We had an error: " + t.getMessage());
+        //context.close();
     }
 
     @Override
-    public void read(Context context, String message) throws Exception {
+    public void read(Context context, byte[] messageBytes) throws Exception {
+        String message = Util.ascii(messageBytes);
+        message = message.replaceAll("[\r\n]", "");
+        message = message.trim();
+
         LOG.info("SYSOP: " + message + " from " + context.remoteAddress());
-        String[] tokens = message.trim().toLowerCase().split("\\s+");
+        String[] tokens = message.toLowerCase().split("\\s+");
         String command = tokens[0];
 
         if (message.trim().isEmpty()) {
@@ -89,11 +88,25 @@ public class SysopApplicationHandler implements Application {
             } else {
                 // TODO what about non-string data?
                 DataLinkPrimitive info = DataLinkPrimitive.newDataRequest(remoteCall, configs.getNodeConfig().getNodeCall(),
-                        AX25Packet.Protocol.NO_LAYER3, message.getBytes(StandardCharsets.UTF_8));
+                        AX25Packet.Protocol.NO_LAYER3, (message + "\r").getBytes(StandardCharsets.US_ASCII));
                 this.channel.write(info);
             }
         }
     }
+
+    @Override
+    public void close(Context context) throws Exception {
+        if (this.channel != null) {
+            DataLinkPrimitive discReq = DataLinkPrimitive.newDisconnectRequest(remoteCall, configs.getNodeConfig().getNodeCall());
+            this.channel.write(discReq);
+            this.channel.close();
+            this.channel = null;
+            this.remoteCall = null;
+        }
+        context.close();
+    }
+
+
 
     @CommandLine.Command(description = "Node Command Interface", name = "", abbreviateSynopsis = true)
     private class NodeCommand implements Runnable {
@@ -281,7 +294,7 @@ public class SysopApplicationHandler implements Application {
             @Override
             public void flush() {
                 super.flush();
-                context.write(baos.toString(StandardCharsets.UTF_8));
+                context.write(new String(baos.toByteArray(), StandardCharsets.UTF_8));
             }
         };
     }

@@ -74,7 +74,7 @@ public class SFrame extends BaseAX25Packet implements AX25Packet.SupervisoryFram
 
   @Override
   public String toLogString(int port) {
-    return getSource() + ">" + getDestination() + " Port=" + port + " " + getControlType() + " N(R)=" + getReceiveSequenceNumber();
+    return super.toLogString(port) + " N(R)=" + getReceiveSequenceNumber() + " " + getControlType();
   }
 
   @Override

@@ -4,6 +4,8 @@ import java.nio.ByteBuffer;
 import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 
+import static org.fusesource.jansi.Ansi.*;
+
 public class NetRomInfo extends BaseNetRomPacket {
 
   private final byte[] info;
@@ -44,6 +46,15 @@ public class NetRomInfo extends BaseNetRomPacket {
 
   public byte[] getInfo() {
     return info;
+  }
+
+  public String getInfoAsASCII() {
+    return Util.ascii(info);
+  }
+
+  @Override
+  public String toLogString(int port ) {
+    return super.toLogString(port) + "\n" + ansi().fg(Color.GREEN).a(getInfoAsASCII()).reset();
   }
 
   @Override

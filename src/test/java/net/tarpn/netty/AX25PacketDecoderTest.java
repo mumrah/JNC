@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,10 +24,15 @@ import static org.junit.Assert.assertNotNull;
 public class AX25PacketDecoderTest {
     private static final Logger LOG = LoggerFactory.getLogger(AX25PacketDecoderTest.class);
 
+
+    static PortConfig portConfig() {
+        return new PortConfigImpl(0, new MapConfiguration(Collections.emptyMap()));
+    }
+
     @Test
     public void test() {
         EmbeddedChannel ch = new EmbeddedChannel(
-                new KISSFrameDecoder(),
+                new KISSFrameDecoder(portConfig()),
                 new AX25PacketDecoder()
         );
         ByteBuf buf = fromInts(192, 0, 150, 104, 136, 132, 180, 64, 228, 150, 104, 136, 132, 180, 64, 115, 17, 192);
@@ -55,10 +61,10 @@ public class AX25PacketDecoderTest {
         PortConfig portConfig2 = new PortConfigImpl(0, new MapConfiguration(config2));
 
         Node server1 = new Node();
-        server1.run(portConfig1);
+        //server1.run(portConfig1);
 
         Node server2 = new Node();
-        server1.run(portConfig2);
+        //server1.run(portConfig2);
     }
 
     @Test
@@ -78,12 +84,12 @@ public class AX25PacketDecoderTest {
 
         EmbeddedChannel ch1 = new EmbeddedChannel();
         ch1.pipeline()
-            .addLast(new KISSFrameEncoder())
-            .addLast(new KISSFrameDecoder())
+            .addLast(new KISSFrameEncoder(portConfig()))
+            .addLast(new KISSFrameDecoder(portConfig()))
             .addLast(new AX25PacketEncoder())
             .addLast(new AX25PacketDecoder())
-            .addLast(new AX25Handler(portConfig1))
-            .addLast(new DataLinkHandler(null));
+            //.addLast(new AX25Handler(portConfig1))
+            .addLast(new DataLinkHandler(null, null));
         ch1.attr(Attributes.PortNumber).set(1);
         ch1.attr(Attributes.NodeCall).set(call1);
 
@@ -91,12 +97,12 @@ public class AX25PacketDecoderTest {
 
         EmbeddedChannel ch2 = new EmbeddedChannel();
         ch2.pipeline()
-            .addLast(new KISSFrameEncoder())
-            .addLast(new KISSFrameDecoder())
+            .addLast(new KISSFrameEncoder(portConfig()))
+            .addLast(new KISSFrameDecoder(portConfig()))
             .addLast(new AX25PacketEncoder())
             .addLast(new AX25PacketDecoder())
-            .addLast(new AX25Handler(portConfig2))
-            .addLast(new DataLinkHandler(null));
+            //.addLast(new AX25Handler(portConfig2))
+            .addLast(new DataLinkHandler(null, null));
         ch2.attr(Attributes.PortNumber).set(2);
         ch2.attr(Attributes.NodeCall).set(call2);
 
@@ -142,4 +148,52 @@ public class AX25PacketDecoderTest {
         }
 
     }
+
+    @Test
+    public void testLive() {
+        int[] d = new int[]{
+                0x92, 0x88, 0x40, 0x40, 0x40, 0x40, 0xe0, 0x96,
+                0x9c, 0x68, 0x9e, 0xa4, 0x84, 0x65, 0x03, 0xf0,
+                0x4b, 0x4e, 0x34, 0x4f, 0x52, 0x42, 0x2d, 0x32,
+                0x20, 0x20, 0x41, 0x41, 0x52, 0x4f, 0x4e, 0x4c,
+                0x20, 0x20, 0x20, 0x68, 0x74, 0x74, 0x70, 0x3a,
+                0x2f, 0x2f, 0x74, 0x61, 0x72, 0x70, 0x6e, 0x2e,
+                0x6e, 0x65, 0x74, 0x20, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+                0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e,
+        };
+
+        int crc = 0;
+        for (int i = 0; i < d.length; i++ ) {
+            crc ^= d[i];
+        }
+
+        System.err.println(crc);
+        //System.err.println(CRCCCITT.compute_crc2(d));
+
+        //System.err.println(CRCCCITT.getCRC16CCITT("", 0x1021, 0x0000, false));
+
+    }
+    /*
+    $00: 92 88 40 40 40 40 e0 96	......à.
+    $08: 9c 68 9e a4 84 65 03 f0	.h...e.ð
+    $10: 4b 4e 34 4f 52 42 2d 32	KN4ORB.2
+    $18: 20 20 41 41 52 4f 4e 4c	..AARONL
+    $20: 20 20 20 68 74 74 70 3a	...http.
+    $28: 2f 2f 74 61 72 70 6e 2e	..tarpn.
+    $30: 6e 65 74 20 2e 2e 2e 2e	net.....
+    $38: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $40: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $48: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $50: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $58: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $60: 2e 2e 2e 2e 2e 2e 2e 2e	........
+    $68: 0d d9	.Ù
+
+    0x9B 0xB0 39856
+     */
 }

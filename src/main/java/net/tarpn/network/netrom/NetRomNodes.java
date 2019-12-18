@@ -1,5 +1,6 @@
 package net.tarpn.network.netrom;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,12 +30,16 @@ public class NetRomNodes {
     String sendingAlias = new String(alias, StandardCharsets.US_ASCII);
     List<NodeDestination> destinations = new ArrayList<>();
     while(buffer.remaining() > 0) {
-      AX25Call destNode = AX25Call.read(buffer);
-      buffer.get(alias, 0, 6);
-      String destAlias = new String(alias, StandardCharsets.US_ASCII);
-      AX25Call neighbor = AX25Call.read(buffer);
-      byte quality = buffer.get();
-      destinations.add(new NodeDestination(destNode, destAlias.trim(), neighbor, (quality & 0xff)));
+      try {
+        AX25Call destNode = AX25Call.read(buffer);
+        buffer.get(alias, 0, 6);
+        String destAlias = new String(alias, StandardCharsets.US_ASCII);
+        AX25Call neighbor = AX25Call.read(buffer);
+        byte quality = buffer.get();
+        destinations.add(new NodeDestination(destNode, destAlias.trim(), neighbor, (quality & 0xff)));
+      } catch (BufferUnderflowException e) {
+        System.err.println("Problem parsing NODES");
+      }
     }
     return new NetRomNodes(sendingAlias.trim(), destinations);
   }

@@ -142,7 +142,7 @@ public class NetRomCircuit {
 
   @Override
   public String toString() {
-    return "NetRomState(" + circuitId + "){" +
+    return "NetRomState(" + (circuitId & 0xff) + "){" +
             "local=" + localNodeCall +
             ", remote=" + remoteNodeCall +
             ", state=" + state +

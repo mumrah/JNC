@@ -246,8 +246,15 @@ public class ConnectedStateHandler implements StateHandler {
         break;
       }
 
-      // TODO Not implemented yet
-      case AX25_FRMR:
+      case AX25_FRMR: {
+        state.sendDataLinkPrimitive(DataLinkPrimitive
+                .newErrorResponse(state.getRemoteNodeCall(), state.getLocalNodeCall(), ErrorType.K));
+        StateHelper.establishDataLink(state, outgoingPackets);
+        newState = State.AWAITING_CONNECTION;
+        // TODO set layer 3
+        break;
+      }
+
       case AX25_SREJ:
       case AX25_REJ:
       case AX25_UNKNOWN:

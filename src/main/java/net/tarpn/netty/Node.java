@@ -16,13 +16,19 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import net.tarpn.config.Configs;
 import net.tarpn.config.PortConfig;
+import net.tarpn.netty.app.Application;
 import net.tarpn.netty.app.ApplicationInboundHandlerAdaptor;
+import net.tarpn.netty.app.Context;
 import net.tarpn.netty.app.SysopApplicationHandler;
 import net.tarpn.netty.ax25.AX25Address;
 import net.tarpn.netty.ax25.DataLinkMultiplexer;
 import net.tarpn.netty.ax25.Multiplexer;
+import net.tarpn.netty.i2c.I2CChannel;
+import net.tarpn.netty.network.*;
 import net.tarpn.netty.serial.SerialChannel;
 import net.tarpn.netty.serial.SerialChannelOption;
+import net.tarpn.network.netrom.NetRomNodes;
+import net.tarpn.packet.impl.ax25.AX25Call;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +42,65 @@ public class Node {
     private final OioEventLoopGroup oioGroup = new OioEventLoopGroup();
     private final EventLoopGroup nioGroup = new NioEventLoopGroup();
 
+    static class NodeChannelInitializer<T extends Channel> extends ChannelInitializer<T> {
+
+        private final Configs configs;
+        private final PortConfig portConfig;
+        private final Multiplexer multiplexer;
+
+        NodeChannelInitializer(Configs configs, PortConfig portConfig, Multiplexer multiplexer) {
+            this.configs = configs;
+            this.portConfig = portConfig;
+            this.multiplexer = multiplexer;
+        }
+
+        @Override
+        protected void initChannel(T ch) {
+            ch.pipeline()
+                    .addLast(new KISSFrameEncoder(portConfig))
+                    .addLast(new KISSFrameDecoder(portConfig))
+                    .addLast(new AX25PacketEncoder())
+                    .addLast(new AX25PacketDecoder())
+                    .addLast(new NetRomNodesHandler(portConfig))
+                    .addLast(new AX25PacketFilter(portConfig))
+                    .addLast(new AX25StateHandler(portConfig))
+                    .addLast(new DataLinkHandler(portConfig, multiplexer))
+                    .addLast(new NetRomDecoder())
+                    .addLast(new NetRomStateHandler(configs, multiplexer))
+                    .addLast(new NetworkHandler());
+            ch.attr(Attributes.PortNumber).set(portConfig.getPortNumber());
+            ch.attr(Attributes.NodeCall).set(portConfig.getNodeCall());
+        }
+    }
+
+    private ChannelFuture createI2CPort(Configs configs, PortConfig portConfig, Multiplexer multiplexer) {
+        Bootstrap b = new Bootstrap();
+        b.group(oioGroup)
+                .channel(I2CChannel.class)
+                .handler(new NodeChannelInitializer<I2CChannel>(configs, portConfig, multiplexer));
+
+        ChannelFuture channelFuture = b.connect(new I2CChannel.I2CDeviceAddress(
+                portConfig.getI2CBus(), portConfig.getI2CDeviceAddress()));
+        channelFuture.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (future.isSuccess()) {
+                    AX25Address portAddress = new AX25Address(portConfig.getPortNumber(), portConfig.getNodeCall());
+                    LOG.info("Initialized i2c port " + portAddress);
+                    multiplexer.listen(portAddress, () -> new SysopApplicationHandler(configs, multiplexer));
+                } else {
+                    future.channel().close().sync();
+                    Thread.sleep(1000);
+                    LOG.info("Retrying failed port " + portConfig.getPortNumber());
+                    b.connect(new I2CChannel.I2CDeviceAddress(
+                            portConfig.getI2CBus(), portConfig.getI2CDeviceAddress())).addListener(this);
+                }
+            }
+        });
+        return channelFuture;
+
+    }
+
     private ChannelFuture createSerialPort(Configs configs, PortConfig portConfig, Multiplexer multiplexer) {
         Bootstrap b = new Bootstrap();
         b.group(oioGroup)
@@ -43,27 +108,16 @@ public class Node {
                 .option(SerialChannelOption.WAIT_TIME_MS, 3000)
                 .option(SerialChannelOption.BAUD_RATE, portConfig.getSerialSpeed())
                 .option(SerialChannelOption.READ_TIMEOUT_MS, 100)
-                .handler(new ChannelInitializer<SerialChannel>() {
-                    @Override
-                    protected void initChannel(SerialChannel ch) {
-                        ch.pipeline()
-                                .addLast(new KISSFrameEncoder())
-                                .addLast(new KISSFrameDecoder())
-                                .addLast(new AX25PacketEncoder())
-                                .addLast(new AX25PacketDecoder())
-                                .addLast(new AX25PacketFilter(portConfig))
-                                .addLast(new AX25StateHandler(portConfig))
-                                .addLast(new DataLinkHandler(portConfig, multiplexer));
-                        ch.attr(Attributes.PortNumber).set(portConfig.getPortNumber());
-                        ch.attr(Attributes.NodeCall).set(portConfig.getNodeCall());
-                    }
-                });
+                .handler(new NodeChannelInitializer<SerialChannel>(configs, portConfig, multiplexer));
+
         ChannelFuture channelFuture = b.connect(new SerialChannel.SerialDeviceAddress(portConfig.getSerialDevice()));
         channelFuture.addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
-                    LOG.info("Initialized port " + portConfig.getPortNumber());
+                    LOG.info("Initialized serial port " + portConfig.getPortNumber());
+
+                    // Node system handler
                     multiplexer.listen(new AX25Address(portConfig.getPortNumber(), portConfig.getNodeCall()), () ->
                             new SysopApplicationHandler(configs, multiplexer)
                     );
@@ -113,7 +167,18 @@ public class Node {
 
             //SysopApplicationHandler sysop = new SysopApplicationHandler(configs, multiplexer);
             configs.getPortConfigs().forEach((portNum, portConfig) -> {
-                futures.add(node.createSerialPort(configs, portConfig, multiplexer));
+                switch (portConfig.getPortType().toLowerCase()) {
+                    case "serial":
+                        futures.add(node.createSerialPort(configs, portConfig, multiplexer));
+                        break;
+                    case "i2c":
+                        futures.add(node.createI2CPort(configs, portConfig, multiplexer));
+                        break;
+                    default:
+                        LOG.warn("Ignoring unknown port type " + portConfig.getPortType());
+                        break;
+
+                }
             });
             futures.add(node.createTelnetPort(configs, multiplexer));
         }

@@ -34,7 +34,7 @@ public class AwaitingReleaseStateHandler implements StateHandler {
         NetRomPacket discAck = ((DataLinkEvent) event).getNetRomPacket();
         if (ByteUtil.equals(discAck.getCircuitIndex(), circuit.getCircuitIdByte()) &&
             ByteUtil.equals(discAck.getCircuitId(), circuit.getCircuitIdByte())) {
-          networkEvents.accept(NetworkPrimitive.newDisconnectAck(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newDisconnectAck(discAck.getOriginNode(), discAck.getDestNode(), circuit.getCircuitId()));
           newState = State.DISCONNECTED;
         } else {
           // Error!

@@ -8,7 +8,7 @@ import org.junit.Test;
 public class ConfigTest {
   @Test
   public void testReadConfig() throws Exception {
-    Configs config = ConfigsImpl.read("conf/sample.ini");
+    Configs config = Configs.read("conf/sample.ini");
     System.err.println(config.getNetRomConfig().getTimeToLive());
     System.err.println(config.getNodeConfig().getString("id.message"));
 

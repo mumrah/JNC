@@ -1,8 +1,12 @@
 package net.tarpn.packet.impl.ax25;
 
+import org.fusesource.jansi.Ansi;
+
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
+
+import static org.fusesource.jansi.Ansi.ansi;
 
 public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFrame {
 
@@ -100,10 +104,13 @@ public class IFrame extends BaseAX25Packet implements AX25Packet.InformationFram
 
   @Override
   public String toLogString(int port) {
-    if (getProtocol().equals(Protocol.NO_LAYER3)) {
-      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + "\n\t" + getInfoAsASCII();
+    if (protocol.equals(Protocol.NO_LAYER3)) {
+      return super.toLogString(port) + " N(R)=" + getReceiveSequenceNumber() +
+              " N(S)=" + getSendSequenceNumber() +
+              "\n" + ansi().fg(Ansi.Color.GREEN).a(getInfoAsASCII()).reset();
     } else {
-      return getSource() + ">" + getDestination() + " Port=" + port + " N(R)=" + getReceiveSequenceNumber() + " N(S)=" + getSendSequenceNumber() + " " + getProtocol() + "\n\t" + getInfoAsASCII();
+      return super.toLogString(port) + " N(R)=" + getReceiveSequenceNumber() +
+              " N(S)=" + getSendSequenceNumber() + " " + getProtocol();
     }
   }
 

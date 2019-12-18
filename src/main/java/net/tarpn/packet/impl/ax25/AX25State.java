@@ -1,9 +1,6 @@
 package net.tarpn.packet.impl.ax25;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.tarpn.config.PortConfig;
@@ -27,7 +24,6 @@ public class AX25State {
       AX25Call.create("N0CALL", 0),
       AX25Call.create("N0CALL", 0),
       new PortConfigImpl(-1, new PropertiesConfiguration()),
-      event -> {},
       event -> {});
 
   public static final int DEFAULT_T1_TIMEOUT_MS = 4000;
@@ -50,7 +46,7 @@ public class AX25State {
 
   private final Consumer<AX25StateEvent> internalEvents;
 
-  private final Consumer<DataLinkPrimitive> outgoingEvents;
+  private final Queue<DataLinkPrimitive> outgoingEvents;
 
   /**
    * Send state variable
@@ -90,14 +86,13 @@ public class AX25State {
       AX25Call remoteNodeCall,
       AX25Call localNodeCall,
       PortConfig portConfig,
-      Consumer<AX25StateEvent> stateEventConsumer,
-      Consumer<DataLinkPrimitive> outgoingEvents) {
+      Consumer<AX25StateEvent> stateEventConsumer) {
     this.sessionId = sessionId;
     this.remoteNodeCall = remoteNodeCall;
     this.localNodeCall = localNodeCall;
     this.portConfig = portConfig;
     this.internalEvents = stateEventConsumer;
-    this.outgoingEvents = outgoingEvents;
+    this.outgoingEvents = new ArrayDeque<>();
     this.currentState = State.DISCONNECTED;
     this.pendingInfoFrames = new LinkedList<>();
 
@@ -131,7 +126,7 @@ public class AX25State {
     return new ArrayList<>(pendingInfoFrames);
   }
   public void sendDataLinkPrimitive(DataLinkPrimitive event) {
-    outgoingEvents.accept(event);
+    outgoingEvents.add(event);
   }
 
   public void internalDisconnectRequest() {
@@ -213,6 +208,10 @@ public class AX25State {
 
   public void setSRT(int srt) {
     this.SRT = srt;
+  }
+
+  public void resetSRT() {
+    SRT = portConfig.getInt("l2.rtt", DEFAULT_RTT_MS);
   }
 
   public String getSessionId() {
@@ -320,6 +319,10 @@ public class AX25State {
     RC = 0;
     t1Timer.cancel();
     t3Timer.cancel();
+  }
+
+  public DataLinkPrimitive pollDLEvents() {
+    return outgoingEvents.poll();
   }
 
 

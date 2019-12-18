@@ -18,14 +18,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
-// Check out IdleStateHandler
+
+/**
+ * Reads incoming AX.25 packets and handles them with a state machine. Outputs can be
+ * outgoing AX.25 packets, incoming DL events, or both.
+ */
 public class AX25StateHandler extends ChannelDuplexHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(AX25StateHandler.class);
@@ -33,6 +35,8 @@ public class AX25StateHandler extends ChannelDuplexHandler {
     private final Map<AX25State.State, StateHandler> handlers = new HashMap<>();
     private final Map<AX25Call, AX25State> sessions = new ConcurrentHashMap<>();
     private final Queue<AX25StateEvent> internalStateEvents = new ArrayDeque<>();
+    private final ReentrantLock stateLock = new ReentrantLock();
+
     private final PortConfig portConfig;
 
     //private PortChannel portChannel;
@@ -157,42 +161,56 @@ public class AX25StateHandler extends ChannelDuplexHandler {
      * @param stateEvent
      */
     private void processStateEvent(ChannelHandlerContext ctx, AX25StateEvent stateEvent) {
-        AX25State state = sessions.computeIfAbsent(stateEvent.getRemoteCall(),
-                ax25Call -> new AX25State(
-                        stateEvent.getRemoteCall().toString(),
-                        stateEvent.getRemoteCall(),
-                        portConfig.getNodeCall(),
-                        portConfig,
-                        internalStateEvent -> {
-                            // These are events like IFRAME_READY, T1_TIMER, and T3_TIMER
-                            // See AX25StateEvent.Type for a full list
-                            //LOG.info("Internal State: " + internalStateEvent);
-                            internalStateEvents.add(internalStateEvent);
-                            flushStateEvents(ctx);
+        List<DataLinkPrimitive> dlEvents = new ArrayList<>();
+        stateLock.lock();
+        try {
+            AX25State state = sessions.computeIfAbsent(stateEvent.getRemoteCall(),
+                    ax25Call -> new AX25State(
+                            stateEvent.getRemoteCall().toString(),
+                            stateEvent.getRemoteCall(),
+                            portConfig.getNodeCall(),
+                            portConfig,
+                            internalStateEvent -> {
+                                // These are events like IFRAME_READY, T1_TIMER, and T3_TIMER
+                                // See AX25StateEvent.Type for a full list
+                                internalStateEvents.add(internalStateEvent);
+                                //flushStateEvents(ctx);
 
-                        },
-                        inboundL2 -> {
-                            //LOG.info("Inbound L2: " + inboundL2);
-                            //portChannel.write(inboundL2);
-                            ctx.fireChannelRead(inboundL2);
-                        }
-                )
-        );
-        StateHandler handler = handlers.get(state.getState());
-        //LOG.info("State Before " + stateEvent.getRemoteCall() + ": " + state.getState());
-        AX25State.State newState = handler.onEvent(state, stateEvent, outgoing -> {
-            // AX25 packet needs to get written out. This is typically things related
-            // to connected mode operation (SABM, UA, RR, etc)
-            if (ctx.channel().isWritable()) {
-                //LOG.info("Outgoing immediately: " + outgoing);
-                ctx.writeAndFlush(outgoing);
-            } else {
-                // TODO does this ever happen?
-                throw new RuntimeException("Not ready to write");
+                            }
+                    )
+            );
+            StateHandler handler = handlers.get(state.getState());
+            LOG.info("State Before " + state.getState() + " " + stateEvent);
+            AX25State.State newState = handler.onEvent(state, stateEvent, outgoing -> {
+                // AX25 packet needs to get written out. This is typically things related
+                // to connected mode operation (SABM, UA, RR, etc)
+                if (ctx.channel().isWritable()) {
+                    //LOG.info("Outgoing immediately: " + outgoing);
+                    ctx.writeAndFlush(outgoing);
+                } else {
+                    // TODO does this ever happen?
+                    throw new RuntimeException("Not ready to write");
+                }
+            });
+            if (state.getState() != newState) {
+                LOG.info("AX.25 state for " + stateEvent.getRemoteCall() + " transitioning from " +
+                        state.getState() + " to " + newState);
             }
-        });
-        state.setState(newState);
-        //LOG.info("State After  " + stateEvent.getRemoteCall() + ": " + state.getState());
+            state.setState(newState);
+            LOG.info("State After " + state.getState() + " " + stateEvent);
+
+            DataLinkPrimitive dlEvent;
+            while ((dlEvent = state.pollDLEvents()) != null) {
+                dlEvents.add(dlEvent);
+            }
+        } finally {
+            stateLock.unlock();
+        }
+
+        // Pass DL events up to next handler
+        dlEvents.forEach(ctx::fireChannelRead);
+
+        // Flush any internal state events generated
         flushStateEvents(ctx);
     }
 

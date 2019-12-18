@@ -163,8 +163,8 @@ public class AX25StateMachine implements PacketHandler {
                       event.getRemoteCall(),
                       portConfig.getNodeCall(),
                       portConfig,
-                      eventQueue::add,
-                      dataLinkEvents
+                      eventQueue::add
+
               )
       );
       StateHandler handler = handlers.get(state.getState());

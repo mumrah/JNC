@@ -164,15 +164,13 @@ public class NetworkManager2 {
         }
     }
 
-    public NetRomSocket open(AX25Call address) {
-        return new NetRomSocket(address, circuitManager);
-    }
 
     /**
      * Accept a {@link NetworkPrimitive} and send it to the circuit manager.
      * @param networkPrimitive
      */
     public void acceptNetworkPrimitive(NetworkPrimitive networkPrimitive) {
+        /*
         int circuitId = circuitManager.getOrCreateCircuit(networkPrimitive.getRemoteCall());
         switch (networkPrimitive.getType()) {
             case NL_CONNECT:
@@ -191,6 +189,7 @@ public class NetworkManager2 {
                                 networkPrimitive.getInfo()));
                 break;
         }
+        */
     }
 
     void broadcastRoutingTable() {
@@ -243,7 +242,7 @@ public class NetworkManager2 {
                         neighbor.getNodeCall(), netromConfig.getNodeCall()));
             }
             // Change the dest address to the neighbor and send it
-            DataLinkPrimitive readdressed = dataLinkPrimitive.copyOf(neighbor.getNodeCall());
+            DataLinkPrimitive readdressed = dataLinkPrimitive.readdress(neighbor.getNodeCall());
             portManager.sendDataLinkEvent(readdressed);
             routed = true;
             break;

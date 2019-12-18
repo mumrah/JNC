@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 
 import net.tarpn.datalink.DataLinkPrimitive;
 import net.tarpn.network.netrom.NetRomRouter;
-import net.tarpn.network.netrom.NetRomSocket;
 import net.tarpn.util.Clock;
 import net.tarpn.util.Util;
 import net.tarpn.config.NetRomConfig;
@@ -121,7 +120,7 @@ public class NetworkManager {
         portManager.acceptDataLinkPrimitive(DataLinkPrimitive.newConnectRequest(neighbor.getNodeCall(), netromConfig.getNodeCall()));
       }
       // Change the dest address to the neighbor and send it
-      DataLinkPrimitive readdressed = level2Primitive.copyOf(neighbor.getNodeCall());
+      DataLinkPrimitive readdressed = level2Primitive.readdress(neighbor.getNodeCall());
       portManager.acceptDataLinkPrimitive(readdressed);
       routed = true;
       break;
@@ -192,9 +191,5 @@ public class NetworkManager {
     } catch (InterruptedException | UncheckedIOException e) {
       throw new RuntimeException("Clean shutdown failed", e);
     }
-  }
-
-  public NetRomSocket open(AX25Call address) {
-    return new NetRomSocket(address, circuitManager);
   }
 }

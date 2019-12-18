@@ -3,6 +3,8 @@ package net.tarpn.config.impl;
 import net.tarpn.config.PortConfig;
 import org.apache.commons.configuration2.Configuration;
 
+import java.util.List;
+
 public class PortConfigImpl extends NodeConfigImpl implements PortConfig {
 
   private final int portNumber;
@@ -40,6 +42,11 @@ public class PortConfigImpl extends NodeConfigImpl implements PortConfig {
   @Override
   public String getSerialProtocol() {
     return getString("serial.protocol");
+  }
+
+  @Override
+  public List<String> getKISSFlags() {
+    return getStrings("kiss.flags");
   }
 
   @Override

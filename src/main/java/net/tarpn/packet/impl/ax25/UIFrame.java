@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
+import org.fusesource.jansi.Ansi;
+
+import static org.fusesource.jansi.Ansi.ansi;
 
 public class UIFrame extends UFrame implements HasInfo {
 
@@ -72,6 +75,16 @@ public class UIFrame extends UFrame implements HasInfo {
         ", protocol=" + getProtocol() +
         ", info=" + getInfoAsASCII() +
         '}';
+  }
+
+  @Override
+  public String toLogString(int port) {
+    if (protocol.equals(Protocol.NO_LAYER3)) {
+      return super.toLogString(port) +
+              "\n" + ansi().fg(Ansi.Color.GREEN).a(getInfoAsASCII()).reset();
+    } else {
+      return super.toLogString(port) + " " + getProtocol();
+    }
   }
 
   @Override

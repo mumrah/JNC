@@ -1,5 +1,7 @@
 package net.tarpn.packet.impl.ax25;
 
+import org.fusesource.jansi.Ansi;
+
 import java.util.List;
 
 public abstract class BaseAX25Packet implements AX25Packet {

@@ -1,5 +1,7 @@
 package net.tarpn.packet.impl.ax25;
 
+import org.fusesource.jansi.Ansi;
+
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
@@ -125,6 +127,10 @@ public class AX25Call {
   @Override
   public String toString() {
     return String.format("%s-%d", call, ssid);
+  }
+
+  public String toAnsi(Ansi ansi) {
+    return ansi.a(toString()).reset().toString();
   }
 
   @Override

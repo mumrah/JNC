@@ -46,7 +46,7 @@ public class ConnectedStateHandler implements StateHandler {
           );
           // TODO Need to check the result of the router before transitioning to CONNECTED
           outgoing.route(connAck);
-          networkEvents.accept(NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newConnectIndication(connAck.getOriginNode(), connAck.getDestNode(), circuit.getCircuitId()));
           newState = State.CONNECTED;
         } else {
           // Reject the connection
@@ -62,7 +62,7 @@ public class ConnectedStateHandler implements StateHandler {
               OpType.ConnectAcknowledge.asByte(true, false, false)
           );
           outgoing.route(connRej);
-          networkEvents.accept(NetworkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newDisconnectIndication(connRej.getOriginNode(), connRej.getDestNode(), circuit.getCircuitId()));
           newState = State.DISCONNECTED;
         }
         break;
@@ -74,7 +74,7 @@ public class ConnectedStateHandler implements StateHandler {
             ByteUtil.equals(connAck.getRxSeqNumber(), circuit.getRemoteCircuitId()) &&
             ByteUtil.equals(connAck.getCircuitIndex(), circuit.getCircuitIdByte()) &&
             ByteUtil.equals(connAck.getCircuitId(), circuit.getCircuitIdByte())) {
-          networkEvents.accept(NetworkPrimitive.newConnectAck(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newConnectAck(connAck.getOriginNode(), connAck.getDestNode(), circuit.getCircuitId()));
           newState = State.CONNECTED;
         } else {
           // disconnect?
@@ -93,7 +93,7 @@ public class ConnectedStateHandler implements StateHandler {
             discReq.getCircuitId()
         );
         outgoing.route(discAck);
-        networkEvents.accept(NetworkPrimitive.newDisconnectIndication(circuit.getRemoteNodeCall()));
+        networkEvents.accept(NetworkPrimitive.newDisconnectIndication(discReq.getOriginNode(), discReq.getDestNode(), circuit.getCircuitId()));
         newState = State.DISCONNECTED;
         break;
       }
@@ -102,7 +102,7 @@ public class ConnectedStateHandler implements StateHandler {
         if(ByteUtil.equals(info.getTxSeqNumber(), circuit.getRecvStateSeqByte())) {
           circuit.incrementRecvState();
           circuit.enqueueInfoAck(outgoing);
-          networkEvents.accept(NetworkPrimitive.newDataIndication(circuit.getRemoteNodeCall(), ((NetRomInfo)info).getInfo()));
+          networkEvents.accept(NetworkPrimitive.newDataIndication(info.getOriginNode(), info.getDestNode(), ((NetRomInfo)info).getInfo(), circuit.getCircuitId()));
         } else {
           NetRomPacket infoNak = BaseNetRomPacket.createInfoAck(
               circuit.getLocalNodeCall(),

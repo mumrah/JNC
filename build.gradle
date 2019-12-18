@@ -4,16 +4,21 @@ apply plugin: 'application'
 
 repositories {
     jcenter()
+    mavenLocal()
 }
+
 
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.25'
     compile 'org.apache.logging.log4j:log4j-slf4j-impl:2.11.0'
     compile 'org.apache.commons:commons-configuration2:2.2'
     compile 'com.fazecast:jSerialComm:2.0.2'
+    //compile 'com.pi4j:pi4j-core:1.4-SNAPSHOT' // needs to be built and installed locally
     compile 'com.pi4j:pi4j-core:1.2'
     compile 'io.netty:netty-all:4.1.42.Final'
     compile 'info.picocli:picocli:4.0.4'
+    compile 'org.fusesource.jansi:jansi:1.18'
+    compile 'io.dropwizard.metrics:metrics-core:4.1.0'
 
     testCompile 'junit:junit:4.12'
 }

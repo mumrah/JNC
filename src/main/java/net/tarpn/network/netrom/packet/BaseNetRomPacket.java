@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import net.tarpn.util.Util;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Call.ByteConsumer;
+import org.fusesource.jansi.Ansi;
 
 public class BaseNetRomPacket implements NetRomPacket {
 
@@ -161,11 +162,23 @@ public class BaseNetRomPacket implements NetRomPacket {
         "op=" + getOpType() +
         ", origin=" + getOriginNode() +
         ", dest=" + getDestNode() +
-        ", ttl=" + getTTL() +
-        ", idx=" + getCircuitIndex() +
-        ", id=" + getCircuitId() +
-        ", tx=" + getTxSeqNumber() +
-        ", rx=" + getRxSeqNumber() +
+        ", ttl=" + (getTTL() & 0xff) +
+        ", idx=" + (getCircuitIndex() & 0xff) +
+        ", id=" + (getCircuitId() & 0xff) +
+        ", tx=" + (getTxSeqNumber() & 0xff) +
+        ", rx=" + (getRxSeqNumber() & 0xff) +
         '}';
+  }
+
+  @Override
+  public String toLogString(int port) {
+    return getOriginNode().toAnsi(Ansi.ansi().fgCyan()) +
+            ">" + getDestNode().toAnsi(Ansi.ansi().fgMagenta()) +
+            " Port=" + port +
+            " Circuit=" + (getCircuitId() & 0xff) +
+            " RX=" + (getRxSeqNumber() & 0xff) +
+            " TX=" + (getTxSeqNumber() & 0xff) +
+            " TTL=" + (getTTL() & 0xff) +
+            " " + getOpType();
   }
 }

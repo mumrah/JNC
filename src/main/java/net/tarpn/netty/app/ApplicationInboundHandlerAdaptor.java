@@ -4,9 +4,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import net.tarpn.util.Util;
 
 import java.net.SocketAddress;
 
+/**
+ * Adapt a channel handler to an application. Used for telnet
+ */
 public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandler<String> {
 
     private final Application application;
@@ -17,7 +21,7 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-        application.read(adaptContext(ctx), msg);
+        application.read(adaptContext(ctx), Util.ascii(msg));
     }
 
     @Override
@@ -27,7 +31,7 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        application.onDisconnect(adaptContext(ctx));
+        application.close(adaptContext(ctx));
     }
 
     @Override
@@ -46,7 +50,7 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
             IdleStateEvent e = (IdleStateEvent) evt;
             if (e.state() == IdleState.READER_IDLE) {
                 ctx.writeAndFlush("Bye!\r\n");
-                application.onDisconnect(adaptContext(ctx));
+                application.close(adaptContext(ctx));
             } else if (e.state() == IdleState.WRITER_IDLE) {
                 ctx.writeAndFlush("KeepAlive\r\n");
             }
@@ -56,8 +60,8 @@ public class ApplicationInboundHandlerAdaptor extends SimpleChannelInboundHandle
     private Context adaptContext(ChannelHandlerContext ctx) {
         return new Context() {
             @Override
-            public void write(String msg) {
-                ctx.write(msg + "\r\n$ ");
+            public void write(byte[] msg) {
+                ctx.write(Util.ascii(msg) + "\r\n$ ");
             }
 
             @Override

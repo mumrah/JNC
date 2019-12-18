@@ -2,9 +2,7 @@ package net.tarpn.config.impl;
 
 import net.tarpn.config.Configuration;
 
-import java.util.Set;
-import java.util.Spliterator;
-import java.util.Spliterators;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -52,5 +50,11 @@ public class BaseConfig implements Configuration {
   public String getString(String key, String defaultValue) {
     return delegate.getString(key, defaultValue);
   }
+
+  @Override
+  public List<String> getStrings(String key) {
+    return Arrays.asList(delegate.getStringArray(key));
+  }
+
 
 }

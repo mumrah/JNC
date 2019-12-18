@@ -1,6 +1,7 @@
 package net.tarpn.datalink;
 
 
+import net.tarpn.netty.Primitive;
 import net.tarpn.packet.impl.ax25.AX25Call;
 import net.tarpn.packet.impl.ax25.AX25Packet.HasInfo;
 import net.tarpn.packet.impl.ax25.AX25Packet.Protocol;
@@ -12,7 +13,7 @@ import java.util.Objects;
 /**
  * Used for interfacing with a {@link DataLinkManager}
  */
-public class DataLinkPrimitive {
+public class DataLinkPrimitive implements Primitive {
 
   private final AX25Call remoteCall;
   private final AX25Call localCall;
@@ -32,7 +33,7 @@ public class DataLinkPrimitive {
     this.error = error;
   }
 
-  public DataLinkPrimitive copyOf(AX25Call newRemoteCall) {
+  public DataLinkPrimitive readdress(AX25Call newRemoteCall) {
     return new DataLinkPrimitive(newRemoteCall, this.localCall, this.type, this.isConfirmation, this.linkInfo, this.error);
   }
 
@@ -153,11 +154,21 @@ public class DataLinkPrimitive {
 
 
   public enum Type {
-    DL_CONNECT,
-    DL_DISCONNECT,
-    DL_DATA,
-    DL_UNIT_DATA,
-    DL_ERROR;
+    DL_CONNECT(false),
+    DL_DISCONNECT(false),
+    DL_DATA(true),
+    DL_UNIT_DATA(true),
+    DL_ERROR(false);
+
+    private final boolean hasData;
+
+    Type(boolean hasData) {
+      this.hasData = hasData;
+    }
+
+    public boolean hasData() {
+      return hasData;
+    }
   }
 
   public enum ErrorType {
@@ -171,6 +182,7 @@ public class DataLinkPrimitive {
     H("Retry count exceeded in connected state(?)"),
     I("N2 timeouts: unacknowledged data"),
     J("N(r) sequence error"),
+    K("FRMR Received"),
     L("Control field invalid or not implemented"),
     M("Information field was received in a U- or S-type frame"),
     N("Length of frame incorrect for frame type"),

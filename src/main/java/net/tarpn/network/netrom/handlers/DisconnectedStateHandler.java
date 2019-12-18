@@ -41,7 +41,7 @@ public class DisconnectedStateHandler implements StateHandler {
         circuit.setRemoteCircuitId(connReq.getCircuitId());
         circuit.setRemoteCircuitIdx(connReq.getCircuitIndex());
         outgoing.route(connAck);
-        networkEvents.accept(NetworkPrimitive.newConnectIndication(circuit.getRemoteNodeCall()));
+        networkEvents.accept(NetworkPrimitive.newConnectIndication(connAck.getOriginNode(), connAck.getDestNode(), circuit.getCircuitId()));
         newState = State.CONNECTED;
         break;
       }

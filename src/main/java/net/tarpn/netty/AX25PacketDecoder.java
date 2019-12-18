@@ -22,7 +22,7 @@ public class AX25PacketDecoder extends MessageToMessageDecoder<KISSFrame> {
         if (msg.getKissCommand().equals(KISS.Command.Data)) {
             AX25Packet packet = AX25PacketReader.parse(msg.getData());
             int port = ctx.channel().attr(Attributes.PortNumber).get();
-            LOG.info("> " + packet.toLogString(port));
+            LOG.info(packet.toLogString(port));
             out.add(packet);
         } else {
             LOG.warn("Unexpected KISS: " + msg);

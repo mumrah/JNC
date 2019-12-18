@@ -31,7 +31,7 @@ public class AwaitingConnectionStateHandler implements StateHandler {
           circuit.setRemoteCircuitId(connAck.getRxSeqNumber());
           circuit.setRemoteCircuitIdx(connAck.getTxSeqNumber());
           circuit.setWindowSize(connAck.getAcceptWindowSize());
-          networkEvents.accept(NetworkPrimitive.newConnectAck(circuit.getRemoteNodeCall()));
+          networkEvents.accept(NetworkPrimitive.newConnectAck(connAck.getOriginNode(), connAck.getDestNode(), circuit.getCircuitId()));
           newState = State.CONNECTED;
         } else {
           // Error!

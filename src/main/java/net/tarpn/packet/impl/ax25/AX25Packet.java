@@ -3,6 +3,7 @@ package net.tarpn.packet.impl.ax25;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import net.tarpn.packet.Packet;
+import org.fusesource.jansi.Ansi;
 
 public interface AX25Packet extends Packet {
   default String getDestination() {
@@ -18,7 +19,9 @@ public interface AX25Packet extends Packet {
   AX25Call getSourceCall();
 
   default String toLogString(int port) {
-    return toString();
+    return getSourceCall().toAnsi(Ansi.ansi().fgCyan()) +
+            ">" + getDestCall().toAnsi(Ansi.ansi().fgMagenta()) +
+            " Port=" + port;
   }
 
   default Command getCommand() {
@@ -120,20 +123,12 @@ public interface AX25Packet extends Packet {
     byte getProtocolByte();
     Protocol getProtocol();
     default String getInfoAsASCII() {
-      return new String(getInfo(), StandardCharsets.US_ASCII)
+      return new String(getInfo(), StandardCharsets.US_ASCII);/*
           .replace("\r", "\\r")
           .replace("\n", "\\n")
           .replace("\t", "\\t")
           .replace("\b", "\\b")
-          .replace("\f", "\\f");
-    }
-    default String getInfoAsUTF8() {
-      return new String(getInfo(), StandardCharsets.UTF_8)
-              .replace("\r", "\\r")
-              .replace("\n", "\\n")
-              .replace("\t", "\\t")
-              .replace("\b", "\\b")
-              .replace("\f", "\\f");
+          .replace("\f", "\\f");*/
     }
   }
 

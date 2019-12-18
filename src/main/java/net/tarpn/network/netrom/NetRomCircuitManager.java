@@ -91,7 +91,7 @@ public class NetRomCircuitManager {
           NetRomPacket netRomPacket = NetRomConnectRequest.create(originNode, destNode, ttl,
               circuitIdx, circuitId, proposeWindowSize, originatingUser, originatingNode);
           int newCircuitId = getNextCircuitId();
-          event = new DataLinkEvent(newCircuitId, originNode, netRomPacket, Type.NETROM_CONNECT);
+          event = new DataLinkEvent((byte)newCircuitId, originNode, netRomPacket, Type.NETROM_CONNECT);
           break;
         }
         case ConnectAcknowledge: {
@@ -203,7 +203,7 @@ public class NetRomCircuitManager {
    * @param event
    */
   public void onCircuitEvent(NetRomCircuitEvent event) {
-    NetRomCircuit circuit = circuits.computeIfAbsent(event.getCircuitId(), newCircuitId ->
+    NetRomCircuit circuit = circuits.computeIfAbsent(event.getCircuitId() & 0xff, newCircuitId ->
         new NetRomCircuit(newCircuitId, event.getRemoteCall(), config.getNodeCall(), config)
     );
     StateHandler handler = stateHandlers.get(circuit.getState());
